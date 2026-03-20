@@ -1,0 +1,52 @@
+export const de = {
+  appName: 'Zahlenkönig',
+  error: {
+    two_numbers_in_row: 'Erst einen Operator eingeben',
+    operator_needs_number: 'Erst eine Zahl eingeben',
+    bracket_not_allowed: 'Klammer hier nicht erlaubt',
+    no_open_bracket: 'Keine offene Klammer vorhanden',
+    use_all_numbers: 'Alle Zahlen müssen verwendet werden',
+    invalid_expression: 'Ungültiger Ausdruck',
+    wrong_answer: 'Nicht ganz – versuch es nochmal!',
+  },
+  hint: {
+    intermediate_value: 'Kannst du eine {{value}} berechnen?',
+    think_about_target: 'Das Ziel ist {{target}} – wie erreichst du es?',
+    look_at_numbers: 'Schau dir {{a}} und {{b}} an',
+    try_operator: 'Versuch es mit {{operator}}',
+    keep_trying: 'Du schaffst das!',
+    next_hint: 'Nächster Tipp',
+    no_more_hints: 'Keine weiteren Tipps',
+    title: 'Tipps',
+  },
+  game: {
+    target: 'ZIEL',
+    check: 'Prüfen',
+    correct: 'Richtig! 🎉',
+    streak_bonus: 'Serie-Bonus! 🔥',
+  },
+  level: {
+    beginner: 'Anfänger',
+    advanced: 'Fortgeschritten',
+    expert: 'Experte',
+    locked: 'Gesperrt',
+    unlock_progress: '{{current}} von {{total}} zum freischalten',
+  },
+  settings: {
+    title: 'Einstellungen',
+    levels: 'Levels',
+    target_range: 'Zielzahl-Bereich',
+    target_max: 'Maximum: {{max}}',
+    language: 'Sprache',
+    progress: 'Fortschritt',
+    reset: 'Zurücksetzen',
+    reset_confirm: 'Wirklich alles zurücksetzen?',
+    back: 'Zurück',
+  },
+  score: {
+    points: 'Punkte',
+    streak: 'Serie',
+  },
+}
+
+export type Translations = typeof de

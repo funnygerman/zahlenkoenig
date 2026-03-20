@@ -1,0 +1,63 @@
+.header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: rgba(10, 10, 26, 0.8);
+  border-bottom: 1px solid rgba(240, 200, 80, 0.1);
+}
+
+.menuBtn {
+  background: none;
+  border: none;
+  color: rgba(240, 200, 80, 0.7);
+  font-size: 24px;
+  cursor: pointer;
+  padding: 4px 8px;
+  line-height: 1;
+}
+
+.title {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.appName {
+  color: #f0c060;
+  font-size: 16px;
+  font-weight: 900;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.level {
+  color: rgba(240, 200, 80, 0.5);
+  font-size: 11px;
+  letter-spacing: 3px;
+}
+
+.stats {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.statLabel {
+  color: rgba(240, 200, 80, 0.4);
+  font-size: 9px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+}
+
+.statValue {
+  color: #f0c060;
+  font-size: 18px;
+  font-weight: 800;
+}

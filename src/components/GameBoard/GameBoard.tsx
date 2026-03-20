@@ -1,0 +1,138 @@
+import { useState, useCallback } from 'react'
+import { useGame } from '../../hooks/useGame'
+import { useHints } from '../../hooks/useHints'
+import { useProgress } from '../../hooks/useProgress'
+import { getLevelById } from '../../core/models/Level'
+import { Header } from '../Header/Header'
+import { InputField } from '../InputField/InputField'
+import { KeyPad } from '../KeyPad/KeyPad'
+import { HintPopover } from '../HintPopover/HintPopover'
+import { SettingsScreen } from '../SettingsScreen/SettingsScreen'
+import { Token } from '../../core/models/Token'
+import { t, setLanguage } from '../../i18n'
+import styles from './GameBoard.module.css'
+
+export function GameBoard() {
+  const [showSettings, setShowSettings] = useState(false)
+  const [showHints, setShowHints] = useState(false)
+  const [celebrate, setCelebrate] = useState(false)
+
+  const {
+    progress,
+    recordResult,
+    setLevel,
+    setCustomTarget,
+    setLanguage: saveLanguage,
+    reset,
+    isUnlocked,
+  } = useProgress()
+
+  const levelId = progress.currentLevelId
+  const level = getLevelById(levelId)
+  const customTarget = progress.customTargets[levelId]
+
+  const {
+    puzzle, tokens, status, warning, setHintsUsed,
+    addToken, deleteToken, clearTokens, submitSolution, nextPuzzle
+  } = useGame({
+    levelId,
+    customTarget,
+    pointStreak: progress.pointStreak,
+    onResult: (result, points, newPointStreak) => {
+      recordResult(levelId, result, points, newPointStreak)
+      setCelebrate(true)
+      setTimeout(() => {
+        setCelebrate(false)
+        nextPuzzle(0)
+        resetHints()
+      }, 1200)
+    },
+  })
+
+  const { hints, hintsRemaining, requestHint, resetHints } = useHints(puzzle)
+
+  const usedNumberIndices = tokens
+    .filter(tok => tok.type === 'number')
+    .map(tok => (tok as { type: 'number'; index: number }).index)
+
+  const handleToken = useCallback((token: Token) => {
+    addToken(token)
+  }, [addToken])
+
+  const handleSubmit = useCallback(() => {
+    submitSolution(hints.length)
+  }, [submitSolution, hints.length])
+
+  const handleRequestHint = useCallback(() => {
+    requestHint()
+    setHintsUsed(hints.length + 1)
+  }, [requestHint, hints.length, setHintsUsed])
+
+  const handleSelectLevel = useCallback((newLevelId: string) => {
+    if (!isUnlocked(newLevelId)) return
+    setLevel(newLevelId)
+    clearTokens()
+    resetHints()
+    setShowSettings(false)
+  }, [isUnlocked, setLevel, clearTokens, resetHints])
+
+  const handleSetLanguage = useCallback((lang: 'de' | 'en') => {
+    setLanguage(lang)
+    saveLanguage(lang)
+  }, [saveLanguage])
+
+  return (
+    <div className={`${styles.board} ${celebrate ? styles.celebrate : ''}`}>
+      {showSettings && (
+        <SettingsScreen
+          progress={progress}
+          onSelectLevel={handleSelectLevel}
+          onSetCustomTarget={setCustomTarget}
+          onSetLanguage={handleSetLanguage}
+          onReset={reset}
+          onBack={() => setShowSettings(false)}
+        />
+      )}
+
+      {showHints && (
+        <HintPopover
+          hints={hints}
+          hintsRemaining={hintsRemaining}
+          onRequestHint={handleRequestHint}
+          onClose={() => setShowHints(false)}
+        />
+      )}
+
+      <Header
+        levelId={levelId}
+        totalScore={progress.totalScore}
+        pointStreak={progress.pointStreak}
+        onMenuClick={() => setShowSettings(true)}
+      />
+
+      <InputField
+        tokens={tokens}
+        status={status}
+        warning={warning}
+        onHintClick={() => setShowHints(true)}
+        onClear={clearTokens}
+        onDelete={deleteToken}
+      />
+
+      <KeyPad
+        puzzle={puzzle}
+        level={level}
+        usedNumberIndices={usedNumberIndices}
+        onToken={handleToken}
+        onSubmit={handleSubmit}
+      />
+
+      {status === 'correct' && (
+        <div className={styles.correctBanner}>
+          {t('game.correct')}
+          {progress.pointStreak >= 3 && <span> {t('game.streak_bonus')}</span>}
+        </div>
+      )}
+    </div>
+  )
+}
