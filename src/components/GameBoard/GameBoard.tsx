@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import { useGame } from '../../hooks/useGame'
 import { useHints } from '../../hooks/useHints'
 import { useProgress } from '../../hooks/useProgress'
@@ -27,6 +27,9 @@ export function GameBoard() {
     isUnlocked,
   } = useProgress()
 
+  const levelIdRef = useRef(progress.currentLevelId)
+  levelIdRef.current = progress.currentLevelId
+
   const levelId = progress.currentLevelId
   const level = getLevelById(levelId)
   const customTarget = progress.customTargets[levelId]
@@ -39,7 +42,7 @@ export function GameBoard() {
     customTarget,
     pointStreak: progress.pointStreak,
     onResult: (result, points, newPointStreak) => {
-      recordResult(levelId, result, points, newPointStreak)
+      recordResult(levelIdRef.current, result, points, newPointStreak)
       setCelebrate(true)
       setTimeout(() => {
         setCelebrate(false)
@@ -62,6 +65,15 @@ export function GameBoard() {
   const handleSubmit = useCallback(() => {
     submitSolution(hints.length)
   }, [submitSolution, hints.length])
+
+  const handleHintClick = useCallback(() => {
+    // Auto-request first hint when popover opens for the first time
+    if (hints.length === 0) {
+      requestHint()
+      setHintsUsed(1)
+    }
+    setShowHints(true)
+  }, [hints.length, requestHint, setHintsUsed])
 
   const handleRequestHint = useCallback(() => {
     requestHint()
@@ -114,7 +126,7 @@ export function GameBoard() {
         tokens={tokens}
         status={status}
         warning={warning}
-        onHintClick={() => setShowHints(true)}
+        onHintClick={handleHintClick}
         onClear={clearTokens}
         onDelete={deleteToken}
       />
