@@ -1,7 +1,7 @@
 .overlay {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.6);
+  background: rgba(0, 0, 0, 0.3);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -10,17 +10,17 @@
 }
 
 .popover {
-  background: #1e1e3a;
-  border: 2px solid rgba(240, 200, 80, 0.3);
+  background: var(--bg-card);
+  border: 2px solid var(--border-strong);
   border-radius: 20px;
   padding: 24px;
   width: 100%;
   max-width: 340px;
-  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-strong);
 }
 
 .title {
-  color: #f0c060;
+  color: var(--accent);
   font-size: 16px;
   font-weight: 800;
   letter-spacing: 2px;
@@ -41,25 +41,22 @@
   text-align: center;
   font-size: 28px;
   margin: 0;
-  opacity: 0.4;
+  opacity: 0.3;
 }
 
 .hintItem {
   display: flex;
   align-items: flex-start;
   gap: 10px;
-  background: rgba(240, 200, 80, 0.08);
+  background: var(--accent-bg);
   border-radius: 10px;
   padding: 10px 14px;
 }
 
-.hintIcon {
-  font-size: 14px;
-  flex-shrink: 0;
-}
+.hintIcon { font-size: 14px; flex-shrink: 0; }
 
 .hintText {
-  color: #f0e6d3;
+  color: var(--text-primary);
   font-size: 15px;
   line-height: 1.4;
 }
@@ -69,17 +66,18 @@
   padding: 12px;
   border-radius: 12px;
   border: none;
-  background: linear-gradient(135deg, #f0c060, #e8a020);
-  color: #1a1000;
+  background: var(--submit-bg);
+  color: #ffffff;
   font-size: 14px;
   font-weight: 800;
   cursor: pointer;
   letter-spacing: 1px;
+  font-family: inherit;
 }
 
 .noMore {
   text-align: center;
-  color: rgba(240, 200, 80, 0.4);
+  color: var(--text-muted);
   font-size: 12px;
   letter-spacing: 2px;
   text-transform: uppercase;

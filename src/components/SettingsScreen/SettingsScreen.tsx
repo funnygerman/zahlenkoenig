@@ -68,42 +68,35 @@ export function SettingsScreen({
               </div>
               <div className={styles.levelGrid}>
                 {LEVELS.filter(l => l.group === group).map(level => {
-                  const unlocked = progress.unlockedLevels.includes(level.id)
                   const isCurrent = progress.currentLevelId === level.id
-                  const streak = progress.unlockStreaks[level.id] ?? 0
+                  const streak = Math.min(progress.unlockStreaks[level.id] ?? 0, 3)
 
                   return (
                     <div key={level.id} className={styles.levelCard}>
                       <button
-                        className={`${styles.levelBtn} ${isCurrent ? styles.current : ''} ${!unlocked ? styles.locked : ''}`}
-                        onClick={() => unlocked && onSelectLevel(level.id)}
-                        disabled={!unlocked}
+                        className={`${styles.levelBtn} ${isCurrent ? styles.current : ''}`}
+                        onClick={() => onSelectLevel(level.id)}
                       >
                         <span className={styles.levelId}>{level.id}</span>
-                        {!unlocked && <span className={styles.lock}>🔒</span>}
-                        {unlocked && !isCurrent && (
-                          <span className={styles.streakDots}>
-                            {[0, 1, 2].map(i => (
-                              <span key={i} className={`${styles.dot} ${i < streak ? styles.dotFilled : ''}`} />
-                            ))}
-                          </span>
-                        )}
+                        <span className={styles.streakDots}>
+                          {[0, 1, 2].map(i => (
+                            <span key={i} className={`${styles.dot} ${i < streak ? styles.dotFilled : ''}`} />
+                          ))}
+                        </span>
                       </button>
-                      {unlocked && (
-                        <div className={styles.targetSlider}>
-                          <label className={styles.sliderLabel}>
-                            max {progress.customTargets[level.id] ?? level.targetRange.max}
-                          </label>
-                          <input
-                            type="range"
-                            min={1}
-                            max={Math.min(level.maxTarget, 500)}
-                            value={progress.customTargets[level.id] ?? level.targetRange.max}
-                            onChange={e => onSetCustomTarget(level.id, Number(e.target.value))}
-                            className={styles.slider}
-                          />
-                        </div>
-                      )}
+                      <div className={styles.targetSlider}>
+                        <label className={styles.sliderLabel}>
+                          max {progress.customTargets[level.id] ?? level.targetRange.max}
+                        </label>
+                        <input
+                          type="range"
+                          min={1}
+                          max={Math.min(level.maxTarget, 500)}
+                          value={progress.customTargets[level.id] ?? level.targetRange.max}
+                          onChange={e => onSetCustomTarget(level.id, Number(e.target.value))}
+                          className={styles.slider}
+                        />
+                      </div>
                     </div>
                   )
                 })}

@@ -9,10 +9,43 @@ html, body {
   overflow: hidden;
 }
 
+:root {
+  --bg-primary:    #faf7f2;
+  --bg-secondary:  #f0ebe0;
+  --bg-card:       #ffffff;
+  --bg-card-alt:   #f5f0e8;
+  --border:        rgba(160, 130, 80, 0.2);
+  --border-strong: rgba(160, 130, 80, 0.45);
+  --accent:        #c47a1a;
+  --accent-light:  #f0c060;
+  --accent-bg:     rgba(196, 122, 26, 0.08);
+  --num-bg:        #ffffff;
+  --num-border:    rgba(160, 130, 80, 0.4);
+  --num-color:     #2a1f0a;
+  --op-bg:         #fff8ec;
+  --op-border:     rgba(196, 122, 26, 0.4);
+  --op-color:      #c47a1a;
+  --bracket-bg:    #ecf5ff;
+  --bracket-border:rgba(60, 140, 220, 0.35);
+  --bracket-color: #2a6abf;
+  --submit-bg:     linear-gradient(135deg, #c47a1a, #a85e0a);
+  --submit-color:  #ffffff;
+  --target-bg:     linear-gradient(135deg, #c47a1a, #a85e0a);
+  --target-color:  #ffffff;
+  --text-primary:  #2a1f0a;
+  --text-secondary:#8a7050;
+  --text-muted:    #baa880;
+  --correct:       #16a34a;
+  --wrong:         #dc2626;
+  --warning:       #ea580c;
+  --shadow:        0 2px 12px rgba(160, 130, 80, 0.15);
+  --shadow-strong: 0 4px 20px rgba(160, 130, 80, 0.25);
+}
+
 body {
   font-family: 'Courier New', Courier, monospace;
-  background: #0a0a1a;
-  color: #f0e6d3;
+  background: var(--bg-primary);
+  color: var(--text-primary);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
 }

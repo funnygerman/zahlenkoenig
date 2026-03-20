@@ -3,14 +3,15 @@
   align-items: center;
   justify-content: space-between;
   padding: 12px 16px;
-  background: rgba(10, 10, 26, 0.8);
-  border-bottom: 1px solid rgba(240, 200, 80, 0.1);
+  background: var(--bg-card);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow);
 }
 
 .menuBtn {
   background: none;
   border: none;
-  color: rgba(240, 200, 80, 0.7);
+  color: var(--text-secondary);
   font-size: 24px;
   cursor: pointer;
   padding: 4px 8px;
@@ -24,7 +25,7 @@
 }
 
 .appName {
-  color: #f0c060;
+  color: var(--accent);
   font-size: 16px;
   font-weight: 900;
   letter-spacing: 2px;
@@ -32,7 +33,7 @@
 }
 
 .level {
-  color: rgba(240, 200, 80, 0.5);
+  color: var(--text-muted);
   font-size: 11px;
   letter-spacing: 3px;
 }
@@ -50,14 +51,14 @@
 }
 
 .statLabel {
-  color: rgba(240, 200, 80, 0.4);
+  color: var(--text-muted);
   font-size: 9px;
   letter-spacing: 1px;
   text-transform: uppercase;
 }
 
 .statValue {
-  color: #f0c060;
+  color: var(--accent);
   font-size: 18px;
   font-weight: 800;
 }

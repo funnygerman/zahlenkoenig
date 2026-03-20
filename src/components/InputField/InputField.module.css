@@ -4,7 +4,6 @@
   grid-template-rows: auto auto;
   gap: 8px;
   padding: 12px 16px;
-  position: relative;
 }
 
 .field {
@@ -13,18 +12,19 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  background: rgba(16, 16, 34, 0.9);
+  background: var(--bg-card);
   border: 2px solid;
   border-radius: 14px;
   padding: 10px 12px;
   min-height: 52px;
   transition: border-color 0.2s;
+  box-shadow: var(--shadow);
 }
 
-.borderDefault { border-color: rgba(240, 200, 80, 0.25); }
-.borderCorrect  { border-color: #4ade80; }
-.borderWrong    { border-color: #f87171; }
-.borderWarning  { border-color: #fb923c; }
+.borderDefault { border-color: var(--border-strong); }
+.borderCorrect  { border-color: var(--correct); }
+.borderWrong    { border-color: var(--wrong); }
+.borderWarning  { border-color: var(--warning); }
 
 .hintBtn {
   background: none;
@@ -33,7 +33,7 @@
   cursor: pointer;
   padding: 0;
   flex-shrink: 0;
-  opacity: 0.8;
+  opacity: 0.7;
 }
 
 .expression {
@@ -46,14 +46,14 @@
 }
 
 .placeholder {
-  color: rgba(240, 200, 80, 0.2);
+  color: var(--text-muted);
   font-size: 20px;
   letter-spacing: 4px;
 }
 
-.tokenNumber   { color: #f0e6d3; font-size: 22px; font-weight: 800; }
-.tokenOperator { color: #f0c060; font-size: 22px; font-weight: 800; }
-.tokenBracket  { color: #80d0f0; font-size: 22px; font-weight: 800; }
+.tokenNumber   { color: var(--text-primary);   font-size: 22px; font-weight: 800; }
+.tokenOperator { color: var(--op-color);        font-size: 22px; font-weight: 800; }
+.tokenBracket  { color: var(--bracket-color);   font-size: 22px; font-weight: 800; }
 
 .clearBtn, .deleteBtn {
   grid-row: 1;
@@ -67,18 +67,10 @@
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.clearBtn {
-  background: linear-gradient(135deg, #1e0e0e, #2a1010);
-  border-color: rgba(240, 100, 80, 0.4);
-  color: #f08070;
-}
-
-.deleteBtn {
-  background: linear-gradient(135deg, #1e0e0e, #2a1010);
-  border-color: rgba(240, 100, 80, 0.4);
-  color: #f08070;
+  background: var(--bg-card);
+  border-color: rgba(220, 38, 38, 0.3);
+  color: var(--wrong);
+  box-shadow: var(--shadow);
 }
 
 .warning, .correct, .wrong {
@@ -91,6 +83,6 @@
   min-height: 18px;
 }
 
-.warning { color: #fb923c; }
-.correct { color: #4ade80; }
-.wrong   { color: #f87171; }
+.warning { color: var(--warning); }
+.correct { color: var(--correct); }
+.wrong   { color: var(--wrong); }

@@ -15,6 +15,9 @@ export interface StoredProgress {
 const STORAGE_KEY = 'zahlenkoenig_progress'
 const UNLOCK_THRESHOLD = 3
 
+// All levels always available
+const ALL_LEVEL_IDS = LEVELS.map(l => l.id)
+
 export interface IProgressService {
   recordResult(levelId: string, result: SolutionResult, points: number, newPointStreak: number): void
   isUnlocked(levelId: string): boolean
@@ -27,20 +30,26 @@ export interface IProgressService {
 }
 
 const defaultProgress = (): StoredProgress => ({
-  unlockedLevels: ['A1'],
+  unlockedLevels: ALL_LEVEL_IDS, // All levels unlocked from the start
   unlockStreaks: {},
   totalScore: 0,
   pointStreak: 0,
   customTargets: {},
   language: navigator.language.startsWith('de') ? 'de' : 'en',
-  currentLevelId: 'A1',
+  currentLevelId: 'F2', // Default level
 })
 
 export class ProgressService implements IProgressService {
   constructor(private storage: IStorage) {}
 
   private load(): StoredProgress {
-    return this.storage.load<StoredProgress>(STORAGE_KEY) ?? defaultProgress()
+    const stored = this.storage.load<StoredProgress>(STORAGE_KEY)
+    if (!stored) return defaultProgress()
+    // Always ensure all levels are unlocked (even for existing saved data)
+    stored.unlockedLevels = ALL_LEVEL_IDS
+    // Migrate old default level if needed
+    if (!stored.currentLevelId) stored.currentLevelId = 'F2'
+    return stored
   }
 
   private save(progress: StoredProgress): void {
@@ -52,33 +61,17 @@ export class ProgressService implements IProgressService {
     progress.totalScore = Math.max(0, progress.totalScore + points)
     progress.pointStreak = newPointStreak
 
-    // Update unlock streak: only count correct + no hints
+    // Track unlock streak for progress display (no longer gates access)
     if (result.correct && result.hintsUsed === 0) {
       const current = progress.unlockStreaks[levelId] ?? 0
-      progress.unlockStreaks[levelId] = current + 1
-
-      // Unlock next level if threshold reached
-      if (progress.unlockStreaks[levelId] >= UNLOCK_THRESHOLD) {
-        this.unlockNextLevel(levelId, progress)
-      }
-    } else if (result.correct && result.hintsUsed > 0) {
-      // Hints used: streak stays, don't reset
+      progress.unlockStreaks[levelId] = Math.min(current + 1, UNLOCK_THRESHOLD)
     }
 
     this.save(progress)
   }
 
-  private unlockNextLevel(currentLevelId: string, progress: StoredProgress): void {
-    const current = LEVELS.find(l => l.id === currentLevelId)
-    if (!current) return
-    const next = LEVELS.find(l => l.unlockIndex === current.unlockIndex + 1)
-    if (next && !progress.unlockedLevels.includes(next.id)) {
-      progress.unlockedLevels.push(next.id)
-    }
-  }
-
-  isUnlocked(levelId: string): boolean {
-    return this.load().unlockedLevels.includes(levelId)
+  isUnlocked(_levelId: string): boolean {
+    return true // All levels always unlocked
   }
 
   getUnlockStreak(levelId: string): number {
