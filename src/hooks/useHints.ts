@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Puzzle } from '../core/models/Puzzle'
 import { Hint, HintEngine } from '../core/services/HintEngine'
 import { getLevelById } from '../core/models/Level'
@@ -17,6 +17,12 @@ export function useHints(puzzle: Puzzle) {
   const level = getLevelById(puzzle.levelId)
   const maxHints = maxHintsPerGroup[level.group] ?? 1
   const hintsRemaining = maxHints - hints.length
+
+  // Reset hints when puzzle identity changes (use levelId + target + numbers as key)
+  const puzzleKey = `${puzzle.levelId}-${puzzle.target}-${puzzle.numbers.join(',')}`
+  useEffect(() => {
+    setHints([])
+  }, [puzzleKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestHint = useCallback(() => {
     if (hints.length >= maxHints) return
