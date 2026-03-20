@@ -1,6 +1,6 @@
 # Zahlenkönig / Number King – Technische Spezifikation
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Stand:** März 2026
 
 ---
@@ -129,16 +129,19 @@ const LEVELS: Level[] = [
 - Tipp 1: Zwischenwert aus Klammerausdruck oder erstem Teilausdruck
 - Tipp 2: Zwei relevante Zahlen identifizieren
 - Tipp 3: Schlüssel-Operator (bevorzugt `×` oder `÷`)
+- `getSolutionPreview(solution)`: extrahiert erste 2–3 Tokens als Vorschau (z.B. `3*(…`)
 
 ### ScoringService
 - Eingabe: `SolutionResult` + aktueller `pointStreak`
 - Ausgabe: `points` + `newPointStreak`
-- Falsche Antwort bricht Streak **nicht** (nur Tipps und Fehlversuche)
+- Falsche Antwort bricht Streak **nicht**
+- Aufgeben wird direkt in `GameBoard` behandelt (nicht über ScoringService)
 
 ### ProgressService
 - Alle Levels immer freigeschaltet (`isUnlocked()` → immer `true`)
 - Standard-Level: `F2`
 - Migration: ungültige Level-IDs (z.B. alte A4, E2) → reset auf F2
+- Aufgeben: `recordResult()` mit `{ correct: false, hintsUsed: 99 }` und `points=0, newPointStreak=0` → setzt beide Streaks auf 0
 - Speichert via `IStorage` (Dependency Inversion)
 
 ---
@@ -154,6 +157,7 @@ useGame(levelId, customTarget, pointStreak, onResult)
 useHints(puzzle)
   → hints, hintsRemaining, requestHint, resetHints
   // Reset via puzzleKey (levelId-target-numbers) statt Objekt-Referenz
+  // hintsRemaining === 0 → Aufgeben-Option wird in HintPopover eingeblendet
 
 useProgress()
   → progress, recordResult, setLevel, setCustomTarget, setLanguage, reset

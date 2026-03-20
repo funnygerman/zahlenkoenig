@@ -1,6 +1,6 @@
 # Zahlenkönig / Number King – Anforderungen
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Stand:** März 2026
 
 ---
@@ -18,7 +18,7 @@
 - Alle Zahlen müssen verwendet werden, jede genau einmal
 - Erlaubte Operationen: `+`, `−`, `×`, `÷`, `(`, `)` (je nach Level)
 - Zielzahl ist immer ≥ 0
-- Es gibt kein Überspringen von Rätseln
+- Rätsel können aufgegeben werden (mit Streak-Konsequenz, siehe 2.5)
 
 ### 2.2 Puzzle-Generierung
 - Nur lösbare Rätsel werden generiert
@@ -42,7 +42,7 @@
 
 - **Standard-Level: F2**
 - Alle Levels sind immer frei wählbar (keine Sperrung)
-- Streak-Fortschritt wird angezeigt (3 Punkte pro Level = gemeistert), sperrt aber nichts
+- Streak-Fortschritt wird angezeigt (3 makellose Lösungen in Folge = Level gemeistert), sperrt aber nichts
 
 ### 2.4 Eingabe-Validierung (Echtzeit)
 
@@ -59,27 +59,32 @@
 
 ### 2.5 Tipp-System
 
-| Tipp | Inhalt | Beispiel (Lösung: `3*(2+5)−1=20`) |
-|---|---|---|
-| 💡 1 | Nützlicher Zwischenwert | „Kannst du eine 7 berechnen?" |
-| 💡💡 2 | Relevante zwei Zahlen | „Schau dir 2 und 5 an" |
-| 💡💡💡 3 | Operator-Hinweis (bevorzugt × oder ÷) | „Versuch es mit ×" |
+| Tipp | Inhalt | Verfügbar | Beispiel |
+|---|---|---|---|
+| 💡 1 | Nützlicher Zwischenwert | Alle Levels | „Kannst du eine 7 berechnen?" |
+| 💡💡 2 | Relevante zwei Zahlen | Fortgeschritten + Experte | „Schau dir 2 und 5 an" |
+| 💡💡💡 3 | Operator-Hinweis (bevorzugt × oder ÷) | Experte | „Versuch es mit ×" |
+| 🏳️ Aufgeben | Lösungsvorschau + Streak-Reset | Alle, nur nach letztem Tipp | `3*(…` |
 
 - Vollständige Lösung wird **nie** angezeigt
 - Erster Tipp wird automatisch beim Öffnen des Popovers angezeigt
-- Max. Tipps: Anfänger 1, Fortgeschritten 2, Experte 3
+- Max. reguläre Tipps: Anfänger 1, Fortgeschritten 2, Experte 3
 - 💡-Button immer aktiv; zeigt bisherige Tipps wenn alle verbraucht
+- Aufgeben erscheint erst **nachdem alle regulären Tipps verbraucht sind**
+- Aufgeben erfordert Bestätigung mit Warnung: „⚠️ Beide Streaks werden zurückgesetzt!"
+- Nach Bestätigung: erstes Token der Lösung ins Eingabefeld, neues Rätsel, beide Streaks auf 0
 
 ### 2.6 Punkte & Feedback
 
-| Aktion | Punkte | Punkt-Streak |
-|---|---|---|
-| Richtig, 1. Versuch, kein Tipp, Streak < 3 | +10 | +1 |
-| Richtig, 1. Versuch, kein Tipp, Streak ≥ 3 | +20 | +1 |
-| Richtig, 1. Versuch, mit Tipp | +5 | Reset auf 0 |
-| Richtig nach Fehlversuch | +5 | Reset auf 0 |
-| Falsche Antwort | 0 | bleibt |
-| Minimum | 0 (nie negativ) | — |
+| Aktion | Punkte | Punkt-Streak | Freischaltungs-Streak |
+|---|---|---|---|
+| Richtig, 1. Versuch, kein Tipp, Streak < 3 | +10 | +1 | +1 |
+| Richtig, 1. Versuch, kein Tipp, Streak ≥ 3 | +20 | +1 | +1 |
+| Richtig, 1. Versuch, mit Tipp | +5 | Reset auf 0 | bleibt |
+| Richtig nach Fehlversuch | +5 | Reset auf 0 | +1 |
+| Falsche Antwort | 0 | bleibt | bleibt |
+| Aufgeben | 0 | Reset auf 0 | Reset auf 0 |
+| Minimum | 0 (nie negativ) | — | — |
 
 ---
 
