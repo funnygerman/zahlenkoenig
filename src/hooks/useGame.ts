@@ -29,15 +29,17 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
   const [firstAttempt, setFirstAttempt] = useState(true)
   const [hintsUsed, setHintsUsed] = useState(0)
 
-  // Regenerate puzzle when level changes
+  // Load puzzle bank and regenerate when level changes
   useEffect(() => {
     const newLevel = getLevelById(levelId)
-    setPuzzle(generator.generate(newLevel, customTarget))
-    setTokens([])
-    setStatus('idle')
-    setWarning(null)
-    setFirstAttempt(true)
-    setHintsUsed(0)
+    generator.generateAsync(newLevel, customTarget).then(p => {
+      setPuzzle(p)
+      setTokens([])
+      setStatus('idle')
+      setWarning(null)
+      setFirstAttempt(true)
+      setHintsUsed(0)
+    })
   }, [levelId]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const showWarning = useCallback((key: string) => {
@@ -70,7 +72,6 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
 
   const submitSolution = useCallback((currentHintsUsed: number) => {
     const result = validator.validateSolution(tokens, puzzle, firstAttempt, currentHintsUsed)
-
     if (!result.correct) {
       const usedCount = tokens.filter(tok => tok.type === 'number').length
       if (usedCount < puzzle.numbers.length) {
@@ -81,7 +82,6 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
       setFirstAttempt(false)
       return
     }
-
     const scoreResult = scorer.calculate(result, pointStreak)
     setStatus('correct')
     onResult(result, scoreResult.points, scoreResult.newPointStreak)
@@ -89,25 +89,19 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
 
   const nextPuzzle = useCallback((newHintsUsed?: number) => {
     const currentLevel = getLevelById(levelId)
-    setPuzzle(generator.generate(currentLevel, customTarget))
-    setTokens([])
-    setStatus('idle')
-    setWarning(null)
-    setFirstAttempt(true)
-    setHintsUsed(newHintsUsed ?? 0)
+    generator.generateAsync(currentLevel, customTarget).then(p => {
+      setPuzzle(p)
+      setTokens([])
+      setStatus('idle')
+      setWarning(null)
+      setFirstAttempt(true)
+      setHintsUsed(newHintsUsed ?? 0)
+    })
   }, [levelId, customTarget])
 
   return {
-    puzzle,
-    tokens,
-    status,
-    warning,
-    hintsUsed,
-    setHintsUsed,
-    addToken,
-    deleteToken,
-    clearTokens,
-    submitSolution,
-    nextPuzzle,
+    puzzle, tokens, status, warning, hintsUsed,
+    setHintsUsed, addToken, deleteToken, clearTokens,
+    submitSolution, nextPuzzle,
   }
 }

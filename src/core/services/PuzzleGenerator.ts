@@ -1,20 +1,33 @@
 import { Puzzle } from '../models/Puzzle'
 import { Level, Operator } from '../models/Level'
 
+// Pre-computed puzzle banks (loaded lazily)
+const puzzleBank: Record<string, Puzzle[]> = {}
+const bankLoaded: Record<string, boolean> = {}
+
+async function loadBank(levelId: string): Promise<void> {
+  if (bankLoaded[levelId]) return
+  try {
+    const module = await import(`../../data/puzzles-${levelId}.json`)
+    puzzleBank[levelId] = module.default as Puzzle[]
+  } catch {
+    // No bank available for this level – fall back to live generation
+  }
+  bankLoaded[levelId] = true
+}
+
 export interface IPuzzleGenerator {
   generate(level: Level, customTarget?: number): Puzzle
+  generateAsync(level: Level, customTarget?: number): Promise<Puzzle>
 }
 
 function safeEval(expr: string): number | null {
   try {
     const result = Function('"use strict"; return (' + expr + ')')() as number
     if (typeof result !== 'number' || !isFinite(result)) return null
-    // Only accept integer results (division must be exact)
     if (Math.abs(result - Math.round(result)) > 1e-9) return null
     return Math.round(result)
-  } catch {
-    return null
-  }
+  } catch { return null }
 }
 
 function permutations(arr: number[]): number[][] {
@@ -24,27 +37,18 @@ function permutations(arr: number[]): number[][] {
   )
 }
 
-function canonical(a: string, op: string, b: string): string {
-  if (op === '+' || op === '*') {
-    return [a, b].sort().join(op)
-  }
-  return `${a}${op}${b}`
-}
-
 function findSolutions2(nums: number[], target: number, ops: Operator[]): string[] {
   const seen = new Set<string>()
   const solutions: string[] = []
-
   for (const [a, b] of permutations(nums)) {
     for (const op of ops) {
       if (op === '/' && b === 0) continue
-      const result = safeEval(`${a}${op}${b}`)
-      if (result !== null && result === target) {
-        const key = canonical(String(a), op, String(b))
-        if (!seen.has(key)) {
-          seen.add(key)
-          solutions.push(`${a}${op}${b}`)
-        }
+      const r = safeEval(`${a}${op}${b}`)
+      if (r === target) {
+        const key = op === '+' || op === '*'
+          ? [String(a), String(b)].sort().join(op)
+          : `${a}${op}${b}`
+        if (!seen.has(key)) { seen.add(key); solutions.push(`${a}${op}${b}`) }
       }
     }
   }
@@ -54,27 +58,13 @@ function findSolutions2(nums: number[], target: number, ops: Operator[]): string
 function findSolutions3(nums: number[], target: number, ops: Operator[], maxBrackets: number): string[] {
   const seen = new Set<string>()
   const solutions: string[] = []
-
-  for (const perm of permutations(nums)) {
-    const [a, b, c] = perm
-    for (const o1 of ops) {
-      for (const o2 of ops) {
-        // No brackets (always check)
-        const plain = `${a}${o1}${b}${o2}${c}`
-        const r0 = safeEval(plain)
-        if (r0 !== null && r0 === target && !seen.has(plain)) {
-          seen.add(plain); solutions.push(plain)
-        }
-
-        // With one bracket level
-        if (maxBrackets >= 1) {
-          for (const expr of [`(${a}${o1}${b})${o2}${c}`, `${a}${o1}(${b}${o2}${c})`]) {
-            const r = safeEval(expr)
-            if (r !== null && r === target && !seen.has(expr)) {
-              seen.add(expr); solutions.push(expr)
-            }
-          }
-        }
+  for (const [a, b, c] of permutations(nums)) {
+    for (const o1 of ops) for (const o2 of ops) {
+      const exprs = [`${a}${o1}${b}${o2}${c}`]
+      if (maxBrackets >= 1) exprs.push(`(${a}${o1}${b})${o2}${c}`, `${a}${o1}(${b}${o2}${c})`)
+      for (const expr of exprs) {
+        const r = safeEval(expr)
+        if (r === target && !seen.has(expr)) { seen.add(expr); solutions.push(expr) }
       }
     }
   }
@@ -84,43 +74,28 @@ function findSolutions3(nums: number[], target: number, ops: Operator[], maxBrac
 function findSolutions4(nums: number[], target: number, ops: Operator[], maxBrackets: number): string[] {
   const seen = new Set<string>()
   const solutions: string[] = []
-
-  for (const perm of permutations(nums)) {
-    const [a, b, c, d] = perm
-    for (const o1 of ops) {
-      for (const o2 of ops) {
-        for (const o3 of ops) {
-          const exprs: string[] = [
-            `${a}${o1}${b}${o2}${c}${o3}${d}`,
-          ]
-
-          if (maxBrackets >= 1) {
-            exprs.push(
-              `(${a}${o1}${b})${o2}${c}${o3}${d}`,
-              `${a}${o1}(${b}${o2}${c})${o3}${d}`,
-              `${a}${o1}${b}${o2}(${c}${o3}${d})`,
-              `(${a}${o1}${b}${o2}${c})${o3}${d}`,
-              `${a}${o1}(${b}${o2}${c}${o3}${d})`,
-            )
-          }
-          if (maxBrackets >= 2) {
-            exprs.push(
-              `(${a}${o1}${b})${o2}(${c}${o3}${d})`,
-              `((${a}${o1}${b})${o2}${c})${o3}${d}`,
-              `(${a}${o1}(${b}${o2}${c}))${o3}${d}`,
-              `${a}${o1}((${b}${o2}${c})${o3}${d})`,
-              `${a}${o1}(${b}${o2}(${c}${o3}${d}))`,
-            )
-          }
-
-          for (const expr of exprs) {
-            const result = safeEval(expr)
-            if (result !== null && result === target && !seen.has(expr)) {
-              seen.add(expr)
-              solutions.push(expr)
-              if (solutions.length > 30) return solutions
-            }
-          }
+  for (const [a, b, c, d] of permutations(nums)) {
+    for (const o1 of ops) for (const o2 of ops) for (const o3 of ops) {
+      const exprs: string[] = [`${a}${o1}${b}${o2}${c}${o3}${d}`]
+      if (maxBrackets >= 1) exprs.push(
+        `(${a}${o1}${b})${o2}${c}${o3}${d}`,
+        `${a}${o1}(${b}${o2}${c})${o3}${d}`,
+        `${a}${o1}${b}${o2}(${c}${o3}${d})`,
+        `(${a}${o1}${b}${o2}${c})${o3}${d}`,
+        `${a}${o1}(${b}${o2}${c}${o3}${d})`,
+      )
+      if (maxBrackets >= 2) exprs.push(
+        `(${a}${o1}${b})${o2}(${c}${o3}${d})`,
+        `((${a}${o1}${b})${o2}${c})${o3}${d}`,
+        `(${a}${o1}(${b}${o2}${c}))${o3}${d}`,
+        `${a}${o1}((${b}${o2}${c})${o3}${d})`,
+        `${a}${o1}(${b}${o2}(${c}${o3}${d}))`,
+      )
+      for (const expr of exprs) {
+        const r = safeEval(expr)
+        if (r === target && !seen.has(expr)) {
+          seen.add(expr); solutions.push(expr)
+          if (solutions.length > 30) return solutions
         }
       }
     }
@@ -141,58 +116,74 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
+function pickFromBank(levelId: string, customTarget?: number): Puzzle | null {
+  const bank = puzzleBank[levelId]
+  if (!bank || bank.length === 0) return null
+  if (customTarget !== undefined) {
+    const matching = bank.filter(p => p.target === customTarget)
+    if (matching.length > 0) return matching[Math.floor(Math.random() * matching.length)]
+    return null // no match for custom target → fall through to live generation
+  }
+  return bank[Math.floor(Math.random() * bank.length)]
+}
+
+function generateLive(level: Level, customTarget?: number): Puzzle {
+  const maxTarget = Math.min(level.maxTarget, 500)
+  const targetMin = level.targetRange.min
+  const targetMax = Math.min(level.targetRange.max, maxTarget)
+
+  for (let i = 0; i < 500; i++) {
+    const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
+    const target = customTarget ?? randomInt(targetMin, targetMax)
+    const solutions = findSolutions(numbers, target, level)
+    if (solutions.length >= 1 && solutions.length <= 3) {
+      return { numbers, target, solutions, levelId: level.id }
+    }
+  }
+  for (let i = 0; i < 200; i++) {
+    const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
+    const target = customTarget ?? randomInt(targetMin, targetMax)
+    const solutions = findSolutions(numbers, target, level)
+    if (solutions.length >= 1 && solutions.length <= 5) {
+      return { numbers, target, solutions, levelId: level.id }
+    }
+  }
+  if (customTarget !== undefined) {
+    for (let i = 0; i < 200; i++) {
+      const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
+      const solutions = findSolutions(numbers, customTarget, level)
+      if (solutions.length >= 1) return { numbers, target: customTarget, solutions, levelId: level.id }
+    }
+  }
+  return getFallbackPuzzle(level)
+}
+
+function getFallbackPuzzle(level: Level): Puzzle {
+  const fallbacks: Record<string, Puzzle> = {
+    A1: { numbers: [3, 7],       target: 10, solutions: ['3+7'],          levelId: 'A1' },
+    A2: { numbers: [2, 5, 3],    target: 10, solutions: ['2+5+3'],        levelId: 'A2' },
+    A3: { numbers: [1, 2, 3, 4], target: 10, solutions: ['1+2+3+4'],      levelId: 'A3' },
+    F1: { numbers: [3, 7],       target: 21, solutions: ['3*7'],          levelId: 'F1' },
+    F2: { numbers: [2, 3, 4],    target: 14, solutions: ['2*(3+4)'],      levelId: 'F2' },
+    F3: { numbers: [2, 3, 4, 5], target: 19, solutions: ['(2+3)*4-1'],   levelId: 'F3' },
+    E1: { numbers: [2, 3, 4, 5], target: 14, solutions: ['(2+5)*(3-1)'], levelId: 'E1' },
+  }
+  return fallbacks[level.id] ?? fallbacks['F2']
+}
+
 export class PuzzleGenerator implements IPuzzleGenerator {
+  // Sync: uses bank if already loaded, otherwise live generation
   generate(level: Level, customTarget?: number): Puzzle {
-    const maxTarget = Math.min(level.maxTarget, 500)
-    const targetMin = level.targetRange.min
-    const targetMax = Math.min(level.targetRange.max, maxTarget)
-
-    // Try strict: 1–3 solutions
-    for (let attempt = 0; attempt < 500; attempt++) {
-      const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
-      const target = customTarget ?? randomInt(targetMin, targetMax)
-      const solutions = findSolutions(numbers, target, level)
-      if (solutions.length >= 1 && solutions.length <= 3) {
-        return { numbers, target, solutions, levelId: level.id }
-      }
-    }
-
-    // Fallback: relax to 1–5 solutions
-    for (let attempt = 0; attempt < 200; attempt++) {
-      const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
-      const target = customTarget ?? randomInt(targetMin, targetMax)
-      const solutions = findSolutions(numbers, target, level)
-      if (solutions.length >= 1 && solutions.length <= 5) {
-        return { numbers, target, solutions, levelId: level.id }
-      }
-    }
-
-    // If customTarget is set, try harder with any solution count
-    if (customTarget !== undefined) {
-      for (let attempt = 0; attempt < 200; attempt++) {
-        const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
-        const solutions = findSolutions(numbers, customTarget, level)
-        if (solutions.length >= 1) {
-          return { numbers, target: customTarget, solutions, levelId: level.id }
-        }
-      }
-    }
-
-    return this.getFallbackPuzzle(level)
+    const banked = pickFromBank(level.id, customTarget)
+    if (banked) return banked
+    return generateLive(level, customTarget)
   }
 
-  private getFallbackPuzzle(level: Level): Puzzle {
-    const fallbacks: Record<string, Puzzle> = {
-      A1: { numbers: [3, 7],       target: 10, solutions: ['3+7'],          levelId: 'A1' },
-      A2: { numbers: [8, 5],       target: 13, solutions: ['8+5'],          levelId: 'A2' },
-      A3: { numbers: [2, 5, 3],    target: 10, solutions: ['2+5+3'],        levelId: 'A3' },
-      A4: { numbers: [1, 2, 3, 4], target: 10, solutions: ['1+2+3+4'],      levelId: 'A4' },
-      F1: { numbers: [3, 7],       target: 21, solutions: ['3*7'],          levelId: 'F1' },
-      F2: { numbers: [2, 3, 4],    target: 14, solutions: ['2*(3+4)'],      levelId: 'F2' },
-      F3: { numbers: [2, 3, 4, 5], target: 19, solutions: ['2+3+4+5+5'],   levelId: 'F3' },
-      E1: { numbers: [2, 3, 5],    target: 16, solutions: ['2*(3+5)'],      levelId: 'E1' },
-      E2: { numbers: [2, 3, 4, 5], target: 14, solutions: ['(2+5)*(3-1)'], levelId: 'E2' },
-    }
-    return fallbacks[level.id] ?? fallbacks['A1']
+  // Async: loads bank first, then picks from it
+  async generateAsync(level: Level, customTarget?: number): Promise<Puzzle> {
+    await loadBank(level.id)
+    const banked = pickFromBank(level.id, customTarget)
+    if (banked) return banked
+    return generateLive(level, customTarget)
   }
 }

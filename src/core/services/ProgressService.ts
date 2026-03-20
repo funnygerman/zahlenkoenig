@@ -14,8 +14,6 @@ export interface StoredProgress {
 
 const STORAGE_KEY = 'zahlenkoenig_progress'
 const UNLOCK_THRESHOLD = 3
-
-// All levels always available
 const ALL_LEVEL_IDS = LEVELS.map(l => l.id)
 
 export interface IProgressService {
@@ -30,13 +28,13 @@ export interface IProgressService {
 }
 
 const defaultProgress = (): StoredProgress => ({
-  unlockedLevels: ALL_LEVEL_IDS, // All levels unlocked from the start
+  unlockedLevels: ALL_LEVEL_IDS,
   unlockStreaks: {},
   totalScore: 0,
   pointStreak: 0,
   customTargets: {},
   language: navigator.language.startsWith('de') ? 'de' : 'en',
-  currentLevelId: 'F2', // Default level
+  currentLevelId: 'F2',
 })
 
 export class ProgressService implements IProgressService {
@@ -45,11 +43,16 @@ export class ProgressService implements IProgressService {
   private load(): StoredProgress {
     const stored = this.storage.load<StoredProgress>(STORAGE_KEY)
     if (!stored) return defaultProgress()
-    // Always ensure all levels are unlocked (even for existing saved data)
     stored.unlockedLevels = ALL_LEVEL_IDS
-    // Migrate: if stored level is a beginner level, reset to F2
-    const beginnerIds = ['A1', 'A2', 'A3', 'A4']
-    if (!stored.currentLevelId || beginnerIds.includes(stored.currentLevelId)) {
+    // Migrate: reset to F2 if stored level no longer exists
+    const validIds = ALL_LEVEL_IDS
+    if (!stored.currentLevelId || !validIds.includes(stored.currentLevelId)) {
+      stored.currentLevelId = 'F2'
+      this.storage.save(STORAGE_KEY, stored)
+    }
+    // Migrate from old beginner default
+    const oldBeginnerIds = ['A4', 'E2']
+    if (oldBeginnerIds.includes(stored.currentLevelId)) {
       stored.currentLevelId = 'F2'
       this.storage.save(STORAGE_KEY, stored)
     }
@@ -64,18 +67,15 @@ export class ProgressService implements IProgressService {
     const progress = this.load()
     progress.totalScore = Math.max(0, progress.totalScore + points)
     progress.pointStreak = newPointStreak
-
-    // Track unlock streak for progress display (no longer gates access)
     if (result.correct && result.hintsUsed === 0) {
       const current = progress.unlockStreaks[levelId] ?? 0
       progress.unlockStreaks[levelId] = Math.min(current + 1, UNLOCK_THRESHOLD)
     }
-
     this.save(progress)
   }
 
   isUnlocked(_levelId: string): boolean {
-    return true // All levels always unlocked
+    return true
   }
 
   getUnlockStreak(levelId: string): number {
