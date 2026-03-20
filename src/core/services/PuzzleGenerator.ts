@@ -1,21 +1,56 @@
 import { Puzzle } from '../models/Puzzle'
 import { Level, Operator } from '../models/Level'
 
-// Pre-computed puzzle banks (loaded lazily)
+// ── Puzzle bank ───────────────────────────────────────────────────────────────
 const puzzleBank: Record<string, Puzzle[]> = {}
 const bankLoaded: Record<string, boolean> = {}
+// Per-level index tracker to avoid repeats until all puzzles are seen
+const bankIndices: Record<string, number[]> = {}
 
 async function loadBank(levelId: string): Promise<void> {
   if (bankLoaded[levelId]) return
   try {
     const module = await import(`../../data/puzzles-${levelId}.json`)
-    puzzleBank[levelId] = module.default as Puzzle[]
+    const puzzles = module.default as Puzzle[]
+    puzzleBank[levelId] = puzzles
+    // Create shuffled index array
+    bankIndices[levelId] = shuffledIndices(puzzles.length)
   } catch {
-    // No bank available for this level – fall back to live generation
+    // No bank available – fall back to live generation
   }
   bankLoaded[levelId] = true
 }
 
+function shuffledIndices(length: number): number[] {
+  const arr = Array.from({ length }, (_, i) => i)
+  for (let i = arr.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [arr[i], arr[j]] = [arr[j], arr[i]]
+  }
+  return arr
+}
+
+function pickFromBank(levelId: string, customTarget?: number): Puzzle | null {
+  const bank = puzzleBank[levelId]
+  if (!bank || bank.length === 0) return null
+
+  if (customTarget !== undefined) {
+    const matching = bank.filter(p => p.target === customTarget)
+    if (matching.length > 0) return matching[Math.floor(Math.random() * matching.length)]
+    return null
+  }
+
+  // Use index tracker for no-repeat shuffled order
+  const indices = bankIndices[levelId]
+  if (!indices || indices.length === 0) {
+    // All puzzles seen – reshuffle and start again
+    bankIndices[levelId] = shuffledIndices(bank.length)
+    return bank[bankIndices[levelId].pop()!]
+  }
+  return bank[indices.pop()!]
+}
+
+// ── Live generation (fallback) ────────────────────────────────────────────────
 export interface IPuzzleGenerator {
   generate(level: Level, customTarget?: number): Puzzle
   generateAsync(level: Level, customTarget?: number): Promise<Puzzle>
@@ -38,16 +73,13 @@ function permutations(arr: number[]): number[][] {
 }
 
 function findSolutions2(nums: number[], target: number, ops: Operator[]): string[] {
-  const seen = new Set<string>()
-  const solutions: string[] = []
+  const seen = new Set<string>(), solutions: string[] = []
   for (const [a, b] of permutations(nums)) {
     for (const op of ops) {
       if (op === '/' && b === 0) continue
       const r = safeEval(`${a}${op}${b}`)
       if (r === target) {
-        const key = op === '+' || op === '*'
-          ? [String(a), String(b)].sort().join(op)
-          : `${a}${op}${b}`
+        const key = op === '+' || op === '*' ? [String(a), String(b)].sort().join(op) : `${a}${op}${b}`
         if (!seen.has(key)) { seen.add(key); solutions.push(`${a}${op}${b}`) }
       }
     }
@@ -56,47 +88,35 @@ function findSolutions2(nums: number[], target: number, ops: Operator[]): string
 }
 
 function findSolutions3(nums: number[], target: number, ops: Operator[], maxBrackets: number): string[] {
-  const seen = new Set<string>()
-  const solutions: string[] = []
+  const seen = new Set<string>(), solutions: string[] = []
   for (const [a, b, c] of permutations(nums)) {
     for (const o1 of ops) for (const o2 of ops) {
       const exprs = [`${a}${o1}${b}${o2}${c}`]
       if (maxBrackets >= 1) exprs.push(`(${a}${o1}${b})${o2}${c}`, `${a}${o1}(${b}${o2}${c})`)
-      for (const expr of exprs) {
-        const r = safeEval(expr)
-        if (r === target && !seen.has(expr)) { seen.add(expr); solutions.push(expr) }
-      }
+      for (const e of exprs) { const r = safeEval(e); if (r === target && !seen.has(e)) { seen.add(e); solutions.push(e) } }
     }
   }
   return solutions
 }
 
 function findSolutions4(nums: number[], target: number, ops: Operator[], maxBrackets: number): string[] {
-  const seen = new Set<string>()
-  const solutions: string[] = []
+  const seen = new Set<string>(), solutions: string[] = []
   for (const [a, b, c, d] of permutations(nums)) {
     for (const o1 of ops) for (const o2 of ops) for (const o3 of ops) {
       const exprs: string[] = [`${a}${o1}${b}${o2}${c}${o3}${d}`]
       if (maxBrackets >= 1) exprs.push(
-        `(${a}${o1}${b})${o2}${c}${o3}${d}`,
-        `${a}${o1}(${b}${o2}${c})${o3}${d}`,
-        `${a}${o1}${b}${o2}(${c}${o3}${d})`,
-        `(${a}${o1}${b}${o2}${c})${o3}${d}`,
+        `(${a}${o1}${b})${o2}${c}${o3}${d}`, `${a}${o1}(${b}${o2}${c})${o3}${d}`,
+        `${a}${o1}${b}${o2}(${c}${o3}${d})`, `(${a}${o1}${b}${o2}${c})${o3}${d}`,
         `${a}${o1}(${b}${o2}${c}${o3}${d})`,
       )
       if (maxBrackets >= 2) exprs.push(
-        `(${a}${o1}${b})${o2}(${c}${o3}${d})`,
-        `((${a}${o1}${b})${o2}${c})${o3}${d}`,
-        `(${a}${o1}(${b}${o2}${c}))${o3}${d}`,
-        `${a}${o1}((${b}${o2}${c})${o3}${d})`,
+        `(${a}${o1}${b})${o2}(${c}${o3}${d})`, `((${a}${o1}${b})${o2}${c})${o3}${d}`,
+        `(${a}${o1}(${b}${o2}${c}))${o3}${d}`, `${a}${o1}((${b}${o2}${c})${o3}${d})`,
         `${a}${o1}(${b}${o2}(${c}${o3}${d}))`,
       )
-      for (const expr of exprs) {
-        const r = safeEval(expr)
-        if (r === target && !seen.has(expr)) {
-          seen.add(expr); solutions.push(expr)
-          if (solutions.length > 30) return solutions
-        }
+      for (const e of exprs) {
+        const r = safeEval(e)
+        if (r === target && !seen.has(e)) { seen.add(e); solutions.push(e); if (solutions.length > 30) return solutions }
       }
     }
   }
@@ -116,44 +136,21 @@ function randomInt(min: number, max: number): number {
   return Math.floor(Math.random() * (max - min + 1)) + min
 }
 
-function pickFromBank(levelId: string, customTarget?: number): Puzzle | null {
-  const bank = puzzleBank[levelId]
-  if (!bank || bank.length === 0) return null
-  if (customTarget !== undefined) {
-    const matching = bank.filter(p => p.target === customTarget)
-    if (matching.length > 0) return matching[Math.floor(Math.random() * matching.length)]
-    return null // no match for custom target → fall through to live generation
-  }
-  return bank[Math.floor(Math.random() * bank.length)]
-}
-
 function generateLive(level: Level, customTarget?: number): Puzzle {
-  const maxTarget = Math.min(level.maxTarget, 500)
   const targetMin = level.targetRange.min
-  const targetMax = Math.min(level.targetRange.max, maxTarget)
+  const targetMax = Math.min(level.targetRange.max, Math.min(level.maxTarget, 500))
 
   for (let i = 0; i < 500; i++) {
     const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
     const target = customTarget ?? randomInt(targetMin, targetMax)
     const solutions = findSolutions(numbers, target, level)
-    if (solutions.length >= 1 && solutions.length <= 3) {
-      return { numbers, target, solutions, levelId: level.id }
-    }
+    if (solutions.length >= 1 && solutions.length <= 3) return { numbers, target, solutions, levelId: level.id }
   }
   for (let i = 0; i < 200; i++) {
     const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
     const target = customTarget ?? randomInt(targetMin, targetMax)
     const solutions = findSolutions(numbers, target, level)
-    if (solutions.length >= 1 && solutions.length <= 5) {
-      return { numbers, target, solutions, levelId: level.id }
-    }
-  }
-  if (customTarget !== undefined) {
-    for (let i = 0; i < 200; i++) {
-      const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
-      const solutions = findSolutions(numbers, customTarget, level)
-      if (solutions.length >= 1) return { numbers, target: customTarget, solutions, levelId: level.id }
-    }
+    if (solutions.length >= 1 && solutions.length <= 5) return { numbers, target, solutions, levelId: level.id }
   }
   return getFallbackPuzzle(level)
 }
@@ -171,15 +168,14 @@ function getFallbackPuzzle(level: Level): Puzzle {
   return fallbacks[level.id] ?? fallbacks['F2']
 }
 
+// ── Public API ────────────────────────────────────────────────────────────────
 export class PuzzleGenerator implements IPuzzleGenerator {
-  // Sync: uses bank if already loaded, otherwise live generation
   generate(level: Level, customTarget?: number): Puzzle {
     const banked = pickFromBank(level.id, customTarget)
     if (banked) return banked
     return generateLive(level, customTarget)
   }
 
-  // Async: loads bank first, then picks from it
   async generateAsync(level: Level, customTarget?: number): Promise<Puzzle> {
     await loadBank(level.id)
     const banked = pickFromBank(level.id, customTarget)
