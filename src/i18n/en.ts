@@ -20,6 +20,10 @@ export const en: Translations = {
     next_hint: 'Next hint',
     no_more_hints: 'No more hints',
     title: 'Hints',
+    give_up: 'Give up',
+    give_up_warning: '⚠️ Both streaks will be reset!',
+    give_up_confirm: 'Really give up?',
+    give_up_solution_prefix: 'Solution starts with:',
   },
   game: {
     target: 'TARGET',

@@ -56,6 +56,27 @@ function splitByOperator(expr: string): { left: string; op: string; right: strin
   return null
 }
 
+
+// Returns the beginning of the solution as a preview (first ~4 chars + ...)
+export function getSolutionPreview(solution: string): string {
+  if (!solution) return '?'
+  // Include leading bracket if present, then first number
+  // e.g. "(8-5)*3" → "(8..." , "3*(2+5)" → "3*..."
+  let preview = ''
+  let i = 0
+  // Include optional opening bracket
+  if (solution[0] === '(') { preview += '('; i++ }
+  // Include first number
+  while (i < solution.length && /[0-9]/.test(solution[i])) {
+    preview += solution[i++]
+  }
+  // Include next operator if present
+  if (i < solution.length && '+-*/'.includes(solution[i])) {
+    preview += solution[i++]
+  }
+  return preview + '…'
+}
+
 export class HintEngine implements IHintEngine {
   getHint(puzzle: Puzzle, hintLevel: 1 | 2 | 3): Hint {
     const solution = puzzle.solutions[0]

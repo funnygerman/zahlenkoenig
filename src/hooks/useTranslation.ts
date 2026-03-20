@@ -1,13 +1,20 @@
-import { useState, useCallback } from 'react'
-import { t, setLanguage, getLanguage, Language } from '../i18n'
+import { useState, useEffect, useCallback } from 'react'
+import { t, setLanguage, getLanguage, subscribeToLanguage, Language } from '../i18n'
 
 export function useTranslation() {
-  const [, forceRender] = useState(0)
+  const [language, setLang] = useState<Language>(getLanguage())
 
-  const changeLanguage = useCallback((lang: Language) => {
-    setLanguage(lang)
-    forceRender(n => n + 1)
+  useEffect(() => {
+    // Subscribe to language changes from any source
+    const unsubscribe = subscribeToLanguage(() => {
+      setLang(getLanguage())
+    })
+    return unsubscribe
   }, [])
 
-  return { t, language: getLanguage(), changeLanguage }
+  const changeLanguage = useCallback((lang: Language) => {
+    setLanguage(lang) // this triggers all subscribers including this hook
+  }, [])
+
+  return { t, language, changeLanguage }
 }

@@ -3,6 +3,7 @@ import { useGame } from '../../hooks/useGame'
 import { useHints } from '../../hooks/useHints'
 import { useProgress } from '../../hooks/useProgress'
 import { getLevelById } from '../../core/models/Level'
+import { getSolutionPreview } from '../../core/services/HintEngine'
 import { Header } from '../Header/Header'
 import { InputField } from '../InputField/InputField'
 import { KeyPad } from '../KeyPad/KeyPad'
@@ -18,13 +19,8 @@ export function GameBoard() {
   const [celebrate, setCelebrate] = useState(false)
 
   const {
-    progress,
-    recordResult,
-    setLevel,
-    setCustomTarget,
-    setLanguage: saveLanguage,
-    reset,
-    isUnlocked,
+    progress, recordResult, setLevel, setCustomTarget,
+    setLanguage: saveLanguage, reset, isUnlocked,
   } = useProgress()
 
   const levelIdRef = useRef(progress.currentLevelId)
@@ -67,7 +63,6 @@ export function GameBoard() {
   }, [submitSolution, hints.length])
 
   const handleHintClick = useCallback(() => {
-    // Auto-request first hint when popover opens for the first time
     if (hints.length === 0) {
       requestHint()
       setHintsUsed(1)
@@ -80,6 +75,21 @@ export function GameBoard() {
     setHintsUsed(hints.length + 1)
   }, [requestHint, hints.length, setHintsUsed])
 
+  const handleGiveUp = useCallback(() => {
+    // Signal give up to ProgressService (resets both streaks)
+    recordResult(levelIdRef.current, {
+      correct: false,
+      firstAttempt: false,
+      hintsUsed: 99,
+    }, 0, 0)
+
+    // Clear input and load next puzzle cleanly (no token injection to avoid race condition)
+    clearTokens()
+    resetHints()
+    nextPuzzle(0)
+    setShowHints(false)
+  }, [recordResult, clearTokens, resetHints, nextPuzzle])
+
   const handleSelectLevel = useCallback((newLevelId: string) => {
     if (!isUnlocked(newLevelId)) return
     setLevel(newLevelId)
@@ -89,9 +99,13 @@ export function GameBoard() {
   }, [isUnlocked, setLevel, clearTokens, resetHints])
 
   const handleSetLanguage = useCallback((lang: 'de' | 'en') => {
-    setLanguage(lang)
+    setLanguage(lang) // triggers re-render via subscription in useTranslation
     saveLanguage(lang)
   }, [saveLanguage])
+
+  const solutionPreview = puzzle.solutions[0]
+    ? getSolutionPreview(puzzle.solutions[0])
+    : '?'
 
   return (
     <div className={`${styles.board} ${celebrate ? styles.celebrate : ''}`}>
@@ -111,7 +125,9 @@ export function GameBoard() {
           hints={hints}
           hintsRemaining={hintsRemaining}
           onRequestHint={handleRequestHint}
+          onGiveUp={handleGiveUp}
           onClose={() => setShowHints(false)}
+          solutionPreview={solutionPreview}
         />
       )}
 

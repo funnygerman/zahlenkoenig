@@ -15,6 +15,7 @@ export interface StoredProgress {
 const STORAGE_KEY = 'zahlenkoenig_progress'
 const UNLOCK_THRESHOLD = 3
 const ALL_LEVEL_IDS = LEVELS.map(l => l.id)
+const GIVE_UP_SIGNAL = 99 // hintsUsed value that signals give up
 
 export interface IProgressService {
   recordResult(levelId: string, result: SolutionResult, points: number, newPointStreak: number): void
@@ -44,15 +45,9 @@ export class ProgressService implements IProgressService {
     const stored = this.storage.load<StoredProgress>(STORAGE_KEY)
     if (!stored) return defaultProgress()
     stored.unlockedLevels = ALL_LEVEL_IDS
-    // Migrate: reset to F2 if stored level no longer exists
     const validIds = ALL_LEVEL_IDS
-    if (!stored.currentLevelId || !validIds.includes(stored.currentLevelId)) {
-      stored.currentLevelId = 'F2'
-      this.storage.save(STORAGE_KEY, stored)
-    }
-    // Migrate from old beginner default
-    const oldBeginnerIds = ['A4', 'E2']
-    if (oldBeginnerIds.includes(stored.currentLevelId)) {
+    const oldIds = ['A4', 'E2']
+    if (!stored.currentLevelId || !validIds.includes(stored.currentLevelId) || oldIds.includes(stored.currentLevelId)) {
       stored.currentLevelId = 'F2'
       this.storage.save(STORAGE_KEY, stored)
     }
@@ -67,10 +62,20 @@ export class ProgressService implements IProgressService {
     const progress = this.load()
     progress.totalScore = Math.max(0, progress.totalScore + points)
     progress.pointStreak = newPointStreak
-    if (result.correct && result.hintsUsed === 0) {
+
+    const isGiveUp = result.hintsUsed === GIVE_UP_SIGNAL
+
+    if (isGiveUp) {
+      // Give up: reset both streaks
+      progress.unlockStreaks[levelId] = 0
+      progress.pointStreak = 0
+    } else if (result.correct && result.hintsUsed === 0) {
+      // Perfect solve: increment unlock streak
       const current = progress.unlockStreaks[levelId] ?? 0
       progress.unlockStreaks[levelId] = Math.min(current + 1, UNLOCK_THRESHOLD)
     }
+    // Wrong answer or hint used: unlock streak stays as-is
+
     this.save(progress)
   }
 

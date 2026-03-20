@@ -18,6 +18,10 @@ export const de = {
     next_hint: 'Nächster Tipp',
     no_more_hints: 'Keine weiteren Tipps',
     title: 'Tipps',
+    give_up: 'Aufgeben',
+    give_up_warning: '⚠️ Beide Streaks werden zurückgesetzt!',
+    give_up_confirm: 'Wirklich aufgeben?',
+    give_up_solution_prefix: 'Lösung beginnt mit:',
   },
   game: {
     target: 'ZIEL',
