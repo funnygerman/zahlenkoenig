@@ -47,8 +47,12 @@ export class ProgressService implements IProgressService {
     if (!stored) return defaultProgress()
     // Always ensure all levels are unlocked (even for existing saved data)
     stored.unlockedLevels = ALL_LEVEL_IDS
-    // Migrate old default level if needed
-    if (!stored.currentLevelId) stored.currentLevelId = 'F2'
+    // Migrate: if stored level is a beginner level, reset to F2
+    const beginnerIds = ['A1', 'A2', 'A3', 'A4']
+    if (!stored.currentLevelId || beginnerIds.includes(stored.currentLevelId)) {
+      stored.currentLevelId = 'F2'
+      this.storage.save(STORAGE_KEY, stored)
+    }
     return stored
   }
 
