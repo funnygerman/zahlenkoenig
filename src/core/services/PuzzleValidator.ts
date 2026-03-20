@@ -66,9 +66,23 @@ export class PuzzleValidator implements IPuzzleValidator {
       return { correct: false, firstAttempt, hintsUsed }
     }
 
+    // Check for unclosed brackets
+    const openCount = tokens.filter(t => t.type === 'bracket' && t.value === '(').length
+    const closeCount = tokens.filter(t => t.type === 'bracket' && t.value === ')').length
+    if (openCount !== closeCount) {
+      return { correct: false, firstAttempt, hintsUsed }
+    }
+
     const expr = tokens.map(t => t.value).join('')
     try {
       const result = Function('"use strict"; return (' + expr + ')')() as number
+      if (typeof result !== 'number' || !isFinite(result)) {
+        return { correct: false, firstAttempt, hintsUsed }
+      }
+      // Result must be >= 0 (per spec)
+      if (result < 0) {
+        return { correct: false, firstAttempt, hintsUsed }
+      }
       const correct = Math.abs(result - puzzle.target) < 1e-9
       return { correct, firstAttempt, hintsUsed }
     } catch {

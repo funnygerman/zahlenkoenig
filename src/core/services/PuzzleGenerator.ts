@@ -8,7 +8,10 @@ export interface IPuzzleGenerator {
 function safeEval(expr: string): number | null {
   try {
     const result = Function('"use strict"; return (' + expr + ')')() as number
-    return typeof result === 'number' && isFinite(result) ? result : null
+    if (typeof result !== 'number' || !isFinite(result)) return null
+    // Only accept integer results (division must be exact)
+    if (Math.abs(result - Math.round(result)) > 1e-9) return null
+    return Math.round(result)
   } catch {
     return null
   }
@@ -21,7 +24,6 @@ function permutations(arr: number[]): number[][] {
   )
 }
 
-// Canonical form: for commutative ops, sort operands so a <= b lexicographically
 function canonical(a: string, op: string, b: string): string {
   if (op === '+' || op === '*') {
     return [a, b].sort().join(op)
@@ -37,7 +39,7 @@ function findSolutions2(nums: number[], target: number, ops: Operator[]): string
     for (const op of ops) {
       if (op === '/' && b === 0) continue
       const result = safeEval(`${a}${op}${b}`)
-      if (result !== null && Math.abs(result - target) < 1e-9) {
+      if (result !== null && result === target) {
         const key = canonical(String(a), op, String(b))
         if (!seen.has(key)) {
           seen.add(key)
@@ -57,25 +59,19 @@ function findSolutions3(nums: number[], target: number, ops: Operator[], maxBrac
     const [a, b, c] = perm
     for (const o1 of ops) {
       for (const o2 of ops) {
-        // Without brackets: a o1 b o2 c
-        if (maxBrackets === 0) {
-          const expr = `${a}${o1}${b}${o2}${c}`
-          const result = safeEval(expr)
-          if (result !== null && Math.abs(result - target) < 1e-9) {
-            const key = `${a}${o1}${b}${o2}${c}`
-            if (!seen.has(key)) { seen.add(key); solutions.push(expr) }
-          }
+        // No brackets (always check)
+        const plain = `${a}${o1}${b}${o2}${c}`
+        const r0 = safeEval(plain)
+        if (r0 !== null && r0 === target && !seen.has(plain)) {
+          seen.add(plain); solutions.push(plain)
         }
+
         // With one bracket level
         if (maxBrackets >= 1) {
-          const exprs = [
-            `(${a}${o1}${b})${o2}${c}`,
-            `${a}${o1}(${b}${o2}${c})`,
-          ]
-          for (const expr of exprs) {
-            const result = safeEval(expr)
-            if (result !== null && Math.abs(result - target) < 1e-9) {
-              if (!seen.has(expr)) { seen.add(expr); solutions.push(expr) }
+          for (const expr of [`(${a}${o1}${b})${o2}${c}`, `${a}${o1}(${b}${o2}${c})`]) {
+            const r = safeEval(expr)
+            if (r !== null && r === target && !seen.has(expr)) {
+              seen.add(expr); solutions.push(expr)
             }
           }
         }
@@ -94,11 +90,10 @@ function findSolutions4(nums: number[], target: number, ops: Operator[], maxBrac
     for (const o1 of ops) {
       for (const o2 of ops) {
         for (const o3 of ops) {
-          const exprs: string[] = []
+          const exprs: string[] = [
+            `${a}${o1}${b}${o2}${c}${o3}${d}`,
+          ]
 
-          if (maxBrackets === 0) {
-            exprs.push(`${a}${o1}${b}${o2}${c}${o3}${d}`)
-          }
           if (maxBrackets >= 1) {
             exprs.push(
               `(${a}${o1}${b})${o2}${c}${o3}${d}`,
@@ -120,12 +115,10 @@ function findSolutions4(nums: number[], target: number, ops: Operator[], maxBrac
 
           for (const expr of exprs) {
             const result = safeEval(expr)
-            if (result !== null && Math.abs(result - target) < 1e-9) {
-              if (!seen.has(expr)) {
-                seen.add(expr)
-                solutions.push(expr)
-                if (solutions.length > 30) return solutions
-              }
+            if (result !== null && result === target && !seen.has(expr)) {
+              seen.add(expr)
+              solutions.push(expr)
+              if (solutions.length > 30) return solutions
             }
           }
         }
@@ -174,21 +167,31 @@ export class PuzzleGenerator implements IPuzzleGenerator {
       }
     }
 
-    // Last resort: predefined puzzles per level
+    // If customTarget is set, try harder with any solution count
+    if (customTarget !== undefined) {
+      for (let attempt = 0; attempt < 200; attempt++) {
+        const numbers = Array.from({ length: level.numberCount }, () => randomInt(1, 9))
+        const solutions = findSolutions(numbers, customTarget, level)
+        if (solutions.length >= 1) {
+          return { numbers, target: customTarget, solutions, levelId: level.id }
+        }
+      }
+    }
+
     return this.getFallbackPuzzle(level)
   }
 
   private getFallbackPuzzle(level: Level): Puzzle {
     const fallbacks: Record<string, Puzzle> = {
-      A1: { numbers: [3, 7],       target: 10, solutions: ['3+7'],           levelId: 'A1' },
-      A2: { numbers: [8, 5],       target: 13, solutions: ['8+5'],           levelId: 'A2' },
-      A3: { numbers: [2, 5, 3],    target: 10, solutions: ['2+5+3'],         levelId: 'A3' },
-      A4: { numbers: [1, 2, 3, 4], target: 10, solutions: ['1+2+3+4'],       levelId: 'A4' },
-      F1: { numbers: [3, 7],       target: 21, solutions: ['3*7'],           levelId: 'F1' },
-      F2: { numbers: [2, 3, 4],    target: 14, solutions: ['2*(3+4)'],       levelId: 'F2' },
-      F3: { numbers: [2, 3, 4, 5], target: 14, solutions: ['2*(3+4)-5+5'],  levelId: 'F3' },
-      E1: { numbers: [2, 3, 5],    target: 16, solutions: ['2*(3+5)'],       levelId: 'E1' },
-      E2: { numbers: [2, 3, 4, 5], target: 14, solutions: ['(2+5)*(3-1)'],  levelId: 'E2' },
+      A1: { numbers: [3, 7],       target: 10, solutions: ['3+7'],          levelId: 'A1' },
+      A2: { numbers: [8, 5],       target: 13, solutions: ['8+5'],          levelId: 'A2' },
+      A3: { numbers: [2, 5, 3],    target: 10, solutions: ['2+5+3'],        levelId: 'A3' },
+      A4: { numbers: [1, 2, 3, 4], target: 10, solutions: ['1+2+3+4'],      levelId: 'A4' },
+      F1: { numbers: [3, 7],       target: 21, solutions: ['3*7'],          levelId: 'F1' },
+      F2: { numbers: [2, 3, 4],    target: 14, solutions: ['2*(3+4)'],      levelId: 'F2' },
+      F3: { numbers: [2, 3, 4, 5], target: 19, solutions: ['2+3+4+5+5'],   levelId: 'F3' },
+      E1: { numbers: [2, 3, 5],    target: 16, solutions: ['2*(3+5)'],      levelId: 'E1' },
+      E2: { numbers: [2, 3, 4, 5], target: 14, solutions: ['(2+5)*(3-1)'], levelId: 'E2' },
     }
     return fallbacks[level.id] ?? fallbacks['A1']
   }

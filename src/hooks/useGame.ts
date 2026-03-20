@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { Token } from '../core/models/Token'
 import { Puzzle } from '../core/models/Puzzle'
 import { GameStatus } from '../core/models/GameState'
@@ -29,8 +29,19 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
   const [firstAttempt, setFirstAttempt] = useState(true)
   const [hintsUsed, setHintsUsed] = useState(0)
 
+  // Regenerate puzzle when level changes
+  useEffect(() => {
+    const newLevel = getLevelById(levelId)
+    setPuzzle(generator.generate(newLevel, customTarget))
+    setTokens([])
+    setStatus('idle')
+    setWarning(null)
+    setFirstAttempt(true)
+    setHintsUsed(0)
+  }, [levelId]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const showWarning = useCallback((key: string) => {
-    setWarning(t(key as Parameters<typeof t>[0]))
+    setWarning(t(key))
     setTimeout(() => setWarning(null), 1800)
   }, [])
 
@@ -61,8 +72,7 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
     const result = validator.validateSolution(tokens, puzzle, firstAttempt, currentHintsUsed)
 
     if (!result.correct) {
-      // Check if all numbers are used
-      const usedCount = tokens.filter(t => t.type === 'number').length
+      const usedCount = tokens.filter(tok => tok.type === 'number').length
       if (usedCount < puzzle.numbers.length) {
         showWarning('error.use_all_numbers')
         return
@@ -78,14 +88,14 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
   }, [tokens, puzzle, firstAttempt, pointStreak, onResult, showWarning])
 
   const nextPuzzle = useCallback((newHintsUsed?: number) => {
-    const newPuzzle = generator.generate(level, customTarget)
-    setPuzzle(newPuzzle)
+    const currentLevel = getLevelById(levelId)
+    setPuzzle(generator.generate(currentLevel, customTarget))
     setTokens([])
     setStatus('idle')
     setWarning(null)
     setFirstAttempt(true)
     setHintsUsed(newHintsUsed ?? 0)
-  }, [level, customTarget])
+  }, [levelId, customTarget])
 
   return {
     puzzle,
