@@ -38,35 +38,28 @@ export class HintEngine implements IHintEngine {
 
     try {
       if (hintLevel === 1) {
-        // Find a useful intermediate value
         const subExprs = extractSubExpressions(solution)
         if (subExprs.length > 0) {
-          const subExpr = subExprs[0]
-          const value = Math.round(parseExpr(subExpr))
+          const value = Math.round(parseExpr(subExprs[0]))
           return { level: 1, textKey: 'hint.intermediate_value', textParams: { value } }
         }
-        // For simple expressions without brackets
         return { level: 1, textKey: 'hint.think_about_target', textParams: { target: puzzle.target } }
       }
 
       if (hintLevel === 2) {
-        // Find two numbers used together
         const subExprs = extractSubExpressions(solution)
-        if (subExprs.length > 0) {
-          const nums = subExprs[0].match(/\d+/g)?.map(Number) ?? []
-          if (nums.length >= 2) {
-            return { level: 2, textKey: 'hint.look_at_numbers', textParams: { a: nums[0], b: nums[1] } }
-          }
-        }
-        const nums = solution.match(/\d+/g)?.map(Number) ?? []
-        return { level: 2, textKey: 'hint.look_at_numbers', textParams: { a: nums[0], b: nums[1] } }
+        const source = subExprs.length > 0 ? subExprs[0] : solution
+        const nums = source.match(/\d+/g)?.map(Number) ?? []
+        const a = nums[0] ?? '?'
+        const b = nums[1] ?? '?'
+        return { level: 2, textKey: 'hint.look_at_numbers', textParams: { a, b } }
       }
 
       if (hintLevel === 3) {
-        // Find the key operator
         const ops = solution.match(/[+\-*/]/g) ?? []
         const opMap: Record<string, string> = { '+': '+', '-': '−', '*': '×', '/': '÷' }
-        const op = opMap[ops[0]] ?? ops[0]
+        const firstOp = ops[0] ?? '+'
+        const op = opMap[firstOp] ?? firstOp
         return { level: 3, textKey: 'hint.try_operator', textParams: { operator: op } }
       }
     } catch {
