@@ -1,6 +1,6 @@
 # Zahlenkönig / Number King – Technische Spezifikation
 
-**Version:** 1.4  
+**Version:** 1.5  
 **Stand:** März 2026
 
 ---
@@ -26,20 +26,26 @@ src/
 │   ├── models/        Puzzle.ts, Level.ts, Token.ts, GameState.ts
 │   ├── services/      PuzzleGenerator.ts, PuzzleValidator.ts,
 │   │                  HintEngine.ts, ScoringService.ts, ProgressService.ts
-│   └── storage/       IStorage.ts (Interface), LocalStorage.ts
-├── data/              puzzles-F2.json, puzzles-F3.json, puzzles-E1.json
+│   └── storage/       IStorage.ts, LocalStorage.ts
+├── data/              puzzles-A1.json, puzzles-A2.json, puzzles-A3.json,
+│                      puzzles-F1.json,
+│                      puzzles-F2-1.json, puzzles-F2-2.json, puzzles-F2-3.json,
+│                      puzzles-F3-1.json, puzzles-F3-2.json, puzzles-F3-3.json,
+│                      puzzles-E1-1.json, puzzles-E1-2.json, puzzles-E1-3.json
 ├── i18n/              de.ts, en.ts, index.ts
 ├── hooks/             useGame.ts, useHints.ts, useProgress.ts, useTranslation.ts
 ├── components/
 │   ├── GameBoard/     Haupt-Container
-│   ├── Header/        App-Name, Level, Punkte, Streak
-│   ├── InputField/    💡 | Ausdruck | [✕] [⌫]
-│   ├── KeyPad/        4×3 Tastenfeld (immer gleiche Struktur)
+│   ├── Header/        App-Name, Streak, ⚙️ 💡 ❓
+│   ├── NumberRow/     Zahlen-Zeile (Z4 Z3 Z1 Z2)
+│   ├── InputRow/      Eingabefeld = Zielzahl
+│   ├── KeyPad/        Operator-Tasten (2 Zeilen à 4 Buttons)
 │   ├── HintPopover/   Tipp-Overlay
+│   ├── RulesPopover/  Spielregeln-Overlay (neu)
 │   └── SettingsScreen/
 └── main.tsx
 scripts/
-└── generatePuzzles.mjs   Einmalig lokal ausführen → src/data/ befüllen
+└── generatePuzzles.mjs
 ```
 
 ---
@@ -48,8 +54,8 @@ scripts/
 
 | Prinzip | Umsetzung |
 |---|---|
-| **S** | Jeder Service hat eine Aufgabe: Generator generiert, Validator validiert, etc. |
-| **O** | Neues Level = nur `Level.ts` erweitern, kein bestehender Code ändert sich |
+| **S** | Jeder Service hat eine Aufgabe |
+| **O** | Neues Level/Unterlevel = nur `Level.ts` erweitern |
 | **L** | Alle Level-Typen verhalten sich nach außen identisch |
 | **I** | Kleine Interfaces: `IStorage`, `IPuzzleGenerator`, `IHintEngine` |
 | **D** | Services hängen von `IStorage` ab, nicht von `LocalStorage` direkt |
@@ -63,7 +69,7 @@ interface Puzzle {
   numbers: number[]     // z.B. [3, 7, 2]
   target: number        // z.B. 14
   solutions: string[]   // z.B. ["3*(7-2)"] – max. 3
-  levelId: string       // z.B. "F2"
+  levelId: string       // z.B. "F2.1"
 }
 
 type Token =
@@ -72,24 +78,23 @@ type Token =
   | { type: 'bracket';  value: '(' | ')' }
 
 interface Level {
-  id: string
+  id: string              // z.B. "F2.1"
+  baseId: string          // z.B. "F2" (Hauptlevel)
+  subLevel: 1 | 2 | 3 | null  // null für A1-F1
   group: 'beginner' | 'advanced' | 'expert'
   numberCount: 2 | 3 | 4
   operators: Operator[]
   maxBracketDepth: 0 | 1 | 2
   targetRange: { min: number; max: number }
   maxTarget: number
-  unlockIndex: number
 }
 
 interface StoredProgress {
-  unlockedLevels: string[]           // immer alle 7 Levels
-  unlockStreaks: Record<string, number>
-  totalScore: number
+  unlockStreaks: Record<string, number>  // per levelId
   pointStreak: number
-  customTargets: Record<string, number>
+  customTargets: Record<string, number>  // entfernt (kein Slider mehr)
   language: 'de' | 'en'
-  currentLevelId: string             // default: 'F2'
+  currentLevelId: string   // default: 'F2.1'
 }
 ```
 
@@ -99,127 +104,164 @@ interface StoredProgress {
 
 ```typescript
 const LEVELS: Level[] = [
-  { id: 'A1', group: 'beginner',  numberCount: 2, operators: ['+','-'],           maxBracketDepth: 0, targetRange: { min:1, max:18  }, maxTarget: 18,  unlockIndex: 0 },
-  { id: 'A2', group: 'beginner',  numberCount: 3, operators: ['+','-'],           maxBracketDepth: 0, targetRange: { min:1, max:27  }, maxTarget: 27,  unlockIndex: 1 },
-  { id: 'A3', group: 'beginner',  numberCount: 4, operators: ['+','-'],           maxBracketDepth: 0, targetRange: { min:1, max:36  }, maxTarget: 36,  unlockIndex: 2 },
-  { id: 'F1', group: 'advanced',  numberCount: 2, operators: ['+','-','*','/'],   maxBracketDepth: 0, targetRange: { min:1, max:81  }, maxTarget: 81,  unlockIndex: 3 },
-  { id: 'F2', group: 'advanced',  numberCount: 3, operators: ['+','-','*','/'],   maxBracketDepth: 1, targetRange: { min:1, max:100 }, maxTarget: 162, unlockIndex: 4 },
-  { id: 'F3', group: 'advanced',  numberCount: 4, operators: ['+','-','*','/'],   maxBracketDepth: 1, targetRange: { min:1, max:100 }, maxTarget: 171, unlockIndex: 5 },
-  { id: 'E1', group: 'expert',    numberCount: 4, operators: ['+','-','*','/'],   maxBracketDepth: 2, targetRange: { min:1, max:100 }, maxTarget: 324, unlockIndex: 6 },
+  // Anfänger (keine Unterlevel)
+  { id:'A1', baseId:'A1', subLevel:null, group:'beginner',  numberCount:2, operators:['+','-'],         maxBracketDepth:0, targetRange:{min:1,max:18},  maxTarget:18  },
+  { id:'A2', baseId:'A2', subLevel:null, group:'beginner',  numberCount:3, operators:['+','-'],         maxBracketDepth:0, targetRange:{min:1,max:27},  maxTarget:27  },
+  { id:'A3', baseId:'A3', subLevel:null, group:'beginner',  numberCount:4, operators:['+','-'],         maxBracketDepth:0, targetRange:{min:1,max:36},  maxTarget:36  },
+  // Fortgeschritten – F1 ohne Unterlevel
+  { id:'F1', baseId:'F1', subLevel:null, group:'advanced',  numberCount:2, operators:['+','-','*','/'], maxBracketDepth:0, targetRange:{min:1,max:81},  maxTarget:81  },
+  // Fortgeschritten – F2 mit Unterleveln
+  { id:'F2.1', baseId:'F2', subLevel:1, group:'advanced',  numberCount:3, operators:['+','-','*','/'], maxBracketDepth:1, targetRange:{min:1,  max:50 }, maxTarget:162 },
+  { id:'F2.2', baseId:'F2', subLevel:2, group:'advanced',  numberCount:3, operators:['+','-','*','/'], maxBracketDepth:1, targetRange:{min:51, max:100}, maxTarget:162 },
+  { id:'F2.3', baseId:'F2', subLevel:3, group:'advanced',  numberCount:3, operators:['+','-','*','/'], maxBracketDepth:1, targetRange:{min:101,max:162}, maxTarget:162 },
+  // Fortgeschritten – F3 mit Unterleveln
+  { id:'F3.1', baseId:'F3', subLevel:1, group:'advanced',  numberCount:4, operators:['+','-','*','/'], maxBracketDepth:1, targetRange:{min:1,  max:50 }, maxTarget:171 },
+  { id:'F3.2', baseId:'F3', subLevel:2, group:'advanced',  numberCount:4, operators:['+','-','*','/'], maxBracketDepth:1, targetRange:{min:51, max:100}, maxTarget:171 },
+  { id:'F3.3', baseId:'F3', subLevel:3, group:'advanced',  numberCount:4, operators:['+','-','*','/'], maxBracketDepth:1, targetRange:{min:101,max:171}, maxTarget:171 },
+  // Experte – E1 mit Unterleveln
+  { id:'E1.1', baseId:'E1', subLevel:1, group:'expert',    numberCount:4, operators:['+','-','*','/'], maxBracketDepth:2, targetRange:{min:1,  max:50 }, maxTarget:324 },
+  { id:'E1.2', baseId:'E1', subLevel:2, group:'expert',    numberCount:4, operators:['+','-','*','/'], maxBracketDepth:2, targetRange:{min:51, max:100}, maxTarget:324 },
+  { id:'E1.3', baseId:'E1', subLevel:3, group:'expert',    numberCount:4, operators:['+','-','*','/'], maxBracketDepth:2, targetRange:{min:101,max:324}, maxTarget:324 },
 ]
 ```
 
 ---
 
-## 6. Services
-
-### PuzzleGenerator
-- **A1, A2, A3, F1:** Live-Generierung (schnell, 2–3 Zahlen)
-- **F2, F3, E1:** Lazy-loaded JSON-Bank (`src/data/puzzles-{levelId}.json`)
-- `generate()` – synchron, nutzt Bank wenn geladen, sonst Live
-- `generateAsync()` – lädt Bank zuerst, dann aus Bank
-- Nur ganzzahlige Divisionsergebnisse akzeptiert
-- Fallback-Strategie: Strict (1–3 Lösungen) → Relaxed (1–5) → vordefinierte Rätsel
-
-### PuzzleValidator
-- `validateToken()` – Echtzeit-Validierung, gibt i18n-Key zurück
-- `validateSolution()` – prüft: alle Zahlen verwendet, Klammern geschlossen, Ergebnis ≥ 0
-
-### HintEngine
-- Tipp 1: Zwischenwert aus Klammerausdruck oder erstem Teilausdruck
-- Tipp 2: Zwei relevante Zahlen identifizieren
-- Tipp 3: Schlüssel-Operator (bevorzugt `×` oder `÷`)
-- `getSolutionPreview(solution)`: extrahiert erste 2–3 Tokens als Vorschau (z.B. `3*(…`)
-
-### ScoringService
-- Eingabe: `SolutionResult` + aktueller `pointStreak`
-- Ausgabe: `points` + `newPointStreak`
-- Falsche Antwort bricht Streak **nicht**
-- Aufgeben wird direkt in `GameBoard` behandelt (nicht über ScoringService)
-
-### ProgressService
-- Alle Levels immer freigeschaltet (`isUnlocked()` → immer `true`)
-- Standard-Level: `F2`
-- Migration: ungültige Level-IDs (z.B. alte A4, E2) → reset auf F2
-- Aufgeben: `recordResult()` mit `{ correct: false, hintsUsed: 99 }` und `points=0, newPointStreak=0` → setzt beide Streaks auf 0
-- Speichert via `IStorage` (Dependency Inversion)
-
----
-
-## 7. Hooks
-
-```typescript
-useGame(levelId, customTarget, pointStreak, onResult)
-  → puzzle, tokens, status, warning
-  → addToken, deleteToken, clearTokens, submitSolution, nextPuzzle
-  // Nutzt generateAsync() – lädt Puzzle-Bank beim ersten Level-Wechsel
-
-useHints(puzzle)
-  → hints, hintsRemaining, requestHint, resetHints
-  // Reset via puzzleKey (levelId-target-numbers) statt Objekt-Referenz
-  // hintsRemaining === 0 → Aufgeben-Option wird in HintPopover eingeblendet
-
-useProgress()
-  → progress, recordResult, setLevel, setCustomTarget, setLanguage, reset
-
-useTranslation()
-  → t(key, params?), language, changeLanguage
-```
-
----
-
-## 8. Puzzle-Bank (Pre-computed)
+## 6. Puzzle-Bank
 
 ```
-scripts/generatePuzzles.mjs   Generierungs-Skript (einmalig lokal ausführen)
-src/data/puzzles-F2.json      500 Rätsel
-src/data/puzzles-F3.json      500 Rätsel
-src/data/puzzles-E1.json      500 Rätsel
-```
-
-**Ausführen:**
-```bash
+scripts/generatePuzzles.mjs    Einmalig lokal ausführen
 node --max-old-space-size=512 scripts/generatePuzzles.mjs
 ```
 
-- Lazy loading: Bank wird beim ersten Aufruf von `generateAsync()` für ein Level geladen
-- Bei `customTarget`: sucht passendes Rätsel in der Bank, sonst Live-Generierung
-- Deduplizierung: gleiche Zahlen + Ziel nur einmal in der Bank
+| Datei | Inhalt | Strategie |
+|---|---|---|
+| `puzzles-A1.json` | ~81 Rätsel | Exhaustiv |
+| `puzzles-A2.json` | ~192 Rätsel | Exhaustiv |
+| `puzzles-A3.json` | ~140 Rätsel | Exhaustiv |
+| `puzzles-F1.json` | ~138 Rätsel | Exhaustiv |
+| `puzzles-F2-1.json` | 500 Rätsel | Zufallssampling (Ziel 1–50) |
+| `puzzles-F2-2.json` | 500 Rätsel | Zufallssampling (Ziel 51–100) |
+| `puzzles-F2-3.json` | 500 Rätsel | Zufallssampling (Ziel 101–162) |
+| `puzzles-F3-{1,2,3}.json` | je 500 | Zufallssampling |
+| `puzzles-E1-{1,2,3}.json` | je 500 | Zufallssampling |
+
+- Skript überspringt bereits existierende Dateien
+- Bank wird shuffled + ohne Wiederholung abgespielt
+- Bei Erschöpfung: neu mischen und von vorne
 
 ---
 
-## 9. Design-System (Light Mode)
+## 7. Services
+
+### PuzzleGenerator
+- `generate()` – synchron, nutzt Bank wenn geladen
+- `generateAsync()` – lädt Bank zuerst (lazy), dann aus Bank
+- Bank-Dateiname: `puzzles-{levelId}.json` mit `.` → `-` (z.B. `puzzles-F2-1.json`)
+- Fallback: Live-Generierung → vordefinierte Rätsel
+
+### PuzzleValidator
+- `validateToken()` – Echtzeit, gibt i18n-Key zurück
+- `validateSolution()` – alle Zahlen verwendet, Klammern geschlossen, Ergebnis ≥ 0
+
+### HintEngine
+- Tipp 1: Zwischenwert
+- Tipp 2: Zwei relevante Zahlen
+- Tipp 3: Schlüssel-Operator
+- `getSolutionPreview()`: z.B. `(8…` oder `3*…`
+
+### ScoringService
+- Kein Punktesystem mehr
+- Nur noch Streak-Verwaltung
+
+### ProgressService
+- Kein `customTargets` mehr (Slider entfernt)
+- Standard-Level: `F2.1`
+- Alle Levels immer freigeschaltet
+- Aufgeben: `hintsUsed === 99` → Streak auf 0
+
+---
+
+## 8. Hooks
+
+```typescript
+useGame(levelId, pointStreak, onResult)
+  → puzzle, tokens, status, warning
+  → addToken, deleteToken, clearTokens, submitSolution, nextPuzzle
+
+useHints(puzzle)
+  → hints, hintsRemaining, requestHint, resetHints
+
+useProgress()
+  → progress, recordResult, setLevel, setLanguage, reset
+
+useTranslation()
+  → t(key, params?), language, changeLanguage
+  // Subscriber-Pattern: re-render bei Sprachwechsel
+```
+
+---
+
+## 9. UI-Komponenten
+
+### Header
+- Links: ⚙️ → Einstellungs-Screen
+- Mitte: „Zahlenkönig" + aktuelles Level (z.B. „F2.1")
+- Rechts: 💡 → Tipp-Popover, ❓ → Spielregeln-Popover, 🔥3 (nur wenn Streak ≥ 2)
+
+### NumberRow
+```
+A1: [    ]  [    ]  [ Z1 ]  [ Z2 ]
+A2: [    ]  [ Z3 ]  [ Z1 ]  [ Z2 ]
+A3: [ Z4 ]  [ Z3 ]  [ Z1 ]  [ Z2 ]
+```
+- Leere Slots: unsichtbar, Platz bleibt erhalten
+- Verwendete Zahlen: ausgegraut
+
+### InputRow
+```
+[ Ausdruck ··· ]  =  [ Ziel ]
+```
+- `=` ist statischer Text, kein Button
+- Zielzahl: prominent, nicht klickbar
+- ✕ zum Löschen (links im Eingabefeld oder daneben)
+
+### KeyPad (2 Zeilen, immer stabil)
+```
+Zeile 3: [ + ] [ − ] [ ⌫ ] [ = ]
+Zeile 4: [ × ] [ ÷ ] [ ( ] [ ) ]
+```
+- `×`, `÷` bei Anfänger: leer + inaktiv
+- `(`, `)` bei maxBracketDepth=0: leer + inaktiv
+
+### RulesPopover (neu)
+- Auslöser: ❓ im Header
+- Inhalt: Kurzanleitung (siehe Anforderungen 2.7)
+- Schließbar durch Tippen außerhalb
+
+---
+
+## 10. Design-System (Light Mode)
 
 ```css
---bg-primary:      #faf7f2   /* Seitenhintergrund */
---bg-card:         #ffffff   /* Button-Hintergrund */
---accent:          #c47a1a   /* Hauptfarbe (warmes Gold) */
---num-color:       #2a1f0a   /* Zahl-Buttons */
---op-color:        #c47a1a   /* Operator-Buttons */
---bracket-color:   #2a6abf   /* Klammer-Buttons */
---correct:         #16a34a   /* Grün */
---wrong:           #dc2626   /* Rot */
---warning:         #ea580c   /* Orange */
+--bg-primary:      #faf7f2
+--bg-card:         #ffffff
+--accent:          #c47a1a
+--num-color:       #2a1f0a
+--op-color:        #c47a1a
+--bracket-color:   #2a6abf
+--correct:         #16a34a
+--wrong:           #dc2626
+--warning:         #ea580c
 ```
 
-Schrift: `Courier New` (Monospace – Taschenrechner-Ästhetik)
-
----
-
-## 10. KeyPad-Layout (immer stabil, unabhängig vom Level)
-
-```
-Row 1: [  (  ]  [  )  ]  [  =  ]   ← Klammern (leer wenn nicht erlaubt) + Submit
-Row 2: [  +  ]  [ Z3  ]  [  −  ]   ← Z3 leer wenn numberCount < 3
-Row 3: [ Z1  ]  [Ziel ]  [ Z2  ]   ← Ziel immer sichtbar, nicht klickbar
-Row 4: [  ×  ]  [ Z4  ]  [  ÷  ]   ← Z4 leer wenn numberCount < 4, × ÷ leer wenn nicht erlaubt
-```
+Schrift: `Courier New` – Taschenrechner-Ästhetik
 
 ---
 
 ## 11. i18n
 
-Eigener `useTranslation`-Hook, keine externe Bibliothek. Übersetzungen als TypeScript-Objekte. Sprache aus `navigator.language`, manuell überschreibbar in Settings.
+Eigener `useTranslation`-Hook mit Subscriber-Pattern. Sprache aus `navigator.language`, manuell überschreibbar. Übersetzungen als TypeScript-Objekte.
 
 ---
 
@@ -227,9 +269,8 @@ Eigener `useTranslation`-Hook, keine externe Bibliothek. Übersetzungen als Type
 
 ```yaml
 Trigger: push to main
-→ npm install (ohne cache, keine package-lock.json nötig)
-→ npm run build (tsc + vite build)
-→ upload dist/
+→ npm install
+→ npm run build
 → deploy to GitHub Pages
 URL: https://funnygerman.github.io/zahlenkoenig
 ```

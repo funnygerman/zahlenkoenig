@@ -1,6 +1,6 @@
 # Zahlenkönig / Number King – Anforderungen
 
-**Version:** 1.3  
+**Version:** 1.4  
 **Stand:** März 2026
 
 ---
@@ -24,25 +24,29 @@
 - Nur lösbare Rätsel werden generiert
 - Ein gültiges Rätsel hat 1–3 eindeutige Lösungen
 - Division akzeptiert nur ganzzahlige Ergebnisse
-- Für F2, F3, E1: Rätsel werden aus einer vorgenerierten Bank geladen (500 Rätsel pro Level)
-- Für A1, A2, A3, F1: Live-Generierung (schnell genug)
-- Fallback-Strategie: Constraints lockern → vordefinierte Rätsel-Bibliothek
+- Alle Levels nutzen eine vorberechnete Puzzle-Bank (JSON-Dateien)
+- A1, A2, A3, F1: exhaustive Bank (alle möglichen Rätsel)
+- F2, F3, E1 und Unterlevel: 500 Rätsel pro Unterlevel
+- Bank wird ohne Wiederholung abgespielt (shuffled, wie Kartenstapel)
+- Fallback-Strategie: Live-Generierung → vordefinierte Rätsel-Bibliothek
 
 ### 2.3 Stufensystem
 
-| # | Level | Gruppe | Zahlen | Operationen | Klammern | Zielbereich | Max (Schieberegler) |
-|---|---|---|---|---|---|---|---|
-| 1 | A1 | 🌱 Anfänger | 2 | `+` `−` | — | 1–18 | 18 |
-| 2 | A2 | 🌱 Anfänger | 3 | `+` `−` | — | 1–27 | 27 |
-| 3 | A3 | 🌱 Anfänger | 4 | `+` `−` | — | 1–36 | 36 |
-| 4 | F1 | 🔥 Fortgeschritten | 2 | alle | — | 1–81 | 81 |
-| 5 | F2 | 🔥 Fortgeschritten | 3 | alle | max. 1× | 1–100 | 162 |
-| 6 | F3 | 🔥 Fortgeschritten | 4 | alle | max. 1× | 1–100 | 171 |
-| 7 | E1 | 🧠 Experte | 4 | alle | max. 2× | 1–100 | 324 |
+| # | Level | Gruppe | Zahlen | Ops | Klammern | Unterlevel |
+|---|---|---|---|---|---|---|
+| 1 | A1 | 🌱 Anfänger | 2 | `+` `−` | — | — (Ziel 1–18) |
+| 2 | A2 | 🌱 Anfänger | 3 | `+` `−` | — | — (Ziel 1–27) |
+| 3 | A3 | 🌱 Anfänger | 4 | `+` `−` | — | — (Ziel 1–36) |
+| 4 | F1 | 🔥 Fortgeschritten | 2 | alle | — | — (Ziel 1–81) |
+| 5 | F2 | 🔥 Fortgeschritten | 3 | alle | max. 1× | .1 (1–50) · .2 (51–100) · .3 (101–162) |
+| 6 | F3 | 🔥 Fortgeschritten | 4 | alle | max. 1× | .1 (1–50) · .2 (51–100) · .3 (101–171) |
+| 7 | E1 | 🧠 Experte | 4 | alle | max. 2× | .1 (1–50) · .2 (51–100) · .3 (101–324) |
 
-- **Standard-Level: F2**
-- Alle Levels sind immer frei wählbar (keine Sperrung)
-- Streak-Fortschritt wird angezeigt (3 makellose Lösungen in Folge = Level gemeistert), sperrt aber nichts
+- **Standard-Level: F2.1**
+- Alle Levels und Unterlevel immer frei wählbar (keine Sperrung)
+- Keine automatische Beförderung – Nutzer entscheidet selbst
+- Streak-Fortschritt (●●○) pro Level/Unterlevel angezeigt, sperrt nichts
+- Kein Zielzahl-Schieberegler mehr
 
 ### 2.4 Eingabe-Validierung (Echtzeit)
 
@@ -72,25 +76,43 @@
 - 💡-Button immer aktiv; zeigt bisherige Tipps wenn alle verbraucht
 - Aufgeben erscheint erst **nachdem alle regulären Tipps verbraucht sind**
 - Aufgeben erfordert Bestätigung mit Warnung: „⚠️ Beide Streaks werden zurückgesetzt!"
-- Nach Bestätigung: erstes Token der Lösung ins Eingabefeld, neues Rätsel, beide Streaks auf 0
+- Nach Bestätigung: neues Rätsel, beide Streaks auf 0
 
-### 2.6 Punkte & Feedback
+### 2.6 Punkte & Streak
 
-| Aktion | Punkte | Punkt-Streak | Freischaltungs-Streak |
-|---|---|---|---|
-| Richtig, 1. Versuch, kein Tipp, Streak < 3 | +10 | +1 | +1 |
-| Richtig, 1. Versuch, kein Tipp, Streak ≥ 3 | +20 | +1 | +1 |
-| Richtig, 1. Versuch, mit Tipp | +5 | Reset auf 0 | bleibt |
-| Richtig nach Fehlversuch | +5 | Reset auf 0 | +1 |
-| Falsche Antwort | 0 | bleibt | bleibt |
-| Aufgeben | 0 | Reset auf 0 | Reset auf 0 |
-| Minimum | 0 (nie negativ) | — | — |
+- Punkte-Anzeige entfernt (zu abstrakt)
+- Streak 🔥 wird im Header angezeigt, aber nur wenn ≥ 2
+
+| Aktion | Streak |
+|---|---|
+| Richtig, 1. Versuch, kein Tipp | +1 |
+| Richtig, 1. Versuch, mit Tipp | Reset auf 0 |
+| Richtig nach Fehlversuch | Reset auf 0 |
+| Falsche Antwort | bleibt |
+| Aufgeben | Reset auf 0 |
+
+### 2.7 Spielregeln-Popup (neu)
+
+Inhalt des ❓-Popups:
+
+```
+🎯 Ziel
+Berechne die Zielzahl mit deinen Zahlen!
+
+📐 Regeln
+• Benutze alle Zahlen genau einmal
+• Erlaubte Operationen: + − × ÷ ( )
+• Das Ergebnis muss ≥ 0 sein
+
+💡 Tipps
+Tippe auf 💡 wenn du nicht weiterkommst
+```
 
 ---
 
 ## 3. Nicht-funktionale Anforderungen
 
-- **Mobile First** – optimiert für Smartphones
+- **Mobile First** – optimiert für Smartphones, kein Scrollen
 - **PWA** – installierbar, offline-fähig
 - **Mehrsprachig** – Deutsch und Englisch (automatisch per Gerätesprache, manuell umschaltbar)
 - **Kein Sound**
@@ -101,39 +123,80 @@
 
 ## 4. UI-Anforderungen
 
-### 4.1 Layout (Taschenrechner-Prinzip, Mobile First)
+### 4.1 Layout (Mobile First, Screen-füllend)
+
 ```
-┌─────────────────────────────────┐
-│  ⋮   Zahlenkönig – F2      🔥3  │  Header
-├─────────────────────────────────┤
-│  [ 💡  3 + 5 · · · · ]  [✕] [⌫]│  Eingabefeld
-├─────────────────────────────────┤
-│       [  (  ]  [  )  ]  [  =  ]│  Klammern + Submit
-├─────────────────────────────────┤
-│   [  +  ]   [ Z3 ]   [  −  ]   │
-├─────────────────────────────────┤
-│   [ Z1  ]   [Ziel]   [ Z2  ]   │
-├─────────────────────────────────┤
-│   [  ×  ]   [ Z4 ]   [  ÷  ]   │
-└─────────────────────────────────┘
+┌──────────────────────────────────┐
+│  ⚙️      Zahlenkönig    💡  ❓  🔥3│  Header
+├──────────────────────────────────┤
+│  [    ] [    ] [ Z1 ] [ Z2 ]    │  Zahlen-Zeile
+├──────────────────────────────────┤
+│  [ 3×(2+5)··· ]  =  [ 14 ]     │  Eingabe = Ziel
+├──────────────────────────────────┤
+│  [  +  ] [  −  ] [  ⌫  ] [  = ]│  Basis-Operatoren
+├──────────────────────────────────┤
+│  [  ×  ] [  ÷  ] [  (  ] [  ) ]│  Erweiterte Operatoren
+└──────────────────────────────────┘
 ```
 
-### 4.2 Button-Regeln
-- Layout bleibt immer gleich, unabhängig vom Level
-- Nicht verfügbare Operatoren (`×`, `÷` bei Anfänger): leer + inaktiv (`pointer-events: none`)
-- Nicht vorhandene Zahlen (Z3 bei 2 Zahlen, Z4 bei 2–3 Zahlen): leer + inaktiv
-- Klammern bei `maxBracketDepth === 0`: leer + inaktiv
+Höhenverteilung (ca.):
+- Header: 8%
+- Zahlen-Zeile: 18%
+- Eingabe + Ziel: 15%
+- Basis-Ops: 18%
+- Erweiterte Ops: 18%
+- Restlicher Padding: 23%
+
+### 4.2 Zahlen-Zeile
+
+```
+A1 (2 Zahlen):  [    ]  [    ]  [ Z1 ]  [ Z2 ]
+A2 (3 Zahlen):  [    ]  [ Z3 ]  [ Z1 ]  [ Z2 ]
+A3 (4 Zahlen):  [ Z4 ]  [ Z3 ]  [ Z1 ]  [ Z2 ]
+```
+
+- Z1 und Z2 immer sichtbar (rechts, stabile Position)
+- Z3 erscheint bei ≥ 3 Zahlen (zweite von rechts)
+- Z4 erscheint bei 4 Zahlen (ganz links)
+- Leere Plätze: unsichtbar aber Platz bleibt erhalten (Layout stabil)
 - Verwendete Zahlen: ausgegraut + inaktiv
-- Submit-Button: `=`
 
-### 4.3 Einstellungs-Screen
-- Erreichbar über `⋮` oben links
-- Level-Auswahl mit Streak-Anzeige (3 Punkte)
-- Zielzahl-Schieberegler pro Level (Minimum 1, Maximum = kleinerer Wert aus mathematischem Maximum und 500)
+### 4.3 Eingabe-Zeile
+
+- Eingabefeld links (wächst mit dem Ausdruck)
+- Statisches `=` Textzeichen in der Mitte
+- Zielzahl-Button rechts (nicht klickbar, prominent hervorgehoben)
+- `✕` um Eingabe komplett zu löschen (im Eingabefeld oder daneben)
+
+### 4.4 Button-Regeln
+
+- Layout bleibt immer gleich, unabhängig vom Level
+- Nicht verfügbare Operatoren (`×`, `÷` bei Anfänger): leer + inaktiv
+- Klammern bei `maxBracketDepth === 0`: leer + inaktiv
+- `=` Button: prüft den Ausdruck (immer sichtbar)
+
+### 4.5 Einstellungs-Screen
+
+- Erreichbar über ⚙️ oben links
+- Level-Auswahl mit kompakten Karten:
+
+```
+┌──────────┬──────────┬───────────┐
+│  F2.1    │  F2.2    │  F2.3     │
+│  3 Zahl  │  3 Zahl  │  3 Zahl   │
+│  1–50    │  51–100  │  101–162  │
+│  ●●○     │  ○○○     │  ○○○      │
+└──────────┴──────────┴───────────┘
+```
+
 - Sprache umschalten (DE / EN)
 - Reset-Button (mit Bestätigungsdialog)
+- Kein Zielzahl-Schieberegler
 
-### 4.4 Tipp-Popover
-- 💡 links im Eingabefeld öffnet Popover
-- Erster Tipp wird sofort beim Öffnen angezeigt
-- Schließbar durch Tippen außerhalb
+### 4.6 Popover-Übersicht
+
+| Popover | Auslöser | Inhalt |
+|---|---|---|
+| Tipps 💡 | 💡 im Header | Gestuftes Tipp-System + Aufgeben |
+| Spielregeln ❓ | ❓ im Header | Kurzanleitung (siehe 2.7) |
+| Einstellungen ⚙️ | ⚙️ im Header | Level-Auswahl, Sprache, Reset |
