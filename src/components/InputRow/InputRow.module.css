@@ -1,27 +1,37 @@
 .wrapper {
-  padding: 8px 12px;
+  padding: 0 12px 4px;
   flex-shrink: 0;
 }
 
 .row {
-  display: flex;
+  display: grid;
+  /* Input takes remaining space, = is fixed, target is same width as number buttons */
+  grid-template-columns: 1fr auto var(--btn-size);
   align-items: center;
   gap: 8px;
+  /* Match height of NumberRow buttons */
+  --btn-size: calc((100vw - 24px - 30px) / 4);
+}
+
+@media (min-width: 430px) {
+  .row {
+    --btn-size: calc((430px - 24px - 30px) / 4);
+  }
 }
 
 .field {
-  flex: 1;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   background: var(--bg-card);
   border: 2px solid;
   border-radius: var(--radius);
-  padding: 8px 10px;
-  min-height: 52px;
+  padding: 0 10px;
+  height: var(--btn-size);
   box-shadow: var(--shadow);
   transition: border-color 0.2s;
   overflow: hidden;
+  min-width: 0;
 }
 
 .borderDefault { border-color: var(--border-strong); }
@@ -29,41 +39,28 @@
 .borderWrong    { border-color: var(--wrong); }
 .borderWarning  { border-color: var(--warning); }
 
-.hintBtn {
-  background: none;
-  border: none;
-  font-size: 16px;
-  padding: 0;
-  flex-shrink: 0;
-  opacity: 0.7;
-  line-height: 1;
-}
-
 .expression {
   flex: 1;
   display: flex;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
   gap: 2px;
-  min-height: 28px;
   overflow: hidden;
+  min-width: 0;
 }
 
-.placeholder { color: var(--text-3); font-size: 12px; letter-spacing: 0.5px; }
-
-.tokNum     { color: var(--text);          font-size: 20px; font-weight: 800; }
-.tokOp      { color: var(--op-color);      font-size: 20px; font-weight: 800; }
-.tokBracket { color: var(--bracket-color); font-size: 20px; font-weight: 800; }
+.tokNum     { color: var(--text);          font-size: 18px; font-weight: 800; white-space: nowrap; }
+.tokOp      { color: var(--op-color);      font-size: 18px; font-weight: 800; white-space: nowrap; }
+.tokBracket { color: var(--bracket-color); font-size: 18px; font-weight: 800; white-space: nowrap; }
 
 .clearBtn {
   background: none;
   border: none;
-  color: var(--wrong);
-  font-size: 14px;
+  color: var(--text-3);
+  font-size: 13px;
   font-weight: 800;
   padding: 2px 4px;
   flex-shrink: 0;
-  opacity: 0.7;
   line-height: 1;
 }
 
@@ -72,43 +69,40 @@
   font-weight: 900;
   color: var(--text-2);
   flex-shrink: 0;
+  text-align: center;
 }
 
+/* Target – same size as number buttons */
 .target {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 68px;
-  min-height: 52px;
+  width: var(--btn-size);
+  height: var(--btn-size);
   border-radius: var(--radius);
   background: var(--target-bg);
   box-shadow: var(--shadow-lg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
   flex-shrink: 0;
 }
 
-.targetLabel {
-  font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 2px;
-  color: rgba(255,255,255,0.65);
-  text-transform: uppercase;
-}
-
 .targetValue {
-  font-size: 22px;
+  font-size: 24px;
   font-weight: 900;
   color: #fff;
   line-height: 1;
 }
 
+/* Smaller font for 3-digit targets */
+.target:has(.targetValue) .targetValue {
+  font-size: clamp(16px, 4vw, 24px);
+}
+
 .msg {
-  min-height: 18px;
-  margin-top: 4px;
+  min-height: 16px;
+  margin-top: 3px;
   text-align: center;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.5px;
+  font-size: 13px;
+  font-weight: 800;
 }
 
 .msgWarning { color: var(--warning); }

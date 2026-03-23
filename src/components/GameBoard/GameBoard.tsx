@@ -137,7 +137,6 @@ export function GameBoard() {
         target={puzzle.target}
         status={status}
         warning={warning}
-        onHintClick={handleHintClick}
         onClear={clearTokens}
       />
 
