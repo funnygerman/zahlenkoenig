@@ -1,12 +1,8 @@
 .overlay {
-  position: fixed;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.3);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 24px;
+  position: fixed; inset: 0;
+  background: rgba(0,0,0,0.25);
+  display: flex; align-items: center; justify-content: center;
+  z-index: 100; padding: 24px;
 }
 
 .popover {
@@ -14,164 +10,56 @@
   border: 2px solid var(--border-strong);
   border-radius: 20px;
   padding: 24px;
-  width: 100%;
-  max-width: 340px;
-  box-shadow: var(--shadow-strong);
+  width: 100%; max-width: 340px;
+  box-shadow: var(--shadow-lg);
 }
 
 .title {
-  color: var(--accent);
-  font-size: 16px;
-  font-weight: 800;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin: 0 0 16px;
-  text-align: center;
+  color: var(--accent); font-size: 15px; font-weight: 800;
+  letter-spacing: 2px; text-transform: uppercase;
+  margin: 0 0 16px; text-align: center;
 }
 
-.hints {
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  margin-bottom: 20px;
-  min-height: 48px;
-}
-
-.empty {
-  text-align: center;
-  font-size: 28px;
-  margin: 0;
-  opacity: 0.3;
-}
+.hints { display: flex; flex-direction: column; gap: 10px; margin-bottom: 16px; min-height: 40px; }
+.empty { text-align: center; font-size: 24px; margin: 0; opacity: 0.3; }
 
 .hintItem {
-  display: flex;
-  align-items: flex-start;
-  gap: 10px;
-  background: var(--accent-bg);
-  border-radius: 10px;
-  padding: 10px 14px;
+  display: flex; align-items: flex-start; gap: 8px;
+  background: var(--accent-light); border-radius: var(--radius-sm); padding: 10px 12px;
 }
-
-.hintIcon { font-size: 14px; flex-shrink: 0; }
-
-.hintText {
-  color: var(--text-primary);
-  font-size: 15px;
-  line-height: 1.4;
-}
+.icon { font-size: 13px; flex-shrink: 0; }
+.text { color: var(--text); font-size: 14px; line-height: 1.4; }
 
 .nextBtn {
-  width: 100%;
-  padding: 12px;
-  border-radius: 12px;
-  border: none;
-  background: var(--submit-bg);
-  color: #ffffff;
-  font-size: 14px;
-  font-weight: 800;
-  cursor: pointer;
-  letter-spacing: 1px;
-  font-family: inherit;
+  width: 100%; padding: 11px; border-radius: var(--radius); border: none;
+  background: var(--submit-bg); color: #fff;
+  font-size: 13px; font-weight: 800; letter-spacing: 1px; font-family: inherit;
 }
 
-.noMore {
-  text-align: center;
-  color: var(--text-muted);
-  font-size: 12px;
-  letter-spacing: 2px;
-  text-transform: uppercase;
-  margin: 0;
-}
-
-.giveUpSection {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 8px;
-  margin-top: 4px;
-}
-
+.giveUpSection { display: flex; flex-direction: column; align-items: center; gap: 8px; }
+.noMore { color: var(--text-3); font-size: 11px; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
 .giveUpBtn {
-  width: 100%;
-  padding: 11px;
-  border-radius: 12px;
-  border: 2px solid rgba(220, 38, 38, 0.3);
-  background: transparent;
-  color: var(--wrong);
-  font-size: 14px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
-  letter-spacing: 1px;
+  width: 100%; padding: 10px; border-radius: var(--radius);
+  border: 2px solid rgba(220,38,38,0.25); background: transparent;
+  color: var(--wrong); font-size: 13px; font-weight: 700; font-family: inherit;
 }
-
-.giveUpWarning {
-  font-size: 11px;
-  color: var(--warning);
-  text-align: center;
-  margin: 0;
-  letter-spacing: 0.5px;
-}
+.giveUpWarning { font-size: 11px; color: var(--warning); text-align: center; margin: 0; }
 
 .confirmSection {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-  background: rgba(220, 38, 38, 0.05);
-  border: 1px solid rgba(220, 38, 38, 0.2);
-  border-radius: 12px;
-  padding: 14px;
+  display: flex; flex-direction: column; gap: 10px;
+  background: rgba(220,38,38,0.05); border: 1px solid rgba(220,38,38,0.15);
+  border-radius: var(--radius); padding: 14px;
 }
-
-.confirmText {
-  color: var(--wrong);
-  font-size: 14px;
-  font-weight: 700;
-  text-align: center;
-  margin: 0;
-}
-
-.solutionPreview {
-  color: var(--text-secondary);
-  font-size: 13px;
-  text-align: center;
-  margin: 0;
-}
-
-.solutionPreview strong {
-  color: var(--accent);
-  font-size: 16px;
-  letter-spacing: 2px;
-}
-
-.confirmBtns {
-  display: flex;
-  gap: 8px;
-}
-
+.confirmText { color: var(--wrong); font-size: 14px; font-weight: 700; text-align: center; margin: 0; }
+.solutionPreview { color: var(--text-2); font-size: 13px; text-align: center; margin: 0; }
+.solutionPreview strong { color: var(--accent); font-size: 16px; letter-spacing: 2px; }
+.confirmBtns { display: flex; gap: 8px; }
 .confirmYes {
-  flex: 1;
-  padding: 11px;
-  border-radius: 11px;
-  border: none;
-  background: var(--wrong);
-  color: white;
-  font-size: 13px;
-  font-weight: 800;
-  cursor: pointer;
-  font-family: inherit;
+  flex: 1; padding: 10px; border-radius: var(--radius-sm); border: none;
+  background: var(--wrong); color: #fff; font-size: 13px; font-weight: 800; font-family: inherit;
 }
-
 .confirmNo {
-  flex: 1;
-  padding: 11px;
-  border-radius: 11px;
-  border: 2px solid var(--border-strong);
-  background: var(--bg-card);
-  color: var(--text-secondary);
-  font-size: 13px;
-  font-weight: 700;
-  cursor: pointer;
-  font-family: inherit;
+  flex: 1; padding: 10px; border-radius: var(--radius-sm);
+  border: 2px solid var(--border-strong); background: var(--bg-card);
+  color: var(--text-2); font-size: 13px; font-weight: 700; font-family: inherit;
 }

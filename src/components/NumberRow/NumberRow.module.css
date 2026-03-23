@@ -1,0 +1,36 @@
+.row {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 10px;
+  padding: 10px 12px;
+  flex-shrink: 0;
+}
+
+.btn {
+  height: 100%;
+  min-height: 64px;
+  border-radius: var(--radius);
+  border: 2px solid var(--num-border);
+  background: var(--num-bg);
+  color: var(--num-color);
+  font-size: 28px;
+  font-weight: 800;
+  box-shadow: var(--shadow-lg);
+  transition: all 0.12s;
+}
+
+.btn.used {
+  background: var(--bg-alt);
+  border-color: var(--border);
+  color: transparent;
+  box-shadow: none;
+  cursor: not-allowed;
+}
+
+.empty {
+  min-height: 64px;
+  border-radius: var(--radius);
+  background: transparent;
+  border: 2px dashed var(--border);
+  opacity: 0.3;
+}

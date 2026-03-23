@@ -3,18 +3,10 @@ import { t, setLanguage, getLanguage, subscribeToLanguage, Language } from '../i
 
 export function useTranslation() {
   const [language, setLang] = useState<Language>(getLanguage())
-
   useEffect(() => {
-    // Subscribe to language changes from any source
-    const unsubscribe = subscribeToLanguage(() => {
-      setLang(getLanguage())
-    })
-    return unsubscribe
+    const unsub = subscribeToLanguage(() => setLang(getLanguage()))
+    return unsub
   }, [])
-
-  const changeLanguage = useCallback((lang: Language) => {
-    setLanguage(lang) // this triggers all subscribers including this hook
-  }, [])
-
+  const changeLanguage = useCallback((lang: Language) => { setLanguage(lang) }, [])
   return { t, language, changeLanguage }
 }

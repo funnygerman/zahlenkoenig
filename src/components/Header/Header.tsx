@@ -3,31 +3,25 @@ import styles from './Header.module.css'
 
 interface HeaderProps {
   levelId: string
-  totalScore: number
   pointStreak: number
-  onMenuClick: () => void
+  onSettingsClick: () => void
+  onHintClick: () => void
+  onRulesClick: () => void
 }
 
-export function Header({ levelId, totalScore, pointStreak, onMenuClick }: HeaderProps) {
+export function Header({ levelId, pointStreak, onSettingsClick, onHintClick, onRulesClick }: HeaderProps) {
   return (
     <header className={styles.header}>
-      <button className={styles.menuBtn} onClick={onMenuClick} aria-label="Menu">
-        ⋮
-      </button>
-      <div className={styles.title}>
-        <span className={styles.appName}>{t('appName')}</span>
+      <button className={styles.iconBtn} onClick={onSettingsClick} aria-label="Settings">⚙️</button>
+      <div className={styles.center}>
+        <span className={styles.title}>{t('appName')}</span>
         <span className={styles.level}>{levelId}</span>
       </div>
-      <div className={styles.stats}>
-        <div className={styles.stat}>
-          <span className={styles.statLabel}>{t('score.points')}</span>
-          <span className={styles.statValue}>{totalScore}</span>
-        </div>
+      <div className={styles.right}>
+        <button className={styles.iconBtn} onClick={onHintClick} aria-label="Hints">💡</button>
+        <button className={styles.iconBtn} onClick={onRulesClick} aria-label="Rules">❓</button>
         {pointStreak >= 2 && (
-          <div className={styles.stat}>
-            <span className={styles.statLabel}>🔥</span>
-            <span className={styles.statValue}>{pointStreak}</span>
-          </div>
+          <span className={styles.streak}>🔥{pointStreak}</span>
         )}
       </div>
     </header>

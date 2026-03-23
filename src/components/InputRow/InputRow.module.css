@@ -1,0 +1,116 @@
+.wrapper {
+  padding: 8px 12px;
+  flex-shrink: 0;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.field {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--bg-card);
+  border: 2px solid;
+  border-radius: var(--radius);
+  padding: 8px 10px;
+  min-height: 52px;
+  box-shadow: var(--shadow);
+  transition: border-color 0.2s;
+  overflow: hidden;
+}
+
+.borderDefault { border-color: var(--border-strong); }
+.borderCorrect  { border-color: var(--correct); }
+.borderWrong    { border-color: var(--wrong); }
+.borderWarning  { border-color: var(--warning); }
+
+.hintBtn {
+  background: none;
+  border: none;
+  font-size: 16px;
+  padding: 0;
+  flex-shrink: 0;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.expression {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+  overflow: hidden;
+}
+
+.placeholder { color: var(--text-3); font-size: 12px; letter-spacing: 0.5px; }
+
+.tokNum     { color: var(--text);          font-size: 20px; font-weight: 800; }
+.tokOp      { color: var(--op-color);      font-size: 20px; font-weight: 800; }
+.tokBracket { color: var(--bracket-color); font-size: 20px; font-weight: 800; }
+
+.clearBtn {
+  background: none;
+  border: none;
+  color: var(--wrong);
+  font-size: 14px;
+  font-weight: 800;
+  padding: 2px 4px;
+  flex-shrink: 0;
+  opacity: 0.7;
+  line-height: 1;
+}
+
+.equals {
+  font-size: 22px;
+  font-weight: 900;
+  color: var(--text-2);
+  flex-shrink: 0;
+}
+
+.target {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 68px;
+  min-height: 52px;
+  border-radius: var(--radius);
+  background: var(--target-bg);
+  box-shadow: var(--shadow-lg);
+  flex-shrink: 0;
+}
+
+.targetLabel {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 2px;
+  color: rgba(255,255,255,0.65);
+  text-transform: uppercase;
+}
+
+.targetValue {
+  font-size: 22px;
+  font-weight: 900;
+  color: #fff;
+  line-height: 1;
+}
+
+.msg {
+  min-height: 18px;
+  margin-top: 4px;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.msgWarning { color: var(--warning); }
+.msgCorrect { color: var(--correct); }
+.msgWrong   { color: var(--wrong); }

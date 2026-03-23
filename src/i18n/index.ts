@@ -2,27 +2,21 @@ import { de, Translations } from './de'
 import { en } from './en'
 
 const translations: Record<string, Translations> = { de, en }
-
 export type Language = 'de' | 'en'
 
 let currentLanguage: Language = navigator.language.startsWith('de') ? 'de' : 'en'
-
-// Listeners for language changes - used by useTranslation to trigger re-renders
 const listeners = new Set<() => void>()
 
 export function setLanguage(lang: Language): void {
   currentLanguage = lang
-  // Notify all registered listeners (React hooks)
   listeners.forEach(fn => fn())
 }
 
-export function getLanguage(): Language {
-  return currentLanguage
-}
+export function getLanguage(): Language { return currentLanguage }
 
 export function subscribeToLanguage(fn: () => void): () => void {
   listeners.add(fn)
-  return () => listeners.delete(fn) // returns unsubscribe function
+  return () => listeners.delete(fn)
 }
 
 function getNestedValue(obj: Record<string, unknown>, path: string): string {

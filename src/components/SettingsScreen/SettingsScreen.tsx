@@ -1,39 +1,17 @@
-import { LEVELS } from '../../core/models/Level'
+import { LEVELS, LEVEL_GROUPS } from '../../core/models/Level'
 import { StoredProgress } from '../../core/services/ProgressService'
 import { t } from '../../i18n'
 import styles from './SettingsScreen.module.css'
 
 interface SettingsScreenProps {
   progress: StoredProgress
-  onSelectLevel: (levelId: string) => void
-  onSetCustomTarget: (levelId: string, target: number) => void
+  onSelectLevel: (id: string) => void
   onSetLanguage: (lang: 'de' | 'en') => void
   onReset: () => void
   onBack: () => void
 }
 
-const groupLabels: Record<string, string> = {
-  beginner: '🌱',
-  advanced: '🔥',
-  expert: '🧠',
-}
-
-const groupKeys: Record<string, string> = {
-  beginner: 'level.beginner',
-  advanced: 'level.advanced',
-  expert: 'level.expert',
-}
-
-export function SettingsScreen({
-  progress,
-  onSelectLevel,
-  onSetCustomTarget,
-  onSetLanguage,
-  onReset,
-  onBack,
-}: SettingsScreenProps) {
-  const groups = ['beginner', 'advanced', 'expert'] as const
-
+export function SettingsScreen({ progress, onSelectLevel, onSetLanguage, onReset, onBack }: SettingsScreenProps) {
   return (
     <div className={styles.screen}>
       <header className={styles.header}>
@@ -61,43 +39,35 @@ export function SettingsScreen({
         {/* Levels */}
         <section className={styles.section}>
           <h3 className={styles.sectionTitle}>{t('settings.levels')}</h3>
-          {groups.map(group => (
-            <div key={group} className={styles.group}>
+          {LEVEL_GROUPS.map(group => (
+            <div key={group.key} className={styles.group}>
               <div className={styles.groupLabel}>
-                {groupLabels[group]} {t(groupKeys[group])}
+                {group.label} {t(`level.${group.key}` as Parameters<typeof t>[0])}
               </div>
-              <div className={styles.levelGrid}>
-                {LEVELS.filter(l => l.group === group).map(level => {
-                  const isCurrent = progress.currentLevelId === level.id
-                  const streak = Math.min(progress.unlockStreaks[level.id] ?? 0, 3)
-
+              <div className={styles.levelCards}>
+                {group.ids.map(id => {
+                  const level = LEVELS.find(l => l.id === id)!
+                  const streak = progress.unlockStreaks[id] ?? 0
+                  const isCurrent = progress.currentLevelId === id
                   return (
-                    <div key={level.id} className={styles.levelCard}>
-                      <button
-                        className={`${styles.levelBtn} ${isCurrent ? styles.current : ''}`}
-                        onClick={() => onSelectLevel(level.id)}
-                      >
-                        <span className={styles.levelId}>{level.id}</span>
-                        <span className={styles.streakDots}>
-                          {[0, 1, 2].map(i => (
-                            <span key={i} className={`${styles.dot} ${i < streak ? styles.dotFilled : ''}`} />
-                          ))}
-                        </span>
-                      </button>
-                      <div className={styles.targetSlider}>
-                        <label className={styles.sliderLabel}>
-                          max {progress.customTargets[level.id] ?? level.targetRange.max}
-                        </label>
-                        <input
-                          type="range"
-                          min={1}
-                          max={Math.min(level.maxTarget, 500)}
-                          value={progress.customTargets[level.id] ?? level.targetRange.max}
-                          onChange={e => onSetCustomTarget(level.id, Number(e.target.value))}
-                          className={styles.slider}
-                        />
-                      </div>
-                    </div>
+                    <button
+                      key={id}
+                      className={`${styles.levelCard} ${isCurrent ? styles.current : ''}`}
+                      onClick={() => onSelectLevel(id)}
+                    >
+                      <span className={styles.cardId}>{id}</span>
+                      <span className={styles.cardNums}>
+                        {t('level.numbers', { n: level.numberCount })}
+                      </span>
+                      <span className={styles.cardRange}>
+                        {t('level.target_range', { min: level.targetRange.min, max: level.targetRange.max })}
+                      </span>
+                      <span className={styles.cardStreak}>
+                        {[0,1,2].map(i => (
+                          <span key={i} className={`${styles.dot} ${i < streak ? styles.dotFilled : ''}`} />
+                        ))}
+                      </span>
+                    </button>
                   )
                 })}
               </div>
@@ -109,9 +79,7 @@ export function SettingsScreen({
         <section className={styles.section}>
           <button className={styles.resetBtn} onClick={() => {
             if (window.confirm(t('settings.reset_confirm'))) onReset()
-          }}>
-            {t('settings.reset')}
-          </button>
+          }}>{t('settings.reset')}</button>
         </section>
       </div>
     </div>

@@ -10,6 +10,7 @@ export const de = {
     wrong_answer: 'Nicht ganz – versuch es nochmal!',
   },
   hint: {
+    title: 'Tipps',
     intermediate_value: 'Kannst du eine {{value}} berechnen?',
     think_about_target: 'Das Ziel ist {{target}} – wie erreichst du es?',
     look_at_numbers: 'Schau dir {{a}} und {{b}} an',
@@ -17,7 +18,6 @@ export const de = {
     keep_trying: 'Du schaffst das!',
     next_hint: 'Nächster Tipp',
     no_more_hints: 'Keine weiteren Tipps',
-    title: 'Tipps',
     give_up: 'Aufgeben',
     give_up_warning: '⚠️ Beide Streaks werden zurückgesetzt!',
     give_up_confirm: 'Wirklich aufgeben?',
@@ -25,31 +25,38 @@ export const de = {
   },
   game: {
     target: 'ZIEL',
-    check: 'Prüfen',
     correct: 'Richtig! 🎉',
     streak_bonus: 'Serie-Bonus! 🔥',
+    placeholder: 'Zahlen & Operatoren wählen…',
   },
   level: {
     beginner: 'Anfänger',
     advanced: 'Fortgeschritten',
     expert: 'Experte',
-    locked: 'Gesperrt',
-    unlock_progress: '{{current}} von {{total}} zum freischalten',
+    numbers: '{{n}} Zahlen',
+    target_range: '{{min}}–{{max}}',
+  },
+  rules: {
+    title: 'Spielregeln',
+    goal_title: '🎯 Ziel',
+    goal_text: 'Berechne die Zielzahl mit deinen Zahlen!',
+    rules_title: '📐 Regeln',
+    rule1: 'Benutze alle Zahlen genau einmal',
+    rule2: 'Erlaubte Operationen: + − × ÷ ( )',
+    rule3: 'Das Ergebnis muss ≥ 0 sein',
+    tips_title: '💡 Tipps',
+    tips_text: 'Tippe auf 💡 wenn du nicht weiterkommst',
   },
   settings: {
     title: 'Einstellungen',
     levels: 'Levels',
-    target_range: 'Zielzahl-Bereich',
-    target_max: 'Maximum: {{max}}',
     language: 'Sprache',
-    progress: 'Fortschritt',
     reset: 'Zurücksetzen',
     reset_confirm: 'Wirklich alles zurücksetzen?',
     back: 'Zurück',
   },
-  score: {
-    points: 'Punkte',
-    streak: 'Serie',
+  streak: {
+    label: 'Serie',
   },
 }
 

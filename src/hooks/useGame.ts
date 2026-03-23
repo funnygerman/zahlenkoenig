@@ -1,7 +1,6 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useRef } from 'react'
 import { Token } from '../core/models/Token'
 import { Puzzle } from '../core/models/Puzzle'
-import { GameStatus } from '../core/models/GameState'
 import { PuzzleValidator, SolutionResult } from '../core/services/PuzzleValidator'
 import { PuzzleGenerator } from '../core/services/PuzzleGenerator'
 import { ScoringService } from '../core/services/ScoringService'
@@ -12,27 +11,28 @@ const validator = new PuzzleValidator()
 const generator = new PuzzleGenerator()
 const scorer = new ScoringService()
 
+export type GameStatus = 'idle' | 'correct' | 'wrong'
+
 interface UseGameOptions {
   levelId: string
-  customTarget?: number
   pointStreak: number
-  onResult: (result: SolutionResult, points: number, newPointStreak: number) => void
+  onResult: (result: SolutionResult, newPointStreak: number) => void
 }
 
-export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGameOptions) {
+export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
   const level = getLevelById(levelId)
-
-  const [puzzle, setPuzzle] = useState<Puzzle>(() => generator.generate(level, customTarget))
+  const [puzzle, setPuzzle] = useState<Puzzle>(() => generator.generate(level))
   const [tokens, setTokens] = useState<Token[]>([])
   const [status, setStatus] = useState<GameStatus>('idle')
   const [warning, setWarning] = useState<string | null>(null)
   const [firstAttempt, setFirstAttempt] = useState(true)
   const [hintsUsed, setHintsUsed] = useState(0)
+  const pointStreakRef = useRef(pointStreak)
+  pointStreakRef.current = pointStreak
 
-  // Load puzzle bank and regenerate when level changes
+  // Regenerate when level changes
   useEffect(() => {
-    const newLevel = getLevelById(levelId)
-    generator.generateAsync(newLevel, customTarget).then(p => {
+    generator.generateAsync(getLevelById(levelId)).then(p => {
       setPuzzle(p)
       setTokens([])
       setStatus('idle')
@@ -48,11 +48,8 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
   }, [])
 
   const addToken = useCallback((token: Token) => {
-    const validation = validator.validateToken(tokens, token)
-    if (!validation.valid && validation.errorKey) {
-      showWarning(validation.errorKey)
-      return
-    }
+    const v = validator.validateToken(tokens, token)
+    if (!v.valid && v.errorKey) { showWarning(v.errorKey); return }
     setTokens(prev => [...prev, token])
     setStatus('idle')
     setWarning(null)
@@ -73,35 +70,30 @@ export function useGame({ levelId, customTarget, pointStreak, onResult }: UseGam
   const submitSolution = useCallback((currentHintsUsed: number) => {
     const result = validator.validateSolution(tokens, puzzle, firstAttempt, currentHintsUsed)
     if (!result.correct) {
-      const usedCount = tokens.filter(tok => tok.type === 'number').length
-      if (usedCount < puzzle.numbers.length) {
-        showWarning('error.use_all_numbers')
-        return
-      }
+      const usedCount = tokens.filter(t => t.type === 'number').length
+      if (usedCount < puzzle.numbers.length) { showWarning('error.use_all_numbers'); return }
       setStatus('wrong')
       setFirstAttempt(false)
       return
     }
-    const scoreResult = scorer.calculate(result, pointStreak)
+    const { newPointStreak } = scorer.calculate(result, pointStreakRef.current)
     setStatus('correct')
-    onResult(result, scoreResult.points, scoreResult.newPointStreak)
-  }, [tokens, puzzle, firstAttempt, pointStreak, onResult, showWarning])
+    onResult(result, newPointStreak)
+  }, [tokens, puzzle, firstAttempt, onResult, showWarning])
 
-  const nextPuzzle = useCallback((newHintsUsed?: number) => {
-    const currentLevel = getLevelById(levelId)
-    generator.generateAsync(currentLevel, customTarget).then(p => {
+  const nextPuzzle = useCallback((newHintsUsed = 0) => {
+    generator.generateAsync(getLevelById(levelId)).then(p => {
       setPuzzle(p)
       setTokens([])
       setStatus('idle')
       setWarning(null)
       setFirstAttempt(true)
-      setHintsUsed(newHintsUsed ?? 0)
+      setHintsUsed(newHintsUsed)
     })
-  }, [levelId, customTarget])
+  }, [levelId])
 
   return {
-    puzzle, tokens, status, warning, hintsUsed,
-    setHintsUsed, addToken, deleteToken, clearTokens,
-    submitSolution, nextPuzzle,
+    puzzle, tokens, status, warning, hintsUsed, setHintsUsed,
+    addToken, deleteToken, clearTokens, submitSolution, nextPuzzle,
   }
 }

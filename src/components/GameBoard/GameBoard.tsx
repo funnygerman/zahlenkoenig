@@ -2,110 +2,72 @@ import { useState, useCallback, useRef } from 'react'
 import { useGame } from '../../hooks/useGame'
 import { useHints } from '../../hooks/useHints'
 import { useProgress } from '../../hooks/useProgress'
-import { getLevelById } from '../../core/models/Level'
 import { getSolutionPreview } from '../../core/services/HintEngine'
+import { t, setLanguage } from '../../i18n'
 import { Header } from '../Header/Header'
-import { InputField } from '../InputField/InputField'
+import { NumberRow } from '../NumberRow/NumberRow'
+import { InputRow } from '../InputRow/InputRow'
 import { KeyPad } from '../KeyPad/KeyPad'
 import { HintPopover } from '../HintPopover/HintPopover'
+import { RulesPopover } from '../RulesPopover/RulesPopover'
 import { SettingsScreen } from '../SettingsScreen/SettingsScreen'
-import { Token } from '../../core/models/Token'
-import { t, setLanguage } from '../../i18n'
+import { NumberToken, OperatorToken, BracketToken } from '../../core/models/Token'
+import { getLevelById } from '../../core/models/Level'
 import styles from './GameBoard.module.css'
 
 export function GameBoard() {
   const [showSettings, setShowSettings] = useState(false)
-  const [showHints, setShowHints] = useState(false)
-  const [celebrate, setCelebrate] = useState(false)
+  const [showHints,    setShowHints]    = useState(false)
+  const [showRules,    setShowRules]    = useState(false)
+  const [celebrate,    setCelebrate]    = useState(false)
 
-  const {
-    progress, recordResult, setLevel, setCustomTarget,
-    setLanguage: saveLanguage, reset, isUnlocked,
-  } = useProgress()
-
-  const levelIdRef = useRef(progress.currentLevelId)
-  levelIdRef.current = progress.currentLevelId
-
+  const { progress, recordResult, setLevel, setLanguage: saveLanguage, reset } = useProgress()
   const levelId = progress.currentLevelId
   const level = getLevelById(levelId)
-  const customTarget = progress.customTargets[levelId]
+  const levelIdRef = useRef(levelId)
+  levelIdRef.current = levelId
 
   const {
     puzzle, tokens, status, warning, setHintsUsed,
-    addToken, deleteToken, clearTokens, submitSolution, nextPuzzle
+    addToken, deleteToken, clearTokens, submitSolution, nextPuzzle,
   } = useGame({
     levelId,
-    customTarget,
     pointStreak: progress.pointStreak,
-    onResult: (result, points, newPointStreak) => {
-      recordResult(levelIdRef.current, result, points, newPointStreak)
+    onResult: (result, newPointStreak) => {
+      recordResult(levelIdRef.current, result, newPointStreak)
       setCelebrate(true)
-      setTimeout(() => {
-        setCelebrate(false)
-        nextPuzzle(0)
-        resetHints()
-      }, 1200)
+      setTimeout(() => { setCelebrate(false); nextPuzzle(0); resetHints() }, 1200)
     },
   })
 
   const { hints, hintsRemaining, requestHint, resetHints } = useHints(puzzle)
 
-  const usedNumberIndices = tokens
-    .filter(tok => tok.type === 'number')
-    .map(tok => (tok as { type: 'number'; index: number }).index)
-
-  const handleToken = useCallback((token: Token) => {
-    addToken(token)
-  }, [addToken])
-
-  const handleSubmit = useCallback(() => {
-    submitSolution(hints.length)
-  }, [submitSolution, hints.length])
+  const usedIndices = tokens.filter(t => t.type==='number').map(t => (t as NumberToken).index)
 
   const handleHintClick = useCallback(() => {
-    if (hints.length === 0) {
-      requestHint()
-      setHintsUsed(1)
-    }
+    if (hints.length === 0) { requestHint(); setHintsUsed(1) }
     setShowHints(true)
   }, [hints.length, requestHint, setHintsUsed])
 
   const handleRequestHint = useCallback(() => {
     requestHint()
     setHintsUsed(hints.length + 1)
-  }, [requestHint, hints.length, setHintsUsed])
+  }, [hints.length, requestHint, setHintsUsed])
 
   const handleGiveUp = useCallback(() => {
-    // Signal give up to ProgressService (resets both streaks)
-    recordResult(levelIdRef.current, {
-      correct: false,
-      firstAttempt: false,
-      hintsUsed: 99,
-    }, 0, 0)
-
-    // Clear input and load next puzzle cleanly (no token injection to avoid race condition)
-    clearTokens()
-    resetHints()
-    nextPuzzle(0)
-    setShowHints(false)
+    recordResult(levelIdRef.current, { correct: false, firstAttempt: false, hintsUsed: 99 }, 0)
+    clearTokens(); resetHints(); nextPuzzle(0); setShowHints(false)
   }, [recordResult, clearTokens, resetHints, nextPuzzle])
 
-  const handleSelectLevel = useCallback((newLevelId: string) => {
-    if (!isUnlocked(newLevelId)) return
-    setLevel(newLevelId)
-    clearTokens()
-    resetHints()
-    setShowSettings(false)
-  }, [isUnlocked, setLevel, clearTokens, resetHints])
+  const handleSelectLevel = useCallback((id: string) => {
+    setLevel(id); clearTokens(); resetHints(); setShowSettings(false)
+  }, [setLevel, clearTokens, resetHints])
 
-  const handleSetLanguage = useCallback((lang: 'de' | 'en') => {
-    setLanguage(lang) // triggers re-render via subscription in useTranslation
-    saveLanguage(lang)
+  const handleSetLanguage = useCallback((lang: 'de'|'en') => {
+    setLanguage(lang); saveLanguage(lang)
   }, [saveLanguage])
 
-  const solutionPreview = puzzle.solutions[0]
-    ? getSolutionPreview(puzzle.solutions[0])
-    : '?'
+  const solutionPreview = puzzle.solutions[0] ? getSolutionPreview(puzzle.solutions[0]) : '?'
 
   return (
     <div className={`${styles.board} ${celebrate ? styles.celebrate : ''}`}>
@@ -113,50 +75,56 @@ export function GameBoard() {
         <SettingsScreen
           progress={progress}
           onSelectLevel={handleSelectLevel}
-          onSetCustomTarget={setCustomTarget}
           onSetLanguage={handleSetLanguage}
           onReset={reset}
           onBack={() => setShowSettings(false)}
         />
       )}
-
       {showHints && (
         <HintPopover
           hints={hints}
           hintsRemaining={hintsRemaining}
+          solutionPreview={solutionPreview}
           onRequestHint={handleRequestHint}
           onGiveUp={handleGiveUp}
           onClose={() => setShowHints(false)}
-          solutionPreview={solutionPreview}
         />
       )}
+      {showRules && <RulesPopover onClose={() => setShowRules(false)} />}
 
       <Header
         levelId={levelId}
-        totalScore={progress.totalScore}
         pointStreak={progress.pointStreak}
-        onMenuClick={() => setShowSettings(true)}
+        onSettingsClick={() => setShowSettings(true)}
+        onHintClick={handleHintClick}
+        onRulesClick={() => setShowRules(true)}
       />
 
-      <InputField
+      <NumberRow
+        numbers={puzzle.numbers}
+        usedIndices={usedIndices}
+        onPress={(tok: NumberToken) => addToken(tok)}
+      />
+
+      <InputRow
         tokens={tokens}
+        target={puzzle.target}
         status={status}
         warning={warning}
         onHintClick={handleHintClick}
         onClear={clearTokens}
-        onDelete={deleteToken}
       />
 
       <KeyPad
-        puzzle={puzzle}
         level={level}
-        usedNumberIndices={usedNumberIndices}
-        onToken={handleToken}
-        onSubmit={handleSubmit}
+        onOperator={(tok: OperatorToken) => addToken(tok)}
+        onBracket={(tok: BracketToken) => addToken(tok)}
+        onDelete={deleteToken}
+        onSubmit={() => submitSolution(hints.length)}
       />
 
       {status === 'correct' && (
-        <div className={styles.correctBanner}>
+        <div className={styles.banner}>
           {t('game.correct')}
           {progress.pointStreak >= 3 && <span> {t('game.streak_bonus')}</span>}
         </div>

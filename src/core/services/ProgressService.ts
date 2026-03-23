@@ -3,113 +3,56 @@ import { IStorage } from '../storage/IStorage'
 import { LEVELS } from '../models/Level'
 
 export interface StoredProgress {
-  unlockedLevels: string[]
   unlockStreaks: Record<string, number>
-  totalScore: number
   pointStreak: number
-  customTargets: Record<string, number>
   language: 'de' | 'en'
   currentLevelId: string
 }
 
 const STORAGE_KEY = 'zahlenkoenig_progress'
 const UNLOCK_THRESHOLD = 3
+const GIVE_UP_SIGNAL = 99
 const ALL_LEVEL_IDS = LEVELS.map(l => l.id)
-const GIVE_UP_SIGNAL = 99 // hintsUsed value that signals give up
-
-export interface IProgressService {
-  recordResult(levelId: string, result: SolutionResult, points: number, newPointStreak: number): void
-  isUnlocked(levelId: string): boolean
-  getUnlockStreak(levelId: string): number
-  getProgress(): StoredProgress
-  setLevel(levelId: string): void
-  setCustomTarget(levelId: string, target: number): void
-  setLanguage(lang: 'de' | 'en'): void
-  reset(): void
-}
 
 const defaultProgress = (): StoredProgress => ({
-  unlockedLevels: ALL_LEVEL_IDS,
   unlockStreaks: {},
-  totalScore: 0,
   pointStreak: 0,
-  customTargets: {},
   language: navigator.language.startsWith('de') ? 'de' : 'en',
-  currentLevelId: 'F2',
+  currentLevelId: 'F2.1',
 })
 
-export class ProgressService implements IProgressService {
+export class ProgressService {
   constructor(private storage: IStorage) {}
 
   private load(): StoredProgress {
     const stored = this.storage.load<StoredProgress>(STORAGE_KEY)
     if (!stored) return defaultProgress()
-    stored.unlockedLevels = ALL_LEVEL_IDS
-    const validIds = ALL_LEVEL_IDS
-    const oldIds = ['A4', 'E2']
-    if (!stored.currentLevelId || !validIds.includes(stored.currentLevelId) || oldIds.includes(stored.currentLevelId)) {
-      stored.currentLevelId = 'F2'
+    // Migrate: invalid levelId → F2.1
+    if (!stored.currentLevelId || !ALL_LEVEL_IDS.includes(stored.currentLevelId)) {
+      stored.currentLevelId = 'F2.1'
       this.storage.save(STORAGE_KEY, stored)
     }
     return stored
   }
 
-  private save(progress: StoredProgress): void {
-    this.storage.save(STORAGE_KEY, progress)
-  }
+  private save(p: StoredProgress): void { this.storage.save(STORAGE_KEY, p) }
 
-  recordResult(levelId: string, result: SolutionResult, points: number, newPointStreak: number): void {
-    const progress = this.load()
-    progress.totalScore = Math.max(0, progress.totalScore + points)
-    progress.pointStreak = newPointStreak
-
+  recordResult(levelId: string, result: SolutionResult, newPointStreak: number): void {
+    const p = this.load()
+    p.pointStreak = newPointStreak
     const isGiveUp = result.hintsUsed === GIVE_UP_SIGNAL
-
     if (isGiveUp) {
-      // Give up: reset both streaks
-      progress.unlockStreaks[levelId] = 0
-      progress.pointStreak = 0
+      p.unlockStreaks[levelId] = 0
+      p.pointStreak = 0
     } else if (result.correct && result.hintsUsed === 0) {
-      // Perfect solve: increment unlock streak
-      const current = progress.unlockStreaks[levelId] ?? 0
-      progress.unlockStreaks[levelId] = Math.min(current + 1, UNLOCK_THRESHOLD)
+      const cur = p.unlockStreaks[levelId] ?? 0
+      p.unlockStreaks[levelId] = Math.min(cur + 1, UNLOCK_THRESHOLD)
     }
-    // Wrong answer or hint used: unlock streak stays as-is
-
-    this.save(progress)
+    this.save(p)
   }
 
-  isUnlocked(_levelId: string): boolean {
-    return true
-  }
-
-  getUnlockStreak(levelId: string): number {
-    return this.load().unlockStreaks[levelId] ?? 0
-  }
-
-  getProgress(): StoredProgress {
-    return this.load()
-  }
-
-  setLevel(levelId: string): void {
-    const progress = this.load()
-    progress.currentLevelId = levelId
-    this.save(progress)
-  }
-
-  setCustomTarget(levelId: string, target: number): void {
-    const progress = this.load()
-    progress.customTargets[levelId] = target
-    this.save(progress)
-  }
-
-  setLanguage(lang: 'de' | 'en'): void {
-    const progress = this.load()
-    progress.language = lang
-    this.save(progress)
-  }
-
-  reset(): void {
-    this.storage.clear()
-  }
+  getProgress(): StoredProgress { return this.load() }
+  setLevel(id: string): void { const p=this.load(); p.currentLevelId=id; this.save(p) }
+  setLanguage(lang: 'de'|'en'): void { const p=this.load(); p.language=lang; this.save(p) }
+  reset(): void { this.storage.clear() }
 }
