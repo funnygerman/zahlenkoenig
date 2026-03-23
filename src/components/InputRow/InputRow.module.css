@@ -1,5 +1,5 @@
 .wrapper {
-  padding: 10px 12px;
+  padding: 10px 12px 6px;
   flex-shrink: 0;
 }
 
@@ -91,11 +91,13 @@
 }
 
 .msg {
-  min-height: 16px;
-  margin-top: 3px;
+  height: 0;
+  overflow: visible;
   text-align: center;
   font-size: 13px;
   font-weight: 800;
+  position: relative;
+  top: 3px;
 }
 
 .msgWarning { color: var(--warning); }
