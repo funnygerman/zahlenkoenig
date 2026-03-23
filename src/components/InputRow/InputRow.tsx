@@ -16,6 +16,14 @@ export function InputRow({ tokens, target, status, warning, onClear }: InputRowP
     : status === 'wrong'   ? styles.borderWrong
     : styles.borderDefault
 
+  const displayValue = (tok: Token): string => {
+    if (tok.type === 'operator') {
+      const map: Record<string, string> = { '+': '+', '-': '−', '*': '×', '/': '÷' }
+      return map[tok.value] ?? tok.value
+    }
+    return String(tok.value)
+  }
+
   return (
     <div className={styles.wrapper}>
       <div className={styles.row}>
@@ -27,7 +35,7 @@ export function InputRow({ tokens, target, status, warning, onClear }: InputRowP
                 tok.type === 'number'  ? styles.tokNum :
                 tok.type === 'bracket' ? styles.tokBracket :
                                          styles.tokOp
-              }>{tok.value}</span>
+              }>{displayValue(tok)}</span>
             ))}
           </div>
           {tokens.length > 0 && (
