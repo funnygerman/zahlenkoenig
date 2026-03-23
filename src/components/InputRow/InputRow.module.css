@@ -30,7 +30,7 @@
   min-width: 0;
 }
 
-.borderDefault { border-color: var(--border-strong); }
+.borderDefault { border-color: rgba(24,95,165,0.35); }
 .borderCorrect  { border-color: var(--correct); }
 .borderWrong    { border-color: var(--wrong); }
 .borderWarning  { border-color: var(--warning); }
@@ -45,7 +45,7 @@
   min-width: 0;
 }
 
-.tokNum     { color: var(--text);          font-size: 18px; font-weight: 800; white-space: nowrap; }
+.tokNum     { color: #185fa5;               font-size: 18px; font-weight: 800; white-space: nowrap; }
 .tokOp      { color: var(--op-color);      font-size: 18px; font-weight: 800; white-space: nowrap; }
 .tokBracket { color: var(--bracket-color); font-size: 18px; font-weight: 800; white-space: nowrap; }
 

@@ -1,0 +1,58 @@
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html { height: 100%; }
+body { height: 100%; overflow: hidden; }
+
+:root {
+  --bg:            #faf7f2;
+  --bg-card:       #ffffff;
+  --bg-alt:        #f0ebe0;
+  --border:        rgba(160,130,80,0.18);
+  --border-strong: rgba(160,130,80,0.38);
+  --accent:        #c47a1a;
+  --accent-light:  rgba(196,122,26,0.10);
+  --num-bg:        #ffffff;
+  --num-border:    rgba(24,95,165,0.35);
+  --num-color:     #185fa5;
+  --op-bg:         #fff8ec;
+  --op-border:     rgba(196,122,26,0.38);
+  --op-color:      #c47a1a;
+  --bracket-bg:    #ecf5ff;
+  --bracket-border:rgba(60,140,220,0.30);
+  --bracket-color: #2a6abf;
+  --submit-bg:     linear-gradient(135deg,#c47a1a,#a85e0a);
+  --target-bg:     linear-gradient(135deg,#1e3a5f,#185fa5);
+  --text:          #2a1f0a;
+  --text-2:        #8a7050;
+  --text-3:        #baa880;
+  --correct:       #16a34a;
+  --wrong:         #dc2626;
+  --warning:       #ea580c;
+  --shadow:        0 2px 8px rgba(160,130,80,0.12);
+  --shadow-lg:     0 4px 16px rgba(160,130,80,0.20);
+  --radius:        14px;
+  --radius-sm:     10px;
+}
+
+body {
+  font-family: 'Courier New', Courier, monospace;
+  background: var(--bg-alt);
+  color: var(--text);
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
+}
+
+#root {
+  height: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+}
+
+@media (min-width: 500px) {
+  #root { align-items: center; }
+  body  { background: #e8e0d0; }
+}
+
+button { font-family: inherit; cursor: pointer; }
+button:active { transform: scale(0.93); }
