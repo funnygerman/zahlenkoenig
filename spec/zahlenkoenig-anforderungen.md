@@ -1,6 +1,6 @@
 # Zahlenkönig / Number King – Anforderungen
 
-**Version:** 1.4  
+**Version:** 1.5  
 **Stand:** März 2026
 
 ---
@@ -26,7 +26,7 @@
 - Division akzeptiert nur ganzzahlige Ergebnisse
 - Alle Levels nutzen eine vorberechnete Puzzle-Bank (JSON-Dateien)
 - A1, A2, A3, F1: exhaustive Bank (alle möglichen Rätsel)
-- F2, F3, E1 und Unterlevel: 500 Rätsel pro Unterlevel
+- F2, F3, E1 Unterlevel: 300–500 Rätsel pro Unterlevel
 - Bank wird ohne Wiederholung abgespielt (shuffled, wie Kartenstapel)
 - Fallback-Strategie: Live-Generierung → vordefinierte Rätsel-Bibliothek
 
@@ -46,7 +46,7 @@
 - Alle Levels und Unterlevel immer frei wählbar (keine Sperrung)
 - Keine automatische Beförderung – Nutzer entscheidet selbst
 - Streak-Fortschritt (●●○) pro Level/Unterlevel angezeigt, sperrt nichts
-- Kein Zielzahl-Schieberegler mehr
+- Kein Zielzahl-Schieberegler
 
 ### 2.4 Eingabe-Validierung (Echtzeit)
 
@@ -68,12 +68,12 @@
 | 💡 1 | Nützlicher Zwischenwert | Alle Levels | „Kannst du eine 7 berechnen?" |
 | 💡💡 2 | Relevante zwei Zahlen | Fortgeschritten + Experte | „Schau dir 2 und 5 an" |
 | 💡💡💡 3 | Operator-Hinweis (bevorzugt × oder ÷) | Experte | „Versuch es mit ×" |
-| 🏳️ Aufgeben | Lösungsvorschau + Streak-Reset | Alle, nur nach letztem Tipp | `3*(…` |
+| 🏳️ Aufgeben | Lösungsvorschau + Streak-Reset | Alle, nur nach letztem Tipp | `3×(…` |
 
 - Vollständige Lösung wird **nie** angezeigt
 - Erster Tipp wird automatisch beim Öffnen des Popovers angezeigt
 - Max. reguläre Tipps: Anfänger 1, Fortgeschritten 2, Experte 3
-- 💡-Button immer aktiv; zeigt bisherige Tipps wenn alle verbraucht
+- 💡 nur im Header (nicht im Eingabefeld)
 - Aufgeben erscheint erst **nachdem alle regulären Tipps verbraucht sind**
 - Aufgeben erfordert Bestätigung mit Warnung: „⚠️ Beide Streaks werden zurückgesetzt!"
 - Nach Bestätigung: neues Rätsel, beide Streaks auf 0
@@ -91,7 +91,7 @@
 | Falsche Antwort | bleibt |
 | Aufgeben | Reset auf 0 |
 
-### 2.7 Spielregeln-Popup (neu)
+### 2.7 Spielregeln-Popup
 
 Inhalt des ❓-Popups:
 
@@ -116,8 +116,9 @@ Tippe auf 💡 wenn du nicht weiterkommst
 - **PWA** – installierbar, offline-fähig
 - **Mehrsprachig** – Deutsch und Englisch (automatisch per Gerätesprache, manuell umschaltbar)
 - **Kein Sound**
-- **Light Mode** Design (warme Cremeton-Palette)
+- **Light Mode** Design
 - **Lokale Datenspeicherung** (LocalStorage, kein Account)
+- **Desktop** – App zentriert dargestellt, max. 430px Breite
 
 ---
 
@@ -129,23 +130,17 @@ Tippe auf 💡 wenn du nicht weiterkommst
 ┌──────────────────────────────────┐
 │  ⚙️      Zahlenkönig    💡  ❓  🔥3│  Header
 ├──────────────────────────────────┤
-│  [    ] [    ] [ Z1 ] [ Z2 ]    │  Zahlen-Zeile
+│  [    ] [    ] [ Z1 ] [ Z2 ]    │  Zahlen-Zeile (quadratisch)
 ├──────────────────────────────────┤
-│  [ 3×(2+5)··· ]  =  [ 14 ]     │  Eingabe = Ziel
+│  [ Eingabe...      ] [ = 14 ]   │  Eingabe + Zielzahl
 ├──────────────────────────────────┤
-│  [  +  ] [  −  ] [  ⌫  ] [  = ]│  Basis-Operatoren
+│  [  +  ] [  −  ] [  ⌫  ] [  = ]│  Basis-Operatoren (quadratisch)
 ├──────────────────────────────────┤
-│  [  ×  ] [  ÷  ] [  (  ] [  ) ]│  Erweiterte Operatoren
+│  [  ×  ] [  ÷  ] [  (  ] [  ) ]│  Erweiterte Ops (nur wenn Level)
+├──────────────────────────────────┤
+│  (unsichtbarer Spacer)           │  Füllt verbleibenden Platz
 └──────────────────────────────────┘
 ```
-
-Höhenverteilung (ca.):
-- Header: 8%
-- Zahlen-Zeile: 18%
-- Eingabe + Ziel: 15%
-- Basis-Ops: 18%
-- Erweiterte Ops: 18%
-- Restlicher Padding: 23%
 
 ### 4.2 Zahlen-Zeile
 
@@ -155,45 +150,51 @@ A2 (3 Zahlen):  [    ]  [ Z3 ]  [ Z1 ]  [ Z2 ]
 A3 (4 Zahlen):  [ Z4 ]  [ Z3 ]  [ Z1 ]  [ Z2 ]
 ```
 
-- Z1 und Z2 immer sichtbar (rechts, stabile Position)
-- Z3 erscheint bei ≥ 3 Zahlen (zweite von rechts)
-- Z4 erscheint bei 4 Zahlen (ganz links)
-- Leere Plätze: unsichtbar aber Platz bleibt erhalten (Layout stabil)
+- Z1 und Z2 immer rechts (stabile Position)
+- Z3 und Z4 wachsen nach links
+- Leere Plätze: unsichtbar, Layout bleibt stabil
+- Alle Buttons quadratisch (`aspect-ratio: 1/1`)
 - Verwendete Zahlen: ausgegraut + inaktiv
+- Farbe: weißer Hintergrund, blauer Rand und blaue Schrift
 
 ### 4.3 Eingabe-Zeile
 
-- Eingabefeld links (wächst mit dem Ausdruck)
-- Statisches `=` Textzeichen in der Mitte
-- Zielzahl-Button rechts (nicht klickbar, prominent hervorgehoben)
-- `✕` um Eingabe komplett zu löschen (im Eingabefeld oder daneben)
+- Layout: `[Eingabefeld] [= Ziel]` – zwei Spalten
+- Eingabefeld: gleiche Höhe wie Zahlen-Buttons, wächst in der Breite
+- Zielzahl-Button: quadratisch, gleiche Größe wie Zahlen-Buttons
+- `=` steht links im Zielzahl-Button (horizontal, halbtransparent)
+- Farbe Eingabefeld: weißer Hintergrund, blauer Rand, blaue Zahlen
+- Farbe Zielzahl-Button: dunkelblau, weiße Schrift
+- `✕` löscht die gesamte Eingabe (erscheint wenn Tokens vorhanden)
+- Kein Placeholder-Text
+- Operatoren werden als `+`, `−`, `×`, `÷` angezeigt (nicht `*`, `/`)
 
-### 4.4 Button-Regeln
+### 4.4 Operator-Zeilen
 
-- Layout bleibt immer gleich, unabhängig vom Level
-- Nicht verfügbare Operatoren (`×`, `÷` bei Anfänger): leer + inaktiv
-- Klammern bei `maxBracketDepth === 0`: leer + inaktiv
-- `=` Button: prüft den Ausdruck (immer sichtbar)
+- Zeile 3 (`+`, `−`, `⌫`, `=`): immer sichtbar
+- Zeile 4 (`×`, `÷`, `(`, `)`): **nur angezeigt wenn Level `×`/`÷` oder Klammern unterstützt**
+- Alle Buttons quadratisch (`aspect-ratio: 1/1`)
+- Nicht verfügbare Buttons: unsichtbar (`opacity: 0`), Platz bleibt erhalten
 
-### 4.5 Einstellungs-Screen
+### 4.5 Farbkonzept
+
+| Element | Hintergrund | Rand | Schrift |
+|---|---|---|---|
+| Zahlen-Buttons | `#ffffff` | `rgba(24,95,165,0.35)` blau | `#185fa5` blau |
+| Eingabefeld | `#ffffff` | `rgba(24,95,165,0.35)` blau | `#185fa5` blau |
+| Zielzahl-Button | `#1e3a5f→#185fa5` dunkelblau | — | `#ffffff` weiß |
+| Operator-Buttons | `#fff8ec` hellgold | `rgba(196,122,26,0.38)` gold | `#c47a1a` gold |
+| Klammer-Buttons | `#ecf5ff` hellblau | `rgba(60,140,220,0.30)` blau | `#2a6abf` blau |
+| `=` Submit | `#c47a1a→#a85e0a` gold | — | `#ffffff` weiß |
+
+### 4.6 Einstellungs-Screen
 
 - Erreichbar über ⚙️ oben links
-- Level-Auswahl mit kompakten Karten:
-
-```
-┌──────────┬──────────┬───────────┐
-│  F2.1    │  F2.2    │  F2.3     │
-│  3 Zahl  │  3 Zahl  │  3 Zahl   │
-│  1–50    │  51–100  │  101–162  │
-│  ●●○     │  ○○○     │  ○○○      │
-└──────────┴──────────┴───────────┘
-```
-
+- Level-Auswahl mit kompakten Karten (ID, Anzahl Zahlen, Zielbereich, Streak)
 - Sprache umschalten (DE / EN)
 - Reset-Button (mit Bestätigungsdialog)
-- Kein Zielzahl-Schieberegler
 
-### 4.6 Popover-Übersicht
+### 4.7 Popover-Übersicht
 
 | Popover | Auslöser | Inhalt |
 |---|---|---|
