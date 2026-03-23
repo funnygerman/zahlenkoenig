@@ -28,10 +28,11 @@ export const LEVELS: Level[] = [
   { id:'E1.3', baseId:'E1', subLevel:3,    group:'expert',    numberCount:4, operators:['+','-','*','/'],       maxBracketDepth:2, targetRange:{min:101, max:324}, maxTarget:324 },
 ]
 
+const FALLBACK_LEVEL = LEVELS.find(l => l.id === 'F2.1')!
+
+// Bug 1 fix: graceful fallback instead of throwing
 export function getLevelById(id: string): Level {
-  const level = LEVELS.find(l => l.id === id)
-  if (!level) throw new Error(`Level ${id} not found`)
-  return level
+  return LEVELS.find(l => l.id === id) ?? FALLBACK_LEVEL
 }
 
 export const LEVEL_GROUPS = [

@@ -42,7 +42,7 @@ export function GameBoard() {
 
   const { hints, hintsRemaining, requestHint, resetHints } = useHints(puzzle)
 
-  const usedIndices = tokens.filter(t => t.type==='number').map(t => (t as NumberToken).index)
+  const usedIndices = tokens.filter(tok => tok.type === 'number').map(tok => (tok as NumberToken).index)
 
   const handleHintClick = useCallback(() => {
     if (hints.length === 0) { requestHint(); setHintsUsed(1) }
@@ -67,7 +67,33 @@ export function GameBoard() {
     setLanguage(lang); saveLanguage(lang)
   }, [saveLanguage])
 
-  const solutionPreview = puzzle.solutions[0] ? getSolutionPreview(puzzle.solutions[0]) : '?'
+  const solutionPreview = puzzle?.solutions[0] ? getSolutionPreview(puzzle.solutions[0]) : '?'
+
+  // Show loading state while first puzzle is being generated
+  if (!puzzle) {
+    return (
+      <div className={styles.board}>
+        <Header
+          levelId={levelId}
+          pointStreak={progress.pointStreak}
+          onSettingsClick={() => setShowSettings(true)}
+          onHintClick={() => {}}
+          onRulesClick={() => setShowRules(true)}
+        />
+        <div className={styles.loading}>👑</div>
+        {showRules && <RulesPopover onClose={() => setShowRules(false)} />}
+        {showSettings && (
+          <SettingsScreen
+            progress={progress}
+            onSelectLevel={handleSelectLevel}
+            onSetLanguage={handleSetLanguage}
+            onReset={reset}
+            onBack={() => setShowSettings(false)}
+          />
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className={`${styles.board} ${celebrate ? styles.celebrate : ''}`}>

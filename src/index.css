@@ -1,6 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-html, body { height: 100%; overflow: hidden; }
+html { height: 100%; }
+body { height: 100%; overflow: hidden; }
 
 :root {
   --bg:            #faf7f2;
@@ -35,7 +36,7 @@ html, body { height: 100%; overflow: hidden; }
 
 body {
   font-family: 'Courier New', Courier, monospace;
-  background: var(--bg-alt);  /* Slightly darker bg outside the board on desktop */
+  background: var(--bg-alt);
   color: var(--text);
   -webkit-tap-highlight-color: transparent;
   touch-action: manipulation;
@@ -45,17 +46,12 @@ body {
   height: 100%;
   display: flex;
   justify-content: center;
-  align-items: flex-start;  /* align to top on mobile */
+  align-items: flex-start;
 }
 
-/* On desktop: center vertically too */
 @media (min-width: 500px) {
-  #root {
-    align-items: center;
-  }
-  body {
-    background: #e8e0d0;
-  }
+  #root { align-items: center; }
+  body  { background: #e8e0d0; }
 }
 
 button { font-family: inherit; cursor: pointer; }

@@ -9,18 +9,21 @@ const maxHintsPerGroup: Record<string, number> = {
   beginner: 1, advanced: 2, expert: 3,
 }
 
-export function useHints(puzzle: Puzzle) {
+export function useHints(puzzle: Puzzle | null) {
   const [hints, setHints] = useState<Hint[]>([])
-  const level = getLevelById(puzzle.levelId)
-  const maxHints = maxHintsPerGroup[level.group] ?? 1
+
+  const level = puzzle ? getLevelById(puzzle.levelId) : null
+  const maxHints = level ? (maxHintsPerGroup[level.group] ?? 1) : 1
   const hintsRemaining = maxHints - hints.length
 
-  // Reset when puzzle changes (use stable key)
-  const puzzleKey = `${puzzle.levelId}-${puzzle.target}-${puzzle.numbers.join(',')}`
+  // Reset when puzzle changes
+  const puzzleKey = puzzle
+    ? `${puzzle.levelId}-${puzzle.target}-${puzzle.numbers.join(',')}`
+    : 'null'
   useEffect(() => { setHints([]) }, [puzzleKey]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const requestHint = useCallback(() => {
-    if (hints.length >= maxHints) return
+    if (!puzzle || hints.length >= maxHints) return
     const hint = engine.getHint(puzzle, (hints.length + 1) as 1|2|3)
     setHints(prev => [...prev, hint])
   }, [hints, maxHints, puzzle])

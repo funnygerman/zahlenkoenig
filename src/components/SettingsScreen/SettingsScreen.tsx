@@ -42,7 +42,11 @@ export function SettingsScreen({ progress, onSelectLevel, onSetLanguage, onReset
           {LEVEL_GROUPS.map(group => (
             <div key={group.key} className={styles.group}>
               <div className={styles.groupLabel}>
-                {group.label} {t(`level.${group.key}` as Parameters<typeof t>[0])}
+                {group.label} {
+                group.key === 'beginner' ? t('level.beginner') :
+                group.key === 'advanced' ? t('level.advanced') :
+                t('level.expert')
+              }
               </div>
               <div className={styles.levelCards}>
                 {group.ids.map(id => {

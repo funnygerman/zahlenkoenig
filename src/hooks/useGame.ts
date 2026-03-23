@@ -21,7 +21,10 @@ interface UseGameOptions {
 
 export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
   const level = getLevelById(levelId)
-  const [puzzle, setPuzzle] = useState<Puzzle>(() => generator.generate(level))
+
+  // Bug 2 fix: initialise with null, load async immediately
+  // This avoids the double-generation on first render
+  const [puzzle, setPuzzle] = useState<Puzzle | null>(null)
   const [tokens, setTokens] = useState<Token[]>([])
   const [status, setStatus] = useState<GameStatus>('idle')
   const [warning, setWarning] = useState<string | null>(null)
@@ -30,9 +33,13 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
   const pointStreakRef = useRef(pointStreak)
   pointStreakRef.current = pointStreak
 
-  // Regenerate when level changes
+  // Bug 3 fix: use a generation counter to cancel stale async results
+  const genCountRef = useRef(0)
+
   useEffect(() => {
+    const myGen = ++genCountRef.current
     generator.generateAsync(getLevelById(levelId)).then(p => {
+      if (myGen !== genCountRef.current) return // stale – a newer request is in flight
       setPuzzle(p)
       setTokens([])
       setStatus('idle')
@@ -40,7 +47,7 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
       setFirstAttempt(true)
       setHintsUsed(0)
     })
-  }, [levelId]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [levelId])
 
   const showWarning = useCallback((key: string) => {
     setWarning(t(key))
@@ -55,6 +62,8 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
     setWarning(null)
   }, [tokens, showWarning])
 
+  // Bug 4 fix: deleteToken also resets hintsUsed tracking isn't needed
+  // (hintsUsed is only used for scoring, not for token state)
   const deleteToken = useCallback(() => {
     setTokens(prev => prev.slice(0, -1))
     setStatus('idle')
@@ -68,9 +77,10 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
   }, [])
 
   const submitSolution = useCallback((currentHintsUsed: number) => {
+    if (!puzzle) return
     const result = validator.validateSolution(tokens, puzzle, firstAttempt, currentHintsUsed)
     if (!result.correct) {
-      const usedCount = tokens.filter(t => t.type === 'number').length
+      const usedCount = tokens.filter(tok => tok.type === 'number').length
       if (usedCount < puzzle.numbers.length) { showWarning('error.use_all_numbers'); return }
       setStatus('wrong')
       setFirstAttempt(false)
@@ -82,7 +92,9 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
   }, [tokens, puzzle, firstAttempt, onResult, showWarning])
 
   const nextPuzzle = useCallback((newHintsUsed = 0) => {
+    const myGen = ++genCountRef.current
     generator.generateAsync(getLevelById(levelId)).then(p => {
+      if (myGen !== genCountRef.current) return
       setPuzzle(p)
       setTokens([])
       setStatus('idle')

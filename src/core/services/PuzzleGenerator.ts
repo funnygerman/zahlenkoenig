@@ -6,21 +6,35 @@ const puzzleBank: Record<string, Puzzle[]> = {}
 const bankLoaded: Record<string, boolean> = {}
 const bankIndices: Record<string, number[]> = {}
 
-function bankFileName(levelId: string): string {
-  // F2.1 → puzzles-F2-1, A1 → puzzles-A1
-  return `puzzles-${levelId.replace('.', '-')}`
-}
-
+// Map levelId to the correct JSON import
+// Vite requires static-ish import paths – we use a lookup table
 async function loadBank(levelId: string): Promise<void> {
   if (bankLoaded[levelId]) return
+  bankLoaded[levelId] = true // set before await to prevent double-load
   try {
-    const name = bankFileName(levelId)
-    const module = await import(`../../data/${name}.json`)
-    const puzzles = module.default as Puzzle[]
-    puzzleBank[levelId] = puzzles
-    bankIndices[levelId] = shuffled(puzzles.length)
-  } catch { /* no bank – fall back to live */ }
-  bankLoaded[levelId] = true
+    let data: Puzzle[] | null = null
+    // Static imports so Vite can bundle them correctly
+    if (levelId === 'A1')   data = (await import('../../data/puzzles-A1.json')).default as Puzzle[]
+    else if (levelId === 'A2')   data = (await import('../../data/puzzles-A2.json')).default as Puzzle[]
+    else if (levelId === 'A3')   data = (await import('../../data/puzzles-A3.json')).default as Puzzle[]
+    else if (levelId === 'F1')   data = (await import('../../data/puzzles-F1.json')).default as Puzzle[]
+    else if (levelId === 'F2.1') data = (await import('../../data/puzzles-F2-1.json')).default as Puzzle[]
+    else if (levelId === 'F2.2') data = (await import('../../data/puzzles-F2-2.json')).default as Puzzle[]
+    else if (levelId === 'F2.3') data = (await import('../../data/puzzles-F2-3.json')).default as Puzzle[]
+    else if (levelId === 'F3.1') data = (await import('../../data/puzzles-F3-1.json')).default as Puzzle[]
+    else if (levelId === 'F3.2') data = (await import('../../data/puzzles-F3-2.json')).default as Puzzle[]
+    else if (levelId === 'F3.3') data = (await import('../../data/puzzles-F3-3.json')).default as Puzzle[]
+    else if (levelId === 'E1.1') data = (await import('../../data/puzzles-E1-1.json')).default as Puzzle[]
+    else if (levelId === 'E1.2') data = (await import('../../data/puzzles-E1-2.json')).default as Puzzle[]
+    else if (levelId === 'E1.3') data = (await import('../../data/puzzles-E1-3.json')).default as Puzzle[]
+
+    if (data && data.length > 0) {
+      puzzleBank[levelId] = data
+      bankIndices[levelId] = shuffled(data.length)
+    }
+  } catch (e) {
+    console.warn(`No puzzle bank for ${levelId}, using live generation`)
+  }
 }
 
 function shuffled(length: number): number[] {
@@ -36,7 +50,7 @@ function pickFromBank(levelId: string): Puzzle | null {
   const bank = puzzleBank[levelId]
   if (!bank || bank.length === 0) return null
   if (!bankIndices[levelId] || bankIndices[levelId].length === 0) {
-    bankIndices[levelId] = shuffled(bank.length) // reshuffle when exhausted
+    bankIndices[levelId] = shuffled(bank.length)
   }
   return bank[bankIndices[levelId].pop()!]
 }
@@ -114,19 +128,19 @@ function generateLive(level: Level): Puzzle {
 
 function getFallback(level: Level): Puzzle {
   const fb: Record<string, Puzzle> = {
-    'A1':   {numbers:[3,7],       target:10, solutions:['3+7'],          levelId:'A1'},
-    'A2':   {numbers:[2,5,3],     target:10, solutions:['2+5+3'],        levelId:'A2'},
-    'A3':   {numbers:[1,2,3,4],   target:10, solutions:['1+2+3+4'],      levelId:'A3'},
-    'F1':   {numbers:[3,7],       target:21, solutions:['3*7'],          levelId:'F1'},
-    'F2.1': {numbers:[2,3,4],     target:14, solutions:['2*(3+4)'],      levelId:'F2.1'},
-    'F2.2': {numbers:[3,7,8],     target:59, solutions:['(3+7)*8-21'],   levelId:'F2.2'},
-    'F2.3': {numbers:[4,6,7],     target:102,solutions:['(4+6)*7*...'],  levelId:'F2.3'},
-    'F3.1': {numbers:[2,3,4,5],   target:19, solutions:['(2+3)*4-1'],    levelId:'F3.1'},
-    'F3.2': {numbers:[3,4,5,6],   target:78, solutions:['(3+5)*6*...'],  levelId:'F3.2'},
-    'F3.3': {numbers:[2,3,4,5],   target:110,solutions:['...'],          levelId:'F3.3'},
-    'E1.1': {numbers:[2,3,4,5],   target:14, solutions:['(2+5)*(3-1)'],  levelId:'E1.1'},
-    'E1.2': {numbers:[3,4,6,7],   target:75, solutions:['...'],          levelId:'E1.2'},
-    'E1.3': {numbers:[4,6,7,9],   target:150,solutions:['...'],          levelId:'E1.3'},
+    'A1':   {numbers:[3,7],       target:10, solutions:['3+7'],         levelId:'A1'},
+    'A2':   {numbers:[2,5,3],     target:10, solutions:['2+5+3'],       levelId:'A2'},
+    'A3':   {numbers:[1,2,3,4],   target:10, solutions:['1+2+3+4'],     levelId:'A3'},
+    'F1':   {numbers:[3,7],       target:21, solutions:['3*7'],         levelId:'F1'},
+    'F2.1': {numbers:[2,3,4],     target:14, solutions:['2*(3+4)'],     levelId:'F2.1'},
+    'F2.2': {numbers:[3,7,8],     target:53, solutions:['(3+7)*8-27'],  levelId:'F2.2'},
+    'F2.3': {numbers:[4,6,9],     target:102,solutions:['(4+6)*9+12'],  levelId:'F2.3'},
+    'F3.1': {numbers:[2,3,4,5],   target:19, solutions:['(2+3)*4-1'],   levelId:'F3.1'},
+    'F3.2': {numbers:[2,4,6,8],   target:56, solutions:['(2+6)*8-8'],   levelId:'F3.2'},
+    'F3.3': {numbers:[3,5,7,9],   target:108,solutions:['(3+9)*(5+4)'], levelId:'F3.3'},
+    'E1.1': {numbers:[2,3,4,5],   target:14, solutions:['(2+5)*(3-1)'], levelId:'E1.1'},
+    'E1.2': {numbers:[2,4,6,8],   target:60, solutions:['(2+4)*(6+8-4)'], levelId:'E1.2'},
+    'E1.3': {numbers:[3,4,6,9],   target:117,solutions:['(3+6)*(9+4)'], levelId:'E1.3'},
   }
   return fb[level.id] ?? fb['F2.1']
 }
@@ -140,8 +154,13 @@ export class PuzzleGenerator implements IPuzzleGenerator {
   generate(level: Level): Puzzle {
     return pickFromBank(level.id) ?? generateLive(level)
   }
+
   async generateAsync(level: Level): Promise<Puzzle> {
-    await loadBank(level.id)
+    try {
+      await loadBank(level.id)
+    } catch (e) {
+      console.warn('Bank load failed, using live generation')
+    }
     return pickFromBank(level.id) ?? generateLive(level)
   }
 }
