@@ -2,18 +2,20 @@
   display: flex;
   flex-direction: column;
   gap: 10px;
-  padding: 10px 12px;
-  flex: 1;
+  padding: 10px 12px 12px;
+  /* No flex:1 – let spacer handle remaining space */
 }
 
 .row {
   display: grid;
   grid-template-columns: repeat(4, 1fr);
   gap: 10px;
-  flex: 1;
 }
 
+/* Square buttons using aspect-ratio */
 .btn {
+  aspect-ratio: 1 / 1;
+  width: 100%;
   border-radius: var(--radius);
   border: 2px solid;
   font-size: 22px;
@@ -21,8 +23,6 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  min-height: 56px;
   transition: all 0.12s;
   box-shadow: var(--shadow);
 }
@@ -60,4 +60,11 @@
   cursor: default;
   pointer-events: none;
   box-shadow: none;
+  opacity: 0;  /* fully invisible, but space is preserved */
+}
+
+/* Fills remaining vertical space below the buttons */
+.spacer {
+  flex: 1;
+  min-height: 8px;
 }

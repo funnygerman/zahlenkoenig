@@ -12,7 +12,9 @@ interface KeyPadProps {
 
 export function KeyPad({ level, onOperator, onBracket, onDelete, onSubmit }: KeyPadProps) {
   const hasOp = (op: string) => level.operators.includes(op as OperatorToken['value'])
+  const hasMulDiv = hasOp('*') || hasOp('/')
   const hasBrackets = level.maxBracketDepth > 0
+  const showRow2 = hasMulDiv || hasBrackets
 
   function OpBtn({ value, label, active }: { value: OperatorToken['value']; label: string; active: boolean }) {
     return (
@@ -36,20 +38,26 @@ export function KeyPad({ level, onOperator, onBracket, onDelete, onSubmit }: Key
 
   return (
     <div className={styles.keypad}>
-      {/* Row 1: + − ⌫ = */}
+      {/* Row 1: + − ⌫ = (always visible) */}
       <div className={styles.row}>
         <OpBtn value="+" label="+" active={true} />
         <OpBtn value="-" label="−" active={true} />
         <button className={`${styles.btn} ${styles.del}`} onClick={onDelete}>⌫</button>
         <button className={`${styles.btn} ${styles.submit}`} onClick={onSubmit}>=</button>
       </div>
-      {/* Row 2: × ÷ ( ) */}
-      <div className={styles.row}>
-        <OpBtn value="*" label="×" active={hasOp('*')} />
-        <OpBtn value="/" label="÷" active={hasOp('/')} />
-        <BracketBtn value="(" />
-        <BracketBtn value=")" />
-      </div>
+
+      {/* Row 2: × ÷ ( ) – only shown when level supports them */}
+      {showRow2 && (
+        <div className={styles.row}>
+          <OpBtn value="*" label="×" active={hasOp('*')} />
+          <OpBtn value="/" label="÷" active={hasOp('/')} />
+          <BracketBtn value="(" />
+          <BracketBtn value=")" />
+        </div>
+      )}
+
+      {/* Spacer to fill remaining space */}
+      <div className={styles.spacer} />
     </div>
   )
 }

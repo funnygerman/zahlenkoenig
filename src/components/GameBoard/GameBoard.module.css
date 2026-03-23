@@ -8,6 +8,8 @@
   position: relative;
   overflow: hidden;
   transition: box-shadow 0.3s;
+  /* Desktop: add a subtle border so it doesn't look naked */
+  box-shadow: 0 0 0 1px var(--border);
 }
 
 .board.celebrate {
