@@ -5,18 +5,14 @@
 
 .row {
   display: grid;
-  /* Input takes remaining space, = is fixed, target is same width as number buttons */
-  grid-template-columns: 1fr auto var(--btn-size);
+  grid-template-columns: 1fr var(--btn-size);
   align-items: center;
-  gap: 8px;
-  /* Match height of NumberRow buttons */
+  gap: 10px;
   --btn-size: calc((100vw - 24px - 30px) / 4);
 }
 
 @media (min-width: 430px) {
-  .row {
-    --btn-size: calc((430px - 24px - 30px) / 4);
-  }
+  .row { --btn-size: calc((430px - 24px - 30px) / 4); }
 }
 
 .field {
@@ -64,15 +60,7 @@
   line-height: 1;
 }
 
-.equals {
-  font-size: 22px;
-  font-weight: 900;
-  color: var(--text-2);
-  flex-shrink: 0;
-  text-align: center;
-}
-
-/* Target – same size as number buttons */
+/* Target button with = inside – same size as number buttons */
 .target {
   width: var(--btn-size);
   height: var(--btn-size);
@@ -80,21 +68,26 @@
   background: var(--target-bg);
   box-shadow: var(--shadow-lg);
   display: flex;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
+  flex-shrink: 0;
+  gap: 3px;
+}
+
+.targetEquals {
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(255,255,255,0.55);
+  line-height: 1;
   flex-shrink: 0;
 }
 
 .targetValue {
-  font-size: 24px;
+  font-size: clamp(16px, 4.5vw, 26px);
   font-weight: 900;
   color: #fff;
   line-height: 1;
-}
-
-/* Smaller font for 3-digit targets */
-.target:has(.targetValue) .targetValue {
-  font-size: clamp(16px, 4vw, 24px);
 }
 
 .msg {

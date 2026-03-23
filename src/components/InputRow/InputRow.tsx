@@ -19,7 +19,7 @@ export function InputRow({ tokens, target, status, warning, onClear }: InputRowP
   return (
     <div className={styles.wrapper}>
       <div className={styles.row}>
-        {/* Input field – takes remaining space */}
+        {/* Input field */}
         <div className={`${styles.field} ${borderClass}`}>
           <div className={styles.expression}>
             {tokens.map((tok, i) => (
@@ -35,11 +35,9 @@ export function InputRow({ tokens, target, status, warning, onClear }: InputRowP
           )}
         </div>
 
-        {/* Static equals sign */}
-        <span className={styles.equals}>=</span>
-
-        {/* Target – same size as number buttons */}
+        {/* Target button with = inside */}
         <div className={styles.target}>
+          <span className={styles.targetEquals}>=</span>
           <span className={styles.targetValue}>{target}</span>
         </div>
       </div>
