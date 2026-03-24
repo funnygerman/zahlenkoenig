@@ -1,16 +1,19 @@
 .wrapper {
-  padding: 0 12px 10px;
+  padding: 0 12px 0;
   flex-shrink: 0;
 }
 
+/* Same 4-column grid as NumberRow so target is exactly one column wide */
 .row {
   display: grid;
-  grid-template-columns: 1fr auto;
-  align-items: stretch;
+  grid-template-columns: repeat(4, 1fr);
   gap: 10px;
+  padding: 0 0 10px;
 }
 
+/* Input field spans 3 columns */
 .field {
+  grid-column: span 3;
   display: flex;
   align-items: center;
   gap: 4px;
@@ -55,9 +58,9 @@
   cursor: pointer;
 }
 
-/* Target – same height as number buttons, width = one column */
+/* Target occupies exactly 1 column – same grid as NumberRow */
 .target {
-  width: calc((100vw - 24px - 30px) / 4);
+  grid-column: span 1;
   display: flex;
   flex-direction: row;
   align-items: center;
@@ -66,11 +69,6 @@
   border-radius: var(--radius);
   background: var(--target-bg);
   box-shadow: var(--shadow-lg);
-  flex-shrink: 0;
-}
-
-@media (min-width: 430px) {
-  .target { width: calc((430px - 24px - 30px) / 4); }
 }
 
 .targetEquals {
