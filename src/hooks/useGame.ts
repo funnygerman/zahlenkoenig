@@ -20,32 +20,32 @@ interface UseGameOptions {
 }
 
 export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
-  const level = getLevelById(levelId)
-
-  // Bug 2 fix: initialise with null, load async immediately
-  // This avoids the double-generation on first render
   const [puzzle, setPuzzle] = useState<Puzzle | null>(null)
   const [tokens, setTokens] = useState<Token[]>([])
   const [status, setStatus] = useState<GameStatus>('idle')
   const [warning, setWarning] = useState<string | null>(null)
   const [firstAttempt, setFirstAttempt] = useState(true)
   const [hintsUsed, setHintsUsed] = useState(0)
+
   const pointStreakRef = useRef(pointStreak)
   pointStreakRef.current = pointStreak
 
-  // Bug 3 fix: use a generation counter to cancel stale async results
   const genCountRef = useRef(0)
 
   useEffect(() => {
+    // Immediately clear puzzle and tokens so UI shows loading state
+    // and no stale input is possible during load
+    setPuzzle(null)
+    setTokens([])
+    setStatus('idle')
+    setWarning(null)
+    setFirstAttempt(true)
+    setHintsUsed(0)
+
     const myGen = ++genCountRef.current
     generator.generateAsync(getLevelById(levelId)).then(p => {
-      if (myGen !== genCountRef.current) return // stale – a newer request is in flight
+      if (myGen !== genCountRef.current) return
       setPuzzle(p)
-      setTokens([])
-      setStatus('idle')
-      setWarning(null)
-      setFirstAttempt(true)
-      setHintsUsed(0)
     })
   }, [levelId])
 
@@ -62,8 +62,6 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
     setWarning(null)
   }, [tokens, showWarning])
 
-  // Bug 4 fix: deleteToken also resets hintsUsed tracking isn't needed
-  // (hintsUsed is only used for scoring, not for token state)
   const deleteToken = useCallback(() => {
     setTokens(prev => prev.slice(0, -1))
     setStatus('idle')
@@ -92,15 +90,17 @@ export function useGame({ levelId, pointStreak, onResult }: UseGameOptions) {
   }, [tokens, puzzle, firstAttempt, onResult, showWarning])
 
   const nextPuzzle = useCallback((newHintsUsed = 0) => {
+    setPuzzle(null)
+    setTokens([])
+    setStatus('idle')
+    setWarning(null)
+    setFirstAttempt(true)
+    setHintsUsed(newHintsUsed)
+
     const myGen = ++genCountRef.current
     generator.generateAsync(getLevelById(levelId)).then(p => {
       if (myGen !== genCountRef.current) return
       setPuzzle(p)
-      setTokens([])
-      setStatus('idle')
-      setWarning(null)
-      setFirstAttempt(true)
-      setHintsUsed(newHintsUsed)
     })
   }, [levelId])
 

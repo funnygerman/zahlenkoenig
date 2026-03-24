@@ -7,8 +7,8 @@
 }
 
 .btn {
-  aspect-ratio: 1 / 1;
   width: 100%;
+  padding: 14px 0;
   border-radius: var(--radius);
   border: 2px solid var(--num-border);
   background: var(--num-bg);
@@ -17,6 +17,9 @@
   font-weight: 800;
   box-shadow: var(--shadow-lg);
   transition: all 0.12s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
 .btn.used {
@@ -28,8 +31,8 @@
 }
 
 .empty {
-  aspect-ratio: 1 / 1;
   width: 100%;
+  padding: 14px 0;
   border-radius: var(--radius);
   background: transparent;
   border: 2px dashed var(--border);

@@ -1,12 +1,12 @@
 .wrapper {
-  padding: 10px 12px 6px;
+  padding: 0 12px 10px;
   flex-shrink: 0;
 }
 
 .row {
   display: grid;
   grid-template-columns: 1fr auto;
-  align-items: center;
+  align-items: stretch;
   gap: 10px;
 }
 
@@ -15,10 +15,9 @@
   align-items: center;
   gap: 4px;
   background: var(--bg-card);
-  border: 2px solid;
+  border: 2px solid rgba(24,95,165,0.35);
   border-radius: var(--radius);
-  padding: 0 10px;
-  aspect-ratio: 4 / 1;
+  padding: 14px 10px;
   box-shadow: var(--shadow);
   transition: border-color 0.2s;
   overflow: hidden;
@@ -41,8 +40,8 @@
 }
 
 .tokNum     { color: #185fa5;               font-size: 18px; font-weight: 800; white-space: nowrap; }
-.tokOp      { color: var(--op-color);      font-size: 18px; font-weight: 800; white-space: nowrap; }
-.tokBracket { color: var(--bracket-color); font-size: 18px; font-weight: 800; white-space: nowrap; }
+.tokOp      { color: var(--op-color);       font-size: 18px; font-weight: 800; white-space: nowrap; }
+.tokBracket { color: var(--bracket-color);  font-size: 18px; font-weight: 800; white-space: nowrap; }
 
 .clearBtn {
   background: none;
@@ -50,30 +49,34 @@
   color: var(--text-3);
   font-size: 13px;
   font-weight: 800;
-  padding: 2px 4px;
+  padding: 4px 6px;
   flex-shrink: 0;
   line-height: 1;
+  cursor: pointer;
 }
 
-/* Target button with = inside – same size as number buttons */
+/* Target – same height as number buttons, width = one column */
 .target {
-  aspect-ratio: 1 / 1;
-  height: 100%;
-  border-radius: var(--radius);
-  background: var(--target-bg);
-  box-shadow: var(--shadow-lg);
+  width: calc((100vw - 24px - 30px) / 4);
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
-  flex-shrink: 0;
   gap: 3px;
+  border-radius: var(--radius);
+  background: var(--target-bg);
+  box-shadow: var(--shadow-lg);
+  flex-shrink: 0;
+}
+
+@media (min-width: 430px) {
+  .target { width: calc((430px - 24px - 30px) / 4); }
 }
 
 .targetEquals {
-  font-size: 13px;
+  font-size: 20px;
   font-weight: 700;
-  color: rgba(255,255,255,0.55);
+  color: rgba(255,255,255,0.60);
   line-height: 1;
   flex-shrink: 0;
 }

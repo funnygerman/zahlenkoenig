@@ -3,7 +3,6 @@
   flex-direction: column;
   gap: 10px;
   padding: 10px 12px 12px;
-  /* No flex:1 – let spacer handle remaining space */
 }
 
 .row {
@@ -12,10 +11,11 @@
   gap: 10px;
 }
 
-/* Square buttons using aspect-ratio */
+/* Operator buttons: square via aspect-ratio but with min-size guarantee */
 .btn {
   aspect-ratio: 1 / 1;
   width: 100%;
+  min-height: 52px;
   border-radius: var(--radius);
   border: 2px solid;
   font-size: 28px;
@@ -25,6 +25,16 @@
   justify-content: center;
   transition: all 0.12s;
   box-shadow: var(--shadow);
+  cursor: pointer;
+  /* Larger tap target than visual size */
+  position: relative;
+}
+
+/* Extend tap area beyond visual bounds */
+.btn::after {
+  content: '';
+  position: absolute;
+  inset: -6px;
 }
 
 .op {
@@ -60,10 +70,9 @@
   cursor: default;
   pointer-events: none;
   box-shadow: none;
-  opacity: 0;  /* fully invisible, but space is preserved */
+  opacity: 0;
 }
 
-/* Fills remaining vertical space below the buttons */
 .spacer {
   flex: 1;
   min-height: 8px;

@@ -60,8 +60,9 @@ export function GameBoard() {
   }, [recordResult, clearTokens, resetHints, nextPuzzle])
 
   const handleSelectLevel = useCallback((id: string) => {
-    setLevel(id); clearTokens(); resetHints(); setShowSettings(false)
-  }, [setLevel, clearTokens, resetHints])
+    setLevel(id); resetHints(); setShowSettings(false)
+    // clearTokens() not needed – useGame clears immediately on levelId change
+  }, [setLevel, resetHints])
 
   const handleSetLanguage = useCallback((lang: 'de'|'en') => {
     setLanguage(lang); saveLanguage(lang)
