@@ -327,8 +327,12 @@ gerade baut.
 - die Gruppe zeichnet sich als gerundeter Rahmen; die Klammern *sind* der
   Rahmen
 - Bewegungen zwischen Ablage und Ausdruck laufen als FLIP-Animation
-- Farbwelt, Schrift (`Courier New`) und die 430-px-Begrenzung auf Desktop
-  bleiben unverändert
+- die 430-px-Begrenzung auf Desktop bleibt
+
+Dieser Abschnitt beschreibt **nur die Anordnung**, nicht das Aussehen.
+Farbwelt und Schrift aus v1 werden **nicht** übernommen – das visuelle Design
+wird eigenständig überarbeitet und in einer eigenen Runde besprochen
+(siehe Abschnitt 14).
 
 ---
 
@@ -369,7 +373,8 @@ Die Dateizahl bleibt in etwa gleich wie in v1 – der Gewinn liegt woanders:
 - Netto etwa ein Drittel weniger Code als v1.
 
 **Unverändert übernommen:** die 13 Bank-Dateien und `generatePuzzles.mjs`,
-die Level-Definitionen, i18n, das Farbsystem, der GitHub-Actions-Deploy.
+die Level-Definitionen, i18n, der GitHub-Actions-Deploy. Das Farbsystem
+**nicht** – siehe Abschnitt 11.
 
 ---
 
@@ -400,3 +405,4 @@ tragen das gesamte Risiko.
 | **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken |
 | **Gruppe um den ganzen Ausdruck** | `(3+4)` als Gesamtausdruck ist erlaubt, verbraucht aber das Kontingent ohne Nutzen |
 | **Verschachtelung auf kleinen Geräten** | E1 mit Tiefe 2 wird eng; Chips auf Tiefe 2 verkleinern |
+| **Visuelles Design offen** | Farbwelt, Schrift und Gesamtanmutung werden neu gedacht – eigene Abstimmungsrunde, noch nicht entschieden |
