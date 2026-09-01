@@ -1,29 +1,24 @@
 # Zahlenkönig / Number King – v2 Konzept
 
-**Version:** 2.0
-**Stand:** August 2026
-**Status:** Entwurf zur Abstimmung – noch keine Implementierung
+**Version:** 2.1
+**Stand:** September 2026
+**Status:** Abgestimmt – bereit zur Umsetzung
 
-Dieses Dokument beschreibt die Neukonzeption der Eingabe für v2. Es ersetzt
-in den Punkten „Eingabe", „Validierung", „Tipps" und „Punkte & Streak" die
-Abschnitte 2.4–2.6 der Anforderungen v1.5. Level-System, Rätsel-Bank und
-Sprachumschaltung bleiben unverändert.
+Dieses Dokument beschreibt die Neukonzeption von Eingabe und Gestaltung für v2.
+Es ersetzt die Abschnitte 2.4–2.6 sowie Kapitel 4 der Anforderungen v1.5.
+Level-System, Rätsel-Bank und Sprachumschaltung bleiben unverändert.
 
 ---
 
 ## 1. Die zentrale Änderung
 
-Alle gewünschten Neuerungen – Klammer als Block, Drag & Drop, Umsortieren,
-Entfernen ohne Knopf – haben dieselbe Ursache: **die flache Token-Liste muss
-ein Baum werden.**
+Alle Neuerungen – Klammer als Block, Drag & Drop, Umsortieren, Entfernen ohne
+Knopf – haben dieselbe Ursache: **die flache Token-Liste muss ein Baum werden.**
 
 v1 speichert `Token[]`, also `[3, ×, (, 7, −, 2, )]`. Die Klammern sind darin
 bloße Zeichen. Daraus folgen sämtliche Einschränkungen: Klammern können
-unbalanciert sein, Tokens lassen sich nur anhängen und rückwärts löschen, und
-es gibt keinen Ort, in den man etwas „hineinziehen" könnte.
-
-v2 speichert einen **Ausdrucksbaum**. Damit lösen sich die übrigen Punkte fast
-von selbst.
+unbalanciert sein, Tokens lassen sich nur anhängen und rückwärts löschen, und es
+gibt keinen Ort, in den man etwas „hineinziehen" könnte.
 
 ---
 
@@ -32,37 +27,39 @@ von selbst.
 ```ts
 type Operator = '+' | '-' | '*' | '/'
 
-type ExprNode =
+type Leaf =
   | { id: string; kind: 'number';   value: number; source: number }
   | { id: string; kind: 'operator'; value: Operator }
-  | { id: string; kind: 'group';    children: Slot[] }
 
-type Slot = ExprNode | null      // null = sichtbare Lücke
+type Group = { id: string; kind: 'group'; children: (Leaf | null)[] }
+
+type Slot = Leaf | Group | null      // null = sichtbare Lücke
 
 interface Expression {
-  root: Extract<ExprNode, { kind: 'group' }>   // wird ohne Klammern gezeichnet
+  root: { id: 'root'; kind: 'group'; children: Slot[] }
 }
 ```
 
-- `source` ist der Index in `puzzle.numbers`, **nicht** der Wert. Bei Rätseln
-  wie `[6, 6, 9]` sind die beiden Sechsen dadurch unterscheidbar; jede Zahl
-  wird genau einmal verbraucht.
-- `id` ist stabil über die Lebensdauer eines Chips. React benutzt sie als
-  `key`, dadurch überleben Chips das Umsortieren und können animiert werden.
+- **Genau zwei Ebenen.** Die Wurzel enthält Zahlen, Operatoren und Gruppen; eine
+  Gruppe enthält nur noch Zahlen und Operatoren. **Keine Gruppe in einer Gruppe**
+  (siehe Abschnitt 4). Der Typ erzwingt das: `Group.children` kennt kein `Group`.
+- `source` ist der Index in `puzzle.numbers`, **nicht** der Wert. Bei Rätseln wie
+  `[6, 6, 9]` sind die beiden Sechsen dadurch unterscheidbar.
+- `id` ist über die Lebensdauer eines Chips stabil. React nutzt sie als `key`,
+  dadurch überleben Chips das Umsortieren und lassen sich animieren.
 
 ### 2.1 Die Invariante
 
 > In `children` steht an **geraden** Positionen ein Operand (Zahl oder Gruppe),
-> an **ungeraden** Positionen ein Operator. `null` markiert eine noch offene
-> Position.
+> an **ungeraden** Positionen ein Operator. `null` markiert eine offene Position.
 
-Diese eine Regel trägt das gesamte Design. Aus ihr ergibt sich, welche
-Ablageflächen es gibt, was wo abgelegt werden darf und wann ein Ausdruck
-fertig ist.
+Diese eine Regel trägt das gesamte Design: aus ihr ergibt sich, welche
+Ablageflächen es gibt, was wo abgelegt werden darf und wann ein Ausdruck fertig
+ist.
 
-**Vollständig** ist eine Gruppe, wenn sie kein `null` mehr enthält und ihre
-Länge ungerade ist. Eine Klammer-Gruppe braucht zusätzlich mindestens zwei
-Operanden, also `children.length >= 3`.
+**Vollständig** ist eine Gruppe, wenn sie kein `null` mehr enthält und ihre Länge
+ungerade ist. Eine Klammer-Gruppe braucht zusätzlich mindestens zwei Operanden,
+also `children.length >= 3`.
 
 ---
 
@@ -78,10 +75,9 @@ Mehr als diese vier Funktionen braucht die Eingabe nicht:
 | **Entfernen** | Operand: `splice(i, 2)` · Operator: `children[i] = null` | `3 + 7` → 7 raus → `3` |
 
 Einfügen und Entfernen sind exakt zueinander invers. Beim Herausziehen einer
-Zahl verschwindet der zugehörige Operator gleich mit – man bleibt nie auf einem
-losen `+` sitzen. Beim Herausziehen eines Operators bleibt dagegen eine Lücke
-stehen, denn wer einen Operator entfernt, will fast immer einen anderen
-einsetzen.
+Zahl verschwindet der zugehörige Operator mit – man bleibt nie auf einem losen
+`+` sitzen. Beim Herausziehen eines Operators bleibt dagegen eine Lücke stehen,
+denn wer einen Operator entfernt, will fast immer einen anderen einsetzen.
 
 ### 3.1 Ablageflächen
 
@@ -91,42 +87,54 @@ Ablageflächen werden **berechnet, nicht gespeichert**:
 - die Position nach dem letzten Kind ist eine offene Fläche,
 - jede belegte Position ist eine Tauschfläche für Chips gleicher Art.
 
-Beim Ziehen einer Zahl leuchten nur Operand-Flächen, beim Ziehen eines
-Operators nur Operator-Flächen.
+Beim Ziehen einer Zahl leuchten nur Operand-Flächen, beim Ziehen eines Operators
+nur Operator-Flächen.
+
+**Reihenfolge beim Tippen:** „nächste offene Fläche" ist streng die
+Dokumentreihenfolge – die Innenflächen einer Gruppe kommen vor der Fläche hinter
+der Gruppe.
 
 ---
 
 ## 4. Die Klammer als Block
 
-Statt zweier Zeichen `(` und `)` gibt es **einen Chip `( )`**. Wird er auf eine
+Statt zweier Zeichen `(` und `)` gibt es **einen Chip**. Wird er auf eine
 Operand-Fläche gezogen, entsteht dort eine leere Gruppe, die man anschließend
 füllt.
 
-- **Unbalancierte Klammern sind nicht mehr darstellbar.** Es gibt kein `(`
-  ohne `)`.
-- „Mindestens zwei Zahlen" ist genauer: **mindestens zwei Operanden**. Eine
-  Gruppe darf eine Zahl und eine verschachtelte Gruppe enthalten – E1 braucht
-  das.
-- Die Ablage enthält genau so viele `( )`-Chips, wie das Level erlaubt
-  (F2/F3: einen, E1: zwei). Das Kontingent ist damit sichtbar statt eine
-  Regel, die man sich merken muss.
-- Die Verschachtelungstiefe begrenzt `maxGroups` / `maxBracketDepth`. Eine
-  Ablage in eine zu tiefe Position ist schlicht keine gültige Fläche.
-- Wird eine gefüllte Gruppe herausgezogen, wandern die enthaltenen Zahlen
-  zurück in die Ablage.
+- **Unbalancierte Klammern sind nicht darstellbar.** Es gibt kein `(` ohne `)`.
+- Die Regel lautet **mindestens zwei Operanden**. Sinnvoll sind zwei bis drei
+  Zahlen; vier wären der ganze Ausdruck in Klammern und damit nutzlos, werden
+  aber nicht eigens verboten.
+- **Keine Verschachtelung.** Eine Gruppe enthält nie eine weitere Gruppe. E1
+  bekommt stattdessen **zwei nebeneinanderliegende** Blöcke.
+- Die Ablage enthält genau so viele Block-Chips, wie das Level erlaubt
+  (F2/F3: einen, E1: zwei). Das Kontingent ist sichtbar statt eine Regel, die man
+  sich merken muss.
+- Wird eine gefüllte Gruppe herausgezogen, wandern die enthaltenen Zahlen zurück
+  in die Ablage. Weil das mehrere Zahlen auf einmal betrifft, muss der Zug den
+  Ausdrucksbereich erst um ~24 px verlassen, bevor er ausgelöst wird.
 
-Für Erstklässler ist der Kasten das Konzept selbst – „das gehört zusammen" –
-ganz ohne das abstrakte Klammersymbol.
+### 4.1 Verschachtelung entfällt – geprüft
 
-### 4.1 Folge für E1
+Die Bank speichert E1-Lösungen voll geklammert, etwa `((7*8)+1)*3`. Ohne
+Verschachtelung wäre die Sorge, dass Rätsel unlösbar werden.
 
-Die Bank speichert E1-Lösungen voll geklammert, z. B. `((9+9)+9)*9`. Im
-Block-Modell genügt dafür **eine** Gruppe mit drei Operanden: `(9+9+9)×9`.
+**Sie werden es nicht.** Ein Prüfskript hat alle **1500** E1-Rätsel gegen einen
+erschöpfenden Suchraum aus Ausdrücken mit maximal einer Klammerebene getestet:
 
-**Einige Experten-Rätsel werden dadurch leichter.** Die Prüfung erfolgt über
-den berechneten Wert und nicht über einen Zeichenkettenvergleich, funktioniert
-also weiterhin korrekt – aber die Schwierigkeitskurve verschiebt sich bei E1
-nach unten. Ob E1 nachjustiert wird, entscheiden wir nach dem ersten Spieltest.
+```
+checked 1500 E1 puzzles
+unsolvable with depth<=1: 0
+```
+
+Das Skript wurde zusätzlich gegen bekannte Fälle geprüft (`[1,1,1,1] → 1000`
+korrekt als unlösbar, `[9,9,9,9] → 243` als lösbar), damit das Ergebnis nicht
+bloß ein immer-wahr ist.
+
+Der Grund ist strukturell: **die Punktrechnung innerhalb einer flachen Gruppe
+leistet, wofür v1 eine zweite Klammer brauchte.** `((7×8)+1)×3` wird zu
+`(7×8+1)×3`, weil × innerhalb der Gruppe ohnehin vor + bindet.
 
 ---
 
@@ -139,12 +147,12 @@ Ziehen ist die Hauptbedienung, Tippen die Abkürzung.
 | Chip in der Ablage **tippen** | wandert in die nächste offene Fläche |
 | Chip im Ausdruck **tippen** | wandert zurück in die Ablage |
 | Chip **ziehen** | genaue Ablage, Umsortieren, Tauschen, in eine Gruppe hinein |
-| Chip aus dem Ausdruck **herausziehen** | entfernen (Zahlen kehren in die Ablage zurück) |
+| Chip **herausziehen** | entfernen (Zahlen kehren in die Ablage zurück) |
 
-Tippen kostet fast keinen zusätzlichen Code – es ist dieselbe Operation mit
-einem anderen Auslöser – hält aber Sechsjährige, Tastaturbedienung und
-Screenreader im Spiel. Tippen auf einen platzierten Chip ist zugleich die
-exakte Umkehrung des Platzierens; damit entfällt der Löschen-Knopf.
+Tippen kostet fast keinen zusätzlichen Code – dieselbe Operation mit einem
+anderen Auslöser – hält aber Sechsjährige, Tastaturbedienung und Screenreader im
+Spiel. Tippen auf einen platzierten Chip ist zugleich die exakte Umkehrung des
+Platzierens; damit entfällt der Löschen-Knopf.
 
 Zahlen werden **verbraucht**, Operatoren sind **unbegrenzt wiederverwendbar**.
 Weil Zahlen die Ablage sichtbar verlassen, wird aus der Regel „jede Zahl genau
@@ -152,30 +160,30 @@ einmal" etwas, das man sieht statt es zu lesen.
 
 ### 5.1 Technik: Pointer Events
 
-**Kein HTML5-Drag-and-Drop.** Es feuert auf iOS Safari bei Berührung nicht,
-und die App ist Mobile First.
+**Kein HTML5-Drag-and-Drop.** Es feuert auf iOS Safari bei Berührung nicht, und
+die App ist Mobile First.
 
 - `pointerdown` / `pointermove` / `pointerup` mit `setPointerCapture`
-- ein Geisterelement folgt dem Finger über `transform` – ohne React-Render
-  pro Bewegung
-- Ablageflächen werden beim Ziehstart einmal vermessen und danach per
-  Rechteck getroffen
+- ein Geisterelement folgt dem Finger über `transform` – ohne React-Render pro
+  Bewegung
+- Ablageflächen werden beim Ziehstart einmal vermessen und danach per Rechteck
+  getroffen
 - Schwelle von 6 px trennt Tippen von Ziehen
 - `touch-action: none` und `user-select: none` auf allen Chips
 
-Das sind rund 150 Zeilen in einem Hook. **Keine Bibliothek** – weder dnd-kit
-noch react-dnd.
+Rund 150 Zeilen in einem Hook. **Keine Bibliothek** – weder dnd-kit noch
+react-dnd.
 
 ---
 
 ## 6. Gültigkeit durch Bauweise
 
 Weil Ablageflächen typisiert sind, **können ungültige Ausdrücke gar nicht erst
-entstehen**. Zwei Zahlen nebeneinander sind unmöglich, wenn hinter einer Zahl
-nur eine Operator-Fläche liegt. Ein unzulässiger Zug findet keine Fläche, und
-der Chip federt zurück.
+entstehen**. Zwei Zahlen nebeneinander sind unmöglich, wenn hinter einer Zahl nur
+eine Operator-Fläche liegt. Ein unzulässiger Zug findet keine Fläche, und der
+Chip federt zurück.
 
-Damit entfallen fünf der sechs Fehlermeldungen aus Anforderung 2.4:
+Damit entfallen alle sechs Fehlermeldungen aus Anforderung 2.4:
 
 | v1-Meldung | v2 |
 |---|---|
@@ -183,8 +191,8 @@ Damit entfallen fünf der sechs Fehlermeldungen aus Anforderung 2.4:
 | Erst eine Zahl eingeben | entfällt – keine Fläche vorhanden |
 | Klammer hier nicht erlaubt | entfällt – keine Fläche vorhanden |
 | Keine offene Klammer vorhanden | entfällt – nicht darstellbar |
-| Alle Zahlen müssen verwendet werden | entfällt – ✓ bleibt gedimmt |
 | Ungültiger Ausdruck | entfällt – nicht darstellbar |
+| Alle Zahlen müssen verwendet werden | entfällt – `=` bleibt gedimmt |
 
 **Übrig bleibt genau ein Signal: richtig oder falsch.** Nichts im Spiel tadelt
 den Spieler noch für einen Zwischenschritt.
@@ -196,76 +204,94 @@ den Spieler noch für einen Zwischenschritt.
 Ein rekursiver Auswerter ersetzt `Function('return ' + expr)()` aus
 `PuzzleValidator` und `HintEngine`.
 
-Pro Gruppe zwei Durchläufe über die Kinderliste: zuerst `×` und `÷`, dann `+`
-und `−`. Verschachtelte Gruppen werden vorher rekursiv aufgelöst.
+Pro Gruppe zwei Durchläufe über die Kinderliste: zuerst `×` und `÷`, dann `+` und
+`−`. Gruppen werden vorher aufgelöst.
 
 - Division durch Null (nur über eine Gruppe wie `(3−3)` erreichbar) liefert
   `null` → Ausdruck gilt als falsch
 - gerechnet wird in Gleitkomma, verglichen mit Epsilon `1e-9`
 - Zwischenergebnisse dürfen wie in v1 gebrochen sein; `9 ÷ 2 × 4 = 18` bleibt
-  eine gültige Lösung
+  gültig
 - das Endergebnis muss `≥ 0` sein
 
 ---
 
-## 8. Abschicken
+## 8. Abschicken und die Notationszeile
 
-Ein **eigener ✓-Knopf**, rechts neben der Zielzahl:
+### 8.1 Der `=`-Knopf
+
+Ein eigener **`=`-Knopf** in der Steuerspalte, unter dem Zielfeld.
+
+Er ist **gedimmt und inaktiv**, solange nicht alle Zahlen gesetzt sind oder noch
+eine Lücke offen ist. Sein Zustand ersetzt damit die Meldung „alle Zahlen
+verwenden": „du bist noch nicht fertig" wird gezeigt statt gesagt.
+
+### 8.2 Die Notationszeile
+
+Unter dem Board steht eine ruhige Zeile mit **echter mathematischer Notation**,
+die beim Bauen mitwächst:
 
 ```
-      ╭─────────────────────╮
-      │   3 × ⟨ 7 − 2 ⟩     │
-      ╰─────────────────────╯
-             = 14      ✓
+(6 + 2) × (9 − 3)
 ```
 
-Der Knopf ist **gedimmt und inaktiv**, solange nicht alle Zahlen gesetzt sind
-oder noch eine Lücke offen ist. Damit ersetzt sein Zustand die letzten beiden
-Validierungsmeldungen: „du bist noch nicht fertig" wird gezeigt statt gesagt.
+Auf `=` wird das Ergebnis angehängt:
 
-Er sitzt am rechten Rand, damit der Ziehkorridor von der Ablage nach oben frei
-bleibt.
+```
+(6 + 2) × (9 − 3) = 48
+```
+
+Der Block erklärt jüngeren Spielern, was zusammengehört; die Zeile zeigt älteren
+die Klammerschreibweise, die sie eigentlich lernen. Beide Gruppen werden bedient,
+ohne dass eine davon Kompromisse macht.
+
+**Bei einer falschen Antwort zeigt die Zeile das eigene Ergebnis** neben der
+Zielzahl – `… = 69` bei Ziel 48. Der Spieler sieht seine eigene Rechnung und wie
+weit daneben sie lag, statt bloß ein rotes Kreuz. Die Chips bleiben liegen und
+können korrigiert werden.
+
+Da alle anderen Rückmeldungen aus dem Spiel entfernt wurden (Abschnitt 10), trägt
+diese Zeile das gesamte Gespräch zwischen Spiel und Spieler.
 
 ---
 
 ## 9. Tipps neu gedacht
 
-v1 zerlegt Lösungszeichenketten mit regulären Ausdrücken und ignoriert dabei,
-was der Spieler bereits gebaut hat. Mit dem Baum geht deutlich mehr.
+v1 zerlegt Lösungszeichenketten mit regulären Ausdrücken und ignoriert, was der
+Spieler bereits gebaut hat. Mit dem Baum geht mehr.
 
 ### 9.1 Grundlage: der Restlöser
 
-Statt Lösungszeichenketten zu vergleichen, beantwortet ein kleiner Löser die
-Frage: **„Lässt sich der angefangene Ausdruck mit den übrigen Zahlen noch auf
-die Zielzahl bringen?"**
+Statt Zeichenketten zu vergleichen, beantwortet ein kleiner Löser die Frage:
+**„Lässt sich der angefangene Ausdruck mit den übrigen Zahlen noch auf die
+Zielzahl bringen?"**
 
-Bei höchstens vier Zahlen ist der Suchraum winzig – wenige tausend
-Auswertungen, praktisch verzögerungsfrei. Die Suchlogik existiert bereits im
-`PuzzleGenerator` und wird nur herausgezogen. Das ist robuster als jeder
-Textvergleich, weil es auch Lösungen erkennt, die nicht in der Bank stehen.
+Bei höchstens vier Zahlen ist der Suchraum winzig – das Prüfskript aus Abschnitt
+4.1 wertet 1500 Rätsel erschöpfend in unter zwei Sekunden aus. Die Suchlogik
+existiert bereits im `PuzzleGenerator` und wird nur herausgezogen. Robuster als
+jeder Textvergleich, weil sie auch Lösungen erkennt, die nicht in der Bank
+stehen.
 
 ### 9.2 Die Leiter
 
 | Stufe | Inhalt | Verfügbar |
 |---|---|---|
-| **kostenlos** | *Sackgassen-Anzeige*: kann das Ziel nicht mehr erreicht werden, färbt sich der Rahmen des Ausdrucks bernstein | alle Level |
+| **kostenlos** | *Sackgassen-Anzeige*: ist das Ziel nicht mehr erreichbar, färbt sich der Rahmen des Ausdrucks bernstein | alle Level |
 | 💡 1 | Zwischenwert: „Kannst du eine 15 bauen?" | alle Level |
 | 💡 2 | zwei zusammengehörige Zahlen **pulsieren in der Ablage** | Fortgeschritten, Experte |
-| 💡 3 | das Spiel **setzt ein Teil** – meist den `( )`-Block an die richtige Stelle | Experte |
-| 🏳️ Aufgeben | eine vollständige Lösung wird als Chips gelegt, dann nächstes Rätsel | nach allen Tipps |
+| 💡 3 | das Spiel **setzt ein Teil** – meist den Block an die richtige Stelle | Experte |
+| 🏳️ Aufgeben | eine Lösung wird als Chips gelegt, dann nächstes Rätsel | nach allen Tipps |
 
-Zwei Punkte sind neu und wichtig:
-
-**Tipps sind sichtbar statt lesbar.** Stufe 2 lässt zwei Chips pulsieren,
-statt „Schau dir 2 und 5 an" zu schreiben. Die jüngsten Spieler können den
-deutschen Tipptext nicht zuverlässig lesen – zwei leuchtende Chips schon.
+**Tipps sind sichtbar statt lesbar.** Stufe 2 lässt zwei Chips pulsieren, statt
+„Schau dir 2 und 5 an" zu schreiben. Die jüngsten Spieler lesen den deutschen
+Tipptext nicht zuverlässig – zwei leuchtende Chips schon.
 
 **Die Sackgassen-Anzeige ist kostenlos und dauerhaft.** Still in eine Sackgasse
 zu laufen ist die häufigste Frustration; für den Ausweg zu bezahlen wäre der
-falsche Druck. *(Empfehlung – bitte beim Review bestätigen.)*
+falsche Druck.
 
-Da es keine Streaks mehr gibt, kosten Tipps ohnehin nichts. Die Leiter dient
-nur noch der Dosierung. Aufgeben verliert jede Konsequenz und damit auch den
+Da es keine Streaks mehr gibt, kosten Tipps ohnehin nichts. Die Leiter dient nur
+der Dosierung. Aufgeben verliert jede Konsequenz und damit den
 Bestätigungsdialog.
 
 ---
@@ -293,50 +319,149 @@ interface Settings {
 }
 ```
 
-**Bewusste Folge:** Ein gelöstes Rätsel hinterlässt nichts Bleibendes. Der
-Moment des Lösens ist damit die einzige Belohnung im Spiel – die
-Jubel-Animation wird dadurch tragend statt schmückend und verdient
-entsprechende Sorgfalt.
+**Bewusste Folge:** Ein gelöstes Rätsel hinterlässt nichts Bleibendes. Der Moment
+des Lösens ist die einzige Belohnung – die Notationszeile (8.2) und der
+Übergang zum nächsten Rätsel tragen sie allein und verdienen entsprechende
+Sorgfalt.
 
 ---
 
 ## 11. Layout
 
+### 11.1 Das Raster
+
+Fünf Spalten. Spalte 5 ist die Steuerspalte, die Spalten 1–4 tragen oben den
+Ausdruck und unten die Ablage.
+
 ```
-┌────────────────────────────────┐
-│  ⚙️    Zahlenkönig · F2.1  💡 ❓ │   Kopfzeile
-├────────────────────────────────┤
-│                                │
-│      ╭────────────────────╮    │   Ausdrucksfläche
-│      │   3 × ⟨ 7 − 2 ⟩    │    │   (umbricht, wächst)
-│      ╰────────────────────╯    │
-│                                │
-│             = 14      ✓        │   Ziel + Abschicken
-├────────────────────────────────┤
-│    3     7     2               │   Zahlen (verbraucht)
-│    +  −  ×  ÷     ( )          │   Operatoren (wiederverwendbar)
-└────────────────────────────────┘
+┌─────────────────────────────────────┬────────┐
+│  Ausdrucksfeld                      │  = 48  │   Zeile 1
+├────────┬────────┬────────┬──────────┼────────┤
+│   Z4   │   Z3   │   Z2   │    Z1    │  [ ]   │   Zeile 2  Zahlen + Block
+├────────┼────────┼────────┼──────────┼────────┤
+│   ×    │   ÷    │   +    │    −     │   =    │   Zeile 3  Operatoren + Absenden
+└────────┴────────┴────────┴──────────┴────────┘
+              (6 + 2) × (9 − 3)                     Notationszeile
 ```
 
-**Die Ablage liegt unten, der Ausdruck oben.** Man zieht nach oben – die
-bequeme Daumenrichtung – und die Hand verdeckt beim Ziehen nicht das, was man
-gerade baut.
+- Zahlen sind **rechtsbündig**: bei zwei oder drei Zahlen bleiben die linken
+  Zellen frei, die Position von Z1 und Z2 ändert sich nie.
+- **Die Ablage liegt unten, der Ausdruck oben.** Man zieht nach oben – die
+  bequeme Daumenrichtung – und die Hand verdeckt beim Ziehen nicht, was man baut.
+- Der `=`-Knopf sitzt am rechten Rand, damit der Ziehkorridor frei bleibt.
 
-- Chips in der Ablage rund 56 px, im Ausdruck rund 44 px
-- ab acht Chips umbricht die Ausdrucksfläche in eine zweite Zeile
-- die Gruppe zeichnet sich als gerundeter Rahmen; die Klammern *sind* der
-  Rahmen
-- Bewegungen zwischen Ablage und Ausdruck laufen als FLIP-Animation
-- die 430-px-Begrenzung auf Desktop bleibt
+### 11.2 Formen
 
-Dieser Abschnitt beschreibt **nur die Anordnung**, nicht das Aussehen.
-Farbwelt und Schrift aus v1 werden **nicht** übernommen – das visuelle Design
-wird eigenständig überarbeitet und in einer eigenen Runde besprochen
-(siehe Abschnitt 14).
+| Element | Form |
+|---|---|
+| Zahl | Quadrat mit leicht gerundeten Ecken |
+| Operator | Kreis |
+| Block | **eckige Klammern** `[ ]` – ein Stamm mit Serifen oben und unten |
+| Zielzahl, `=` | Quadrat, in der Akzentfarbe gefüllt |
+
+Der Block-Chip in der Ablage ist ein **ganz normaler Chip** – gleiche Füllung,
+gleiche Zelle wie jeder andere Knopf – mit einem **Symbol darin** und Luft
+ringsum. Das Symbol ist die Miniatur seines Inhalts: **Quadrat, offener Kreis,
+Quadrat**. Es ist wahrheitsgemäß, weil auf diesem Board ein Quadrat eine Zahl und
+ein Kreis einen Operator bedeutet; der offene statt gefüllte Kreis in der Mitte
+verhindert, dass die drei Formen als Gesicht gelesen werden.
+
+### 11.3 Drei Markierungen, nie vermischt
+
+| Markierung | Bedeutung |
+|---|---|
+| gestricheltes graues Feld in der Ablage | diese Zahl liegt gerade im Ausdruck – und hier kommt sie zurück |
+| **nichts** | diese Zelle gehört nicht zu diesem Rätsel (2- oder 3-Zahlen-Level) |
+| gestrichelte Fläche in Akzentfarbe | gültiges Ziel, **nur während eines Zuges sichtbar** |
+
+Die ersten beiden dürfen nicht gleich aussehen: sonst lässt sich ein
+3-Zahlen-Rätsel nicht von einem 4-Zahlen-Rätsel unterscheiden, bei dem schon eine
+Zahl gesetzt ist.
+
+### 11.4 Kontrast des Blocks
+
+Zwei Stufen Trennung, je eine in beide Richtungen: die Gruppe **weicht zurück**
+(Akzentfarbe, 17 % Deckung), ihr Inhalt **kommt nach vorn** (Chips darin weiß
+statt ablagegrau). Das ist die Konvention, die eine verschachtelte Fläche als
+verschachtelt lesbar macht – und nebenbei sieht eine `6` innerhalb eines Blocks
+dadurch anders aus als eine `6` daneben.
+
+### 11.5 Größen: eine Zahl, kein Umbruch
+
+Alle Maße sind `calc()` auf einer einzigen Variablen `--cell`. Nichts hat eine
+absolute Größe; das Board skaliert aus einer Zahl.
+
+> **Der Ausdruck bricht nie um und scrollt nie.**
+
+Das ist erzwingbar, weil der Inhalt beschränkt ist: der schlimmste Fall sind vier
+Zahlen, drei Operatoren und zwei Blöcke. Eine Gruppe mit drei Zahlen ist
+schmaler. Die Anteile sind so gewählt, dass dieser Fall passt – gemessen, nicht
+geschätzt.
+
+Chips brauchen `flex: none`. Ohne das schrumpfen sie im Flex-Container, und ein
+Operatorkreis wird zur Ellipse.
+
+### 11.6 Hoch- und Querformat
+
+**Kein Breakpoint auf die Breite.** Wie bei *flashcards* gibt es genau eine
+Umschaltung, und zwar auf das Seitenverhältnis:
+
+```css
+@media (min-aspect-ratio: 1 / 1) { /* mehr Raum für --cell */ }
+```
+
+Damit sind ein quer gehaltenes Telefon und ein kleines Desktop-Fenster derselbe
+Fall – was bei einer Breiten-Abfrage nicht stimmen würde.
+
+Kein Scrollen: `100dvh` (nicht `vh` – die einfahrende Adressleiste ist genau die
+Ursache des ungewollten Scrollens), dazu `overflow: hidden` und
+`overscroll-behavior: none`.
 
 ---
 
-## 12. Dateistruktur
+## 12. Design-System
+
+### 12.1 Eine Zahl steuert die Farben
+
+Alle Farbtoken leiten sich aus **einem Farbwinkel** ab. Die Neutralen sind
+derselbe Farbton mit sehr geringer Sättigung – deshalb wirken die Grautöne
+gewählt statt tot. Das Schema zu wechseln ist eine Zeile.
+
+```css
+--hue: 214;
+--zk-bg:         hsl(var(--hue) 20% 98.5%);   /* Grundfläche              */
+--zk-surface:    hsl(var(--hue) 24% 100%);    /* Ausdrucksfeld            */
+--zk-chip:       hsl(var(--hue) 26% 95%);     /* Chip-Füllung             */
+--zk-group-bg:   hsl(var(--hue) 48% 42% / .17); /* Block-Füllung          */
+--zk-group-chip: hsl(var(--hue) 30% 100%);    /* Chip innerhalb eines Blocks */
+--zk-line:       hsl(var(--hue) 22% 85%);     /* Haarlinien, Platzhalter  */
+--zk-ink:        hsl(var(--hue) 30% 18%);     /* Ziffern                  */
+--zk-muted:      hsl(var(--hue) 14% 58%);     /* Nebentext                */
+--zk-accent:     hsl(var(--hue) 62% 42%);     /* Klammern, Ziel, Absenden */
+```
+
+### 12.2 Schrift und Symbole
+
+- **`system-ui`, sonst nichts.** Keine Webschrift. Damit ist das Nebeneinander
+  verschiedener Schriften aus v1 an der Wurzel erledigt. Courier New entfällt.
+- Drei Größen, zwei Schnitte – mehr nicht.
+- `font-variant-numeric: tabular-nums` überall dort, wo Ziffern stehen.
+- **Keine Emoji.** ⚙️ 💡 ❓ 🔥 🌱 🧠 werden durch **inline-SVG-Strichsymbole**
+  ersetzt: ein 24-px-Feld, 1,5 px Strich, Farbe über `currentColor`. Emoji sehen
+  auf jedem Gerät anders aus und sind mehrfarbig – beides widerspricht dem
+  Entwurf. (Dieselbe Begründung wie im Stylesheet von *flashcards*.)
+- Die Krone bleibt als einzige illustrative Marke (`public/crown.svg`).
+
+### 12.3 Bewegung
+
+Ein zurückhaltender Entwurf braucht Bewegung, weil keine Farbcodierung mehr
+erklärt, was gerade passiert: Chip hebt beim Greifen ab, Flächen öffnen sich,
+der Chip setzt sich federnd. Wege zwischen Ablage und Ausdruck laufen als
+FLIP-Animation über die stabile `id`. `prefers-reduced-motion` wird respektiert.
+
+---
+
+## 13. Dateistruktur
 
 ```
 src/
@@ -352,7 +477,7 @@ src/
 │   ├── useDrag.ts             Pointer-Events-Ziehschicht
 │   ├── useGame.ts             Spielzustand
 │   ├── Game.tsx               Layout
-│   ├── Expression.tsx         rekursives Zeichnen + Flächen
+│   ├── Expression.tsx         Ausdrucksfeld + Flächen
 │   ├── Tray.tsx               Ablage
 │   ├── Chip.tsx               ein Chip
 │   ├── Header.tsx
@@ -362,47 +487,46 @@ src/
 └── main.tsx
 ```
 
-Die Dateizahl bleibt in etwa gleich wie in v1 – der Gewinn liegt woanders:
+Die Dateizahl bleibt etwa gleich wie in v1 – der Gewinn liegt woanders:
 
-- Die Schichtung **Services → Hooks → Components** verschwindet. Es gibt nur
-  noch **`core/` (rein und testbar)** und **`ui/` (React)**.
-- Der interessante Teil – Baum, Auswertung, Löser, Tipps – hat **keinen
-  einzigen React-Import** und ist im Terminal testbar.
+- Die Schichtung **Services → Hooks → Components** verschwindet. Es gibt nur noch
+  **`core/` (rein und testbar)** und **`ui/` (React)**.
+- Der interessante Teil – Baum, Auswertung, Löser, Tipps – hat **keinen einzigen
+  React-Import** und ist im Terminal testbar.
 - Ersatzlos gestrichen: `ScoringService`, `PuzzleValidator`, `useProgress`,
   `useHints`, `NumberRow`, `KeyPad`, `InputRow`.
 - Netto etwa ein Drittel weniger Code als v1.
 
-**Unverändert übernommen:** die 13 Bank-Dateien und `generatePuzzles.mjs`,
-die Level-Definitionen, i18n, der GitHub-Actions-Deploy. Das Farbsystem
-**nicht** – siehe Abschnitt 11.
+**Unverändert übernommen:** die 13 Bank-Dateien und `generatePuzzles.mjs`, die
+Level-Definitionen (ergänzt um `maxGroups`), i18n, der GitHub-Actions-Deploy.
 
 ---
 
-## 13. Umsetzung in Schritten
+## 14. Umsetzung in Schritten
 
 | # | Schritt | Ergebnis |
 |---|---|---|
 | 1 | `core/` schreiben: Baum, Auswertung, Löser | im Terminal prüfbar, ohne UI |
 | 2 | Ziehschicht + `Chip`, `Tray`, `Expression` | ein fest verdrahtetes Rätsel ist spielbar |
-| 3 | Bank, Level, Einstellungen, ✓-Prüfung | vollständige Spielschleife |
+| 3 | Bank, Level, Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
 | 4 | Tipps und Sackgassen-Anzeige | Tippleiter steht |
-| 5 | Streaks überall entfernen, Texte anpassen | v1-Reste sind weg |
-| 6 | Animationen, Größen, PWA | Feinschliff |
+| 5 | Streaks entfernen, Emoji durch SVG ersetzen, Texte anpassen | v1-Reste sind weg |
+| 6 | Animationen, Querformat, PWA | Feinschliff |
 
 Nach Schritt 3 ist die App erstmals durchgehend spielbar; die Schritte 1 und 2
 tragen das gesamte Risiko.
 
 ---
 
-## 14. Offene Punkte und Risiken
+## 15. Offene Punkte und Risiken
 
-| Punkt | Bewertung |
+| Punkt | Stand |
 |---|---|
-| **E1 wird leichter** (Abschnitt 4.1) | nach dem ersten Spieltest entscheiden, ob nachjustiert wird |
-| **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Wiederholung setzt schnell ein – Altlast aus v1, sollte nachgeneriert werden |
-| **Sackgassen-Anzeige kostenlos?** | Empfehlung ja, bitte bestätigen |
-| **Ziehen auf iOS Safari** | `touch-action: none` nötig; die App scrollt ohnehin nicht |
-| **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken |
-| **Gruppe um den ganzen Ausdruck** | `(3+4)` als Gesamtausdruck ist erlaubt, verbraucht aber das Kontingent ohne Nutzen |
-| **Verschachtelung auf kleinen Geräten** | E1 mit Tiefe 2 wird eng; Chips auf Tiefe 2 verkleinern |
-| **Visuelles Design offen** | Farbwelt, Schrift und Gesamtanmutung werden neu gedacht – eigene Abstimmungsrunde, noch nicht entschieden |
+| **Kopfzeile** | Noch nicht entschieden. Vorschlag nach dem Vorbild von *flashcards*: ein ruhiges Symbol oben rechts für das Menü, eines für Tipps, sonst nichts. |
+| **Zwischenschritt beim Auflösen** | Optional. Die Notationszeile könnte die Klammern erst zu ihren Werten zusammenfallen lassen (`(6+2) × (9−3)` → `8 × 6` → `= 48`), bevor das Ergebnis erscheint. Das ist die einzige Stelle, an der das Spiel *Punkt vor Strich* zeigt. Vorgabe ist derzeit ohne diesen Schritt. |
+| **Dunkles Farbschema** | „Nice to have". Die Token-Struktur trägt es; entschieden ist nichts. |
+| **Standard-Level ist F2.1** | **Widerspruch aus v1:** ein neuer Spieler landet direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. Entweder beim ersten Start auf A1 setzen oder sicherstellen, dass das erste F2.1-Rätsel ohne Block lösbar ist. |
+| **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Altlast aus v1; Wiederholung setzt schnell ein. Sollte nachgeneriert werden. |
+| **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken. |
+| **Gruppe um den ganzen Ausdruck** | erlaubt, verbraucht aber das Kontingent ohne Nutzen. |
+| **Ziehen auf iOS Safari** | `touch-action: none` nötig; die App scrollt ohnehin nicht. |
