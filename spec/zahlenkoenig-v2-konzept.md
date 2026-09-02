@@ -714,7 +714,8 @@ Level-Definitionen (ergänzt um `maxGroups`), i18n, der GitHub-Actions-Deploy.
 | 6 | Animationen, Querformat, PWA | Feinschliff |
 
 Nach Schritt 3 ist die App erstmals durchgehend spielbar; die Schritte 1 und 2
-tragen das gesamte Risiko.
+tragen das gesamte Risiko. **Abschnitt 17 nennt, was vor dem jeweiligen Schritt
+noch fehlt.**
 
 ---
 
@@ -732,3 +733,44 @@ tragen das gesamte Risiko.
 | **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken. |
 | **Gruppe um den ganzen Ausdruck** | erlaubt, verbraucht aber das Kontingent ohne Nutzen. |
 | **Ziehen auf iOS Safari** | `touch-action: none` nötig; die App scrollt ohnehin nicht. |
+
+---
+
+## 17. Voraussetzungen vor der Umsetzung
+
+Was fehlt, bevor der jeweilige Schritt aus Abschnitt 15 beginnen kann. Nach
+Dringlichkeit geordnet.
+
+### Vor Schritt 1 – `core/`
+
+| Fehlt | Warum es blockiert |
+|---|---|
+| **Kein Test-Runner** | `package.json` kennt nur `dev`, `build`, `preview`. Es gibt weder vitest noch eine Konfiguration. Die gesamte Begründung für ein reines `core/` ist, dass es im Terminal prüfbar ist – ohne Runner bleibt das eine Behauptung. Das Schwesterprojekt *flashcards* nutzt vitest mit `*.test.js` neben den Quellen; dasselbe Vorgehen hier. Erster Test: `wrap` und `dissolve` sind exakte Umkehrungen, und die Invariante aus 2.1 hält nach jeder der sechs Operationen. |
+
+### Vor Schritt 3 – Bank, Level, Einstellungen
+
+| Fehlt | Warum es blockiert |
+|---|---|
+| **`levelId`-Abgleich** | Die Bank schreibt `E1-3`, `LEVELS` kennt `E1.3` (siehe Abschnitt 16). `puzzles.ts` und `hints.ts` lesen beide dieses Feld. Entweder beim Laden normalisieren oder die Bank auf Punkte umstellen – aber entschieden sein, bevor darauf gebaut wird. |
+| **Verzögerung bis zum nächsten Rätsel** | v1 nutzte 1200 ms. Nicht festgelegt. |
+| **Verhalten von `=` nach einer falschen Antwort** | Bleibt der Knopf aktiv, lässt sich derselbe Ausdruck erneut abschicken? Nicht festgelegt. |
+
+### Vor Schritt 4 – Tipps
+
+| Fehlt | Warum es blockiert |
+|---|---|
+| **Regel für Tipp 2** | „Zwei zusammengehörige Zahlen pulsieren" – aber *welche* zwei, wenn ein Rätsel mehrere Lösungen hat? Braucht eine eindeutige Vorschrift, sonst ist der Tipp bei jedem Aufruf ein anderer. |
+| **`levelId`-Abgleich** | Solange er offen ist, liefert `getLevelById` fast überall die Gruppe `advanced`, und Stufe 3 der Leiter ist unerreichbar. |
+
+### Vor Schritt 6 – Feinschliff
+
+| Fehlt | Warum es blockiert |
+|---|---|
+| **Die Formel für `--cell`** | Abschnitt 12.5 legt fest, dass alle Maße aus einer Variablen folgen, und nennt die inneren Anteile – aber nicht die Formel für die Variable selbst. *flashcards* hat `min(75vw, 900px, (75dvh − footer) × 4/3)`; hier fehlt das Gegenstück. Das ist zu Recht eine Frage für den Feinschliff am echten Gerät, sollte aber nicht dort erst auffallen. |
+| **Die Kopfzeile** | Weiterhin offen (Abschnitt 16). Betrifft schon Schritt 3, weil sie Platz im Raster braucht. |
+
+### Nicht blockierend
+
+`puzzles-F2-3.json` mit nur 35 Rätseln und das Standard-Level F2.1 (beide
+Abschnitt 16) sind Altlasten aus v1. Sie sollten behoben werden, halten aber
+keinen Schritt auf.

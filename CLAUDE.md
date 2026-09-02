@@ -35,6 +35,12 @@ no React imports, testable from the terminal before any UI exists. `wrap` and
 Four questions are deliberately open; they are listed in section 16 of the
 concept document.
 
+**Section 17 lists what is missing before each implementation step.** The one
+that blocks the very first step: there is no test runner in this repository yet,
+and `core/` is specified as terminal-testable. Add vitest before writing
+`expression.ts`, and start with the property that `wrap` and `dissolve` are exact
+inverses.
+
 ## Conventions
 
 - **Specifications are written in German**, matching the existing ones. Code,
