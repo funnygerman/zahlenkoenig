@@ -466,10 +466,11 @@ Statt Zeichenketten zu vergleichen, beantwortet ein kleiner Löser die Frage:
 Zielzahl bringen?"**
 
 Bei höchstens vier Zahlen ist der Suchraum winzig – das Prüfskript aus Abschnitt
-4.1 wertet 1500 Rätsel erschöpfend in unter zwei Sekunden aus. Die Suchlogik
-existiert bereits im `PuzzleGenerator` und wird nur herausgezogen. Robuster als
-jeder Textvergleich, weil sie auch Lösungen erkennt, die nicht in der Bank
-stehen.
+4.1 wertet 1500 Rätsel erschöpfend in unter zwei Sekunden aus. **`scripts/checkDepth1.mjs`
+ist die Vorlage für `solver.ts`**, nicht `PuzzleGenerator.findSolutions`: Letzteres
+arbeitet über Zeichenketten und `Function()`, das Prüfskript rechnet bereits über
+Operandenlisten und kennt die Ein-Ebenen-Regel. Robuster als jeder Textvergleich,
+weil es auch Lösungen erkennt, die nicht in der Bank stehen.
 
 ### 9.2 Die Leiter
 
@@ -726,6 +727,7 @@ tragen das gesamte Risiko.
 | **Dunkles Farbschema** | „Nice to have". Die Token-Struktur trägt es; entschieden ist nichts. |
 | **Standard-Level ist F2.1** | **Widerspruch aus v1:** ein neuer Spieler landet direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. Entweder beim ersten Start auf A1 setzen oder sicherstellen, dass das erste F2.1-Rätsel ohne Block lösbar ist. |
 | **Trefffläche des Klammerrands** | Der Rand ist schmal, Daumen sind es nicht. Abgesichert durch den antippbaren Platzhalter in der Ablage (6.6) – der genaue Weg darf nie der einzige sein. Am Gerät prüfen. |
+| **`levelId` in der Bank passt nicht zu `LEVELS`** | **Fehler aus v1, blockiert die Tippleiter.** Die Bank schreibt `"E1-3"`, `LEVELS` kennt `"E1.3"`. `getLevelById` findet nichts und liefert den Fallback F2.1 – `useHints` liest deshalb für fast alle Level die Gruppe `advanced`. Folge: **Experten-Level bieten 2 statt 3 Tipps, Stufe 3 ist unerreichbar.** Vor Schritt 4 zu beheben: entweder die Bank auf Punkte umstellen oder beim Laden normalisieren. |
 | **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Altlast aus v1; Wiederholung setzt schnell ein. Sollte nachgeneriert werden. |
 | **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken. |
 | **Gruppe um den ganzen Ausdruck** | erlaubt, verbraucht aber das Kontingent ohne Nutzen. |

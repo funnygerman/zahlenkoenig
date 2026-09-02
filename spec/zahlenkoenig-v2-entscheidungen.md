@@ -128,3 +128,4 @@ Nicht von v2 verursacht, aber beim Lesen aufgefallen:
 |---|---|
 | **Standard-Level ist F2.1** | Ein neuer Spieler landet direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. Der Standard widerspricht dem Aufbau, den die Level abbilden. |
 | **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Wiederholung setzt schnell ein. |
+| **`levelId` der Bank (`E1-3`) passt nicht zu `LEVELS` (`E1.3`)** | `getLevelById` fällt still auf F2.1 zurück, `useHints` liest daher fast überall die Gruppe `advanced`: Experten-Level bieten 2 statt 3 Tipps. Betrifft v2 unmittelbar, weil die Tippleiter nach Gruppe gestaffelt ist. |
