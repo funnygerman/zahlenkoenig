@@ -111,9 +111,9 @@ füllt.
 - Die Ablage enthält genau so viele Block-Chips, wie das Level erlaubt
   (F2/F3: einen, E1: zwei). Das Kontingent ist sichtbar statt eine Regel, die man
   sich merken muss.
-- Wird eine gefüllte Gruppe herausgezogen, wandern die enthaltenen Zahlen zurück
-  in die Ablage. Weil das mehrere Zahlen auf einmal betrifft, muss der Zug den
-  Ausdrucksbereich erst um ~24 px verlassen, bevor er ausgelöst wird.
+- Ein gesetzter Block wird **nie zerlegt**: Antippen oder Herausziehen entfernt
+  nur die Klammern, der Inhalt bleibt stehen. Abschnitt 6 beschreibt das
+  vollständig.
 
 ### 4.1 Verschachtelung entfällt – geprüft
 
@@ -176,7 +176,206 @@ react-dnd.
 
 ---
 
-## 6. Gültigkeit durch Bauweise
+## 6. Der Block: setzen, bewegen, auflösen
+
+Der Block ist das einzige Element, das ein *Behälter* statt eines Zeichens ist.
+Dieser Abschnitt beschreibt ihn vollständig.
+
+### 6.1 Wohin ein Block gesetzt werden darf
+
+Während ein Block in der Luft ist, sind vier Arten von Zielen aktiv:
+
+| Ziel | Ergebnis |
+|---|---|
+| **leere Operandenfläche** | ein leerer Block landet dort |
+| **Zahl**, rechts daneben Operator + Nicht-Block-Operand | umschließt diese drei |
+| **Zahl**, rechts nichts Brauchbares, links Operator + Nicht-Block-Operand | umschließt diese drei |
+| **Operator**, beide Nachbarn belegt und keiner davon ein Block | umschließt das Paar |
+
+Findet sich weder rechts noch links ein vollständiges Paar, umschließt der Block
+**die Zahl allein**. Das ist zulässig – der Block ist dann unvollständig, `=`
+bleibt ohnehin gedimmt, und der Spieler kann Operator und Zahl anschließend
+hineinziehen.
+
+Nichts innerhalb eines Blocks ist je ein Ziel. Genau das hält die
+Verschachtelung draußen.
+
+**Rechts vor links**, weil eine angetippte Zahl sich wie „hier beginnt die
+Klammer" liest – in Leserichtung.
+
+#### Die nützliche Überschneidung
+
+Zahl und Operator ergeben oft dasselbe. In `6 + 2 × 9`:
+
+| angetippt | Ergebnis |
+|---|---|
+| `6` | `(6 + 2) × 9` |
+| `+` | `(6 + 2) × 9` |
+| `2` | `6 + (2 × 9)` |
+| `×` | `6 + (2 × 9)` |
+| `9` | `6 + (2 × 9)` – kein Paar rechts, fällt nach links |
+
+**Die Umschließung einer Zahl ist stets identisch mit der des Operators rechts
+daneben.** Die Zahl ist damit keine zweite Regel, sondern eine *große
+Trefferfläche* für dasselbe Ziel. Operatoren müssen beim Ziehen deshalb nicht
+vergrößert werden – der Bereich ist bereits groß.
+
+#### Die Vorschau trägt das Ganze
+
+Solange der Block über einem Ziel schwebt, wird **genau die Umschließung, die
+entstehen würde, blass als Klammer gezeichnet**. Ohne diese Vorschau wäre die
+Rechts-vor-links-Regel Raterei; mit ihr sieht man das Ergebnis vor dem Loslassen.
+
+### 6.2 Umschließen erzeugt immer zwei, nie drei
+
+Die Geste erzeugt höchstens ein Paar. Ein Block mit drei Zahlen entsteht, indem
+man zusätzlich Operator und Zahl **hineinzieht** – dieselbe Mechanik wie überall
+sonst. Damit braucht `(7×8+1)×3` keine Sonderregel.
+
+### 6.3 Ein Block zeigt immer sein Minimum
+
+Ein leer gesetzter Block wird als `⬚ ○ ⬚` gezeichnet – Operandenfläche,
+Operatorfläche, Operandenfläche –, nicht bloß als eine offene Fläche.
+
+Zwei Gründe: er sieht genauso aus wie das Symbol auf dem Knopf, der ihn erzeugt
+hat, nur größer; und „ein Block braucht mindestens zwei" ist die einzige Regel
+über Blöcke, die man kennen muss – sie zu zeigen kostet nichts. Eine
+Allein-Umschließung erscheint entsprechend als `6 ○ ⬚`. Sobald zwei Operanden
+darin stehen, verhält sich der Block wie alles andere und zeigt nur noch eine
+nachlaufende Fläche.
+
+### 6.4 Das Gerüst im Ausdrucksfeld
+
+Dieselbe Idee für das ganze Feld. Sie funktioniert, weil **die Anzahl der Chips
+unveränderlich ist**: bei *n* Zahlen werden immer genau *n* Zahlen und *n − 1*
+Operatoren gesetzt, gleich wie die Blöcke fallen. `(6+2)×(9−3)` und `6+2×9−3`
+verbrauchen beide vier Zahlen und drei Operatoren.
+
+Ein Gerüst ist damit in der **Anzahl** immer richtig, auch wenn es die Anordnung
+nicht kennen kann:
+
+```
+Operanden-Platzhalter = Zahlen, die noch in der Ablage liegen
+Operator-Platzhalter  = (n − 1) − bereits gesetzte Operatoren
+```
+
+Die Platzhalter stehen hinter dem Inhalt und werden weniger, während man füllt.
+Und daraus folgt: **wenn keine Platzhalter mehr da sind, ist der Ausdruck
+strukturell vollständig** – exakt die Bedingung, die `=` aktiviert. Das Feld
+zeigt, was noch fehlt, und der Knopf, dass nichts mehr fehlt: dieselbe Tatsache,
+zweimal sichtbar.
+
+Drei Folgen:
+
+- **A1 erklärt sich selbst.** Ein leeres Feld zeigt `⬚ ○ ⬚` – setze eine Zahl,
+  einen Operator, eine Zahl. Für Erstklässler die ganze Anleitung, ohne Worte.
+  In den A-Levels gibt es keine Blöcke, dort ist das Gerüst nie auch nur
+  ungefähr falsch.
+- **Ein 3-Zahlen-Rätsel ist ab dem ersten Bild als solches erkennbar.**
+- **Das Feld springt nicht mehr.** Der Inhalt hat von Anfang an ungefähr seine
+  Endbreite, Chips landen an ihrem Platz statt alles zur Seite zu schieben.
+
+Platzhalter werden in **voller Chipbreite** gezeichnet, aber sehr blass:
+Layoutstabilität wiegt schwerer als der erste Eindruck. Sie sind **keine
+eigenen Ablageziele** – die gültigen Ziele bleiben die aus 6.1.
+
+### 6.5 Ein Block wird getippt, nicht zerlegt
+
+```
+[ 6 + 2 ] × 9        auf den Klammerrand tippen        6 + 2 × 9
+```
+
+Die Klammern verschwinden. Die 6, das `+` und die 2 bleiben, in derselben
+Reihenfolge, an derselben Stelle. Der Block-Chip kehrt in die Ablage zurück.
+**Es fällt nichts heraus.**
+
+Denn wer einen Block entfernt, will fast immer *andere* Klammern, nicht weniger
+Zahlen. `(6+2)×9` → `6+(2×9)` kostet so zwei Gesten: tippen, dann den Block auf
+die `2` ziehen. Über „erst leeren" wären es acht, und jede Zahl müsste ohne Grund
+in die Ablage und zurück.
+
+| Geste | Wirkung |
+|---|---|
+| Rand tippen | Klammern gehen heim, Inhalt bleibt |
+| auf einen anderen Operanden ziehen | die beiden tauschen, Inhalt reist mit |
+| aus dem Feld ziehen und loslassen | Klammern gehen heim, Inhalt bleibt |
+| Platzhalter in der Ablage tippen | Klammern gehen heim, Inhalt bleibt |
+
+Vier Einträge, drei mit demselben Ergebnis – das ist der Punkt: **alle scheinbar
+zerstörerischen Gesten laufen auf die harmlose hinaus.**
+
+**Bewegen ist keine neue Regel.** Ein Block ist ein Operand, und für einen
+Operanden auf einer belegten Operandenfläche gilt bereits: tauschen.
+`(6+2) − 9` wird durch Ziehen auf die `9` zu `9 − (6+2)` – ein anderer Ausdruck,
+also eine sinnvolle Geste. Ob der Block zwei oder drei Zahlen enthält, ändert
+nur die Anzahl der Ziele (drei Operanden bieten zwei, zwei Operanden bieten
+eines), nicht die Regel.
+
+### 6.6 Treffflächen
+
+Der sichtbare Rand ist dünn, und Daumen sind es nicht. Deshalb hat das Auflösen
+**zwei Wege**:
+
+- **Der Rand selbst** – die beiden Klammerstege sowie das Band über und unter den
+  Chips. Jeder Steg bekommt eine unsichtbare Trefffläche von etwa 22 px Breite
+  über die volle Blockhöhe, nach außen in den Feldabstand und nach innen über die
+  Polsterung, ohne je einen Chip zu überlappen. Ein hoher schmaler Streifen ist
+  deutlich leichter zu treffen als ein kleines Quadrat.
+- **Der Platzhalter in der Ablage** – eine volle Zelle von 64 px, dort wo der
+  Daumen ohnehin ist.
+
+Verallgemeinert, statt als Sonderfall: **ein gestrichelter Platzhalter in der
+Ablage ist antippbar und holt zurück, was ihn verlassen hat.** Das gilt für
+Zahlen genauso wie für den Block, ist eine Regel statt zweier, und gibt jedem
+Element eine große Rückholfläche. Der genaue Weg bleibt für alle, die ihn
+mögen; niemand ist darauf angewiesen.
+
+### 6.7 Die Animation trägt die Bedeutung
+
+Beim Auflösen **verlassen die Klammern sichtbar das Feld**: die Stege blenden ab
+und die getönte Fläche fällt über rund 150 ms in den Feldhintergrund zurück,
+während die Chips exakt stehen bleiben – nicht einmal ein Ruck. Geschähe es
+schlagartig, läse ein Spieler die Änderung als Löschung. Das Ausblenden sagt:
+nur die Klammern sind gegangen, die Zahlen sind alle noch da.
+
+### 6.8 Warum kein Rückgängig nötig ist
+
+**Keine Geste verliert mehr als einen Chip.** Die einzige, die es gekonnt hätte –
+einen vollen Block aus dem Feld ziehen –, löst stattdessen auf. Alles Übrige
+kostet höchstens eine Platzierung und wird durch Zurücklegen rückgängig gemacht.
+Damit entfällt die Anforderung an eine Undo-Funktion, statt sie zu erfüllen.
+
+### 6.9 Im Modell
+
+```ts
+wrap(root, index, span)      // span = 3 für ein Paar, 1 für eine Zahl allein
+  const group = { id, kind: 'group', children: root.children.slice(index, index + span) }
+  root.children.splice(index, span, group)
+
+dissolve(root, index)
+  const g = root.children[index]
+  root.children.splice(index, 1, ...g.children)
+```
+
+Beide erhalten die Invariante: 3-gegen-1 und 1-gegen-1 lassen die Parität der
+Folgepositionen unverändert, und eine Gruppe beginnt und endet stets mit einem
+Operanden. `A × (6+2) − B` wird zu `A × 6 + 2 − B` – immer noch abwechselnd.
+
+Damit bilden die Baum-Operationen **drei Umkehrpaare** und eine selbstinverse:
+
+| | Umkehrung |
+|---|---|
+| Operand einfügen | Operand entfernen |
+| Operatorfläche füllen | Operator leeren |
+| **umschließen** | **auflösen** |
+| tauschen | tauschen |
+
+Geste und Datenstruktur haben dieselbe Form – ein gutes Zeichen dafür, dass die
+Umsetzung nicht gegen das Modell arbeiten wird.
+
+---
+
+## 7. Gültigkeit durch Bauweise
 
 Weil Ablageflächen typisiert sind, **können ungültige Ausdrücke gar nicht erst
 entstehen**. Zwei Zahlen nebeneinander sind unmöglich, wenn hinter einer Zahl nur
@@ -199,7 +398,7 @@ den Spieler noch für einen Zwischenschritt.
 
 ---
 
-## 7. Auswerten
+## 8. Auswerten
 
 Ein rekursiver Auswerter ersetzt `Function('return ' + expr)()` aus
 `PuzzleValidator` und `HintEngine`.
@@ -216,7 +415,7 @@ Pro Gruppe zwei Durchläufe über die Kinderliste: zuerst `×` und `÷`, dann `+
 
 ---
 
-## 8. Abschicken und die Notationszeile
+## 9. Abschicken und die Notationszeile
 
 ### 8.1 Der `=`-Knopf
 
@@ -250,12 +449,12 @@ Zielzahl – `… = 69` bei Ziel 48. Der Spieler sieht seine eigene Rechnung und
 weit daneben sie lag, statt bloß ein rotes Kreuz. Die Chips bleiben liegen und
 können korrigiert werden.
 
-Da alle anderen Rückmeldungen aus dem Spiel entfernt wurden (Abschnitt 10), trägt
+Da alle anderen Rückmeldungen aus dem Spiel entfernt wurden (Abschnitt 11), trägt
 diese Zeile das gesamte Gespräch zwischen Spiel und Spieler.
 
 ---
 
-## 9. Tipps neu gedacht
+## 10. Tipps neu gedacht
 
 v1 zerlegt Lösungszeichenketten mit regulären Ausdrücken und ignoriert, was der
 Spieler bereits gebaut hat. Mit dem Baum geht mehr.
@@ -296,7 +495,7 @@ Bestätigungsdialog.
 
 ---
 
-## 10. Fortschrittsanzeigen entfallen
+## 11. Fortschrittsanzeigen entfallen
 
 Streaks, Punkte und Serien werden **vollständig entfernt**.
 
@@ -326,7 +525,7 @@ Sorgfalt.
 
 ---
 
-## 11. Layout
+## 12. Layout
 
 ### 11.1 Das Raster
 
@@ -370,7 +569,7 @@ verhindert, dass die drei Formen als Gesicht gelesen werden.
 
 | Markierung | Bedeutung |
 |---|---|
-| gestricheltes graues Feld in der Ablage | diese Zahl liegt gerade im Ausdruck – und hier kommt sie zurück |
+| gestricheltes graues Feld in der Ablage | dieses Element liegt gerade im Ausdruck – **antippen holt es zurück** (Abschnitt 6.6) |
 | **nichts** | diese Zelle gehört nicht zu diesem Rätsel (2- oder 3-Zahlen-Level) |
 | gestrichelte Fläche in Akzentfarbe | gültiges Ziel, **nur während eines Zuges sichtbar** |
 
@@ -419,7 +618,7 @@ Ursache des ungewollten Scrollens), dazu `overflow: hidden` und
 
 ---
 
-## 12. Design-System
+## 13. Design-System
 
 ### 12.1 Eine Zahl steuert die Farben
 
@@ -461,7 +660,7 @@ FLIP-Animation über die stabile `id`. `prefers-reduced-motion` wird respektiert
 
 ---
 
-## 13. Dateistruktur
+## 14. Dateistruktur
 
 ```
 src/
@@ -502,12 +701,12 @@ Level-Definitionen (ergänzt um `maxGroups`), i18n, der GitHub-Actions-Deploy.
 
 ---
 
-## 14. Umsetzung in Schritten
+## 15. Umsetzung in Schritten
 
 | # | Schritt | Ergebnis |
 |---|---|---|
 | 1 | `core/` schreiben: Baum, Auswertung, Löser | im Terminal prüfbar, ohne UI |
-| 2 | Ziehschicht + `Chip`, `Tray`, `Expression` | ein fest verdrahtetes Rätsel ist spielbar |
+| 2 | Ziehschicht + `Chip`, `Tray`, `Expression`, Blockgesten (Abschnitt 6) | ein fest verdrahtetes Rätsel ist spielbar |
 | 3 | Bank, Level, Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
 | 4 | Tipps und Sackgassen-Anzeige | Tippleiter steht |
 | 5 | Streaks entfernen, Emoji durch SVG ersetzen, Texte anpassen | v1-Reste sind weg |
@@ -518,7 +717,7 @@ tragen das gesamte Risiko.
 
 ---
 
-## 15. Offene Punkte und Risiken
+## 16. Offene Punkte und Risiken
 
 | Punkt | Stand |
 |---|---|
@@ -526,6 +725,7 @@ tragen das gesamte Risiko.
 | **Zwischenschritt beim Auflösen** | Optional. Die Notationszeile könnte die Klammern erst zu ihren Werten zusammenfallen lassen (`(6+2) × (9−3)` → `8 × 6` → `= 48`), bevor das Ergebnis erscheint. Das ist die einzige Stelle, an der das Spiel *Punkt vor Strich* zeigt. Vorgabe ist derzeit ohne diesen Schritt. |
 | **Dunkles Farbschema** | „Nice to have". Die Token-Struktur trägt es; entschieden ist nichts. |
 | **Standard-Level ist F2.1** | **Widerspruch aus v1:** ein neuer Spieler landet direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. Entweder beim ersten Start auf A1 setzen oder sicherstellen, dass das erste F2.1-Rätsel ohne Block lösbar ist. |
+| **Trefffläche des Klammerrands** | Der Rand ist schmal, Daumen sind es nicht. Abgesichert durch den antippbaren Platzhalter in der Ablage (6.6) – der genaue Weg darf nie der einzige sein. Am Gerät prüfen. |
 | **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Altlast aus v1; Wiederholung setzt schnell ein. Sollte nachgeneriert werden. |
 | **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken. |
 | **Gruppe um den ganzen Ausdruck** | erlaubt, verbraucht aber das Kontingent ohne Nutzen. |
