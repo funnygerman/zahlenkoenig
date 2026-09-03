@@ -78,7 +78,7 @@ automatisches Prüfen ohne Knopf · Zielzahl als größtes Element oben.
 
 **Offen:** der Zwischenschritt in der Notationszeile (Klammern fallen erst zu
 ihren Werten zusammen). Vorgabe ist *aus*; die Begründung dafür steht in
-Abschnitt 16 des Konzepts, damit die Wahl erhalten bleibt.
+Abschnitt 17 des Konzepts, damit die Wahl erhalten bleibt.
 
 ---
 
@@ -105,7 +105,51 @@ starke Formkodierung von Zahlen gegen Operatoren.
 
 ---
 
-## 6. Arbeitsweise
+## 6. Bank und Generierung (Runde 3)
+
+| Entscheidung | Begründung |
+|---|---|
+| **Generator und Bank werden ersetzt, nicht übernommen** | Geprüft, nicht angenommen: `scripts/checkBankShapes.mjs` zeigt, dass v1 bei `maxBracketDepth: 1` die Formen `2+2` (zwei nebeneinanderliegende Gruppen) und `3+1` (Dreiergruppe) gar nicht erzeugt – genau die zwei, auf denen v2s Blockbedienung beruht. 5874 Vierer-Rätsel sind so für die F3-Bänke unerreichbar. |
+| **Ein Modell für Generator und Löser** | Beide auf `checkDepth1.mjs`. Zwei Modelle nebeneinander sind die Ursache des Befunds oben; v1 hatte eins im Generator und eins im Validator. |
+| **`levelId` entfällt aus dem Datensatz** (PO) | Der PO fragte, ob das Feld überhaupt entstehen muss. Es muss nicht: `loadBank` kennt das Level an der Ladestelle. Das Feld zusätzlich mitzuführen, in anderer Schreibweise, *war* der Fehler – ihn zu beheben, indem man die Schreibweise angleicht, ließe die Fehlerklasse bestehen. |
+| **`solutions` entfallen** | `solver.ts` rechnet sie neu, kennt als Einziges die Ein-Ebenen-Regel und findet auch Lösungen, die nicht in der Bank stehen. Gespeicherte Zeichenketten wären eine zweite, veraltende Wahrheit – die v1-Lösungen von E1 sind zweistufig und in v2 nicht baubar. |
+| **Erschöpfend statt Stichprobe** | Je Zahlenmenge einmal alle erreichbaren Ziele aufzählen ist nicht nur vollständig, sondern schneller als würfeln-und-nachrechnen: alle 495 Vierermengen in rund 5 Sekunden. Die Lösungsanzahl fällt als Schwierigkeitsmaß nebenbei ab. |
+| **Bänder statt Zufall** (PO) | Nach `rank` sortieren, drei Bänder, innerhalb mischen. Ein Level steigt an und ist trotzdem in jeder Sitzung ein anderes. Nichts wird gespeichert – die Bänder leben in der Sitzung, `Settings` bleibt bei zwei Feldern. |
+| **Standard-Level bleibt F2.1** (PO) | Der Widerspruch aus v1 löst sich als Nebenwirkung der Sortierung: 1407 der 1854 F2.1-Rätsel brauchen keinen Block, Band 1 ist also blockfrei. Keine Sonderregel nötig. |
+
+**Verworfen:** die Schreibweise `F2-1`/`F2.1` angleichen (behandelt das Symptom) ·
+`solutions` in der Bank behalten · F2.3 auf 500 Rätsel nachgenerieren (es
+existieren nur 60) · der Filter „1 bis 5 Lösungen" (willkürlich; er allein kürzte
+F2.3 von 60 auf 37) · Bänke unverändert übernehmen.
+
+**Offen:** was E1 künftig von F3 unterscheidet. v2 schafft die Verschachtelung ab
+– das war das einzige Trennmerkmal. Siehe Abschnitt 17 des Konzepts; **PO-Frage**,
+keine technische.
+
+---
+
+## 7. Tipps (Runde 3)
+
+Der PO zum v1-System: *„nicht immer hilfreich, manchmal zu direkt. Und manchmal
+ging es nur um einen Teil des Ausdrucks. Auch schloss Aufgeben das Rätsel, statt
+die Lösung zu zeigen."* Drei Mängel, drei Antworten:
+
+| Entscheidung | Begründung |
+|---|---|
+| **Alles hängt an der kanonischen Fortsetzung** | Gegen *„nur ein Teil des Ausdrucks"*: v1 las `solutions[0]` aus der Bank und beschrieb deren erste Klammer – ein Fragment ohne Bezug zum Brett. Die kanonische Fortsetzung setzt das Gebaute voraus, kann ihm also nie widersprechen. Sie ist zugleich die Sackgassen-Anzeige: ein Löser, drei Funktionen. |
+| **Ein Knopf, ein Schritt pro Druck** | Gegen *„ungleichmäßig, manchmal zu direkt"*: jeder Druck fügt genau eine Portion hinzu, der Spieler bestimmt durch Weiterdrücken, wie weit es geht. Kein Sprung von nichtssagend zu verraten. |
+| **Kein Tipptext mehr** | Ein Sechsjähriger und ein Erwachsener bekommen denselben Tipp; der eine muss ihn nicht lesen können. „Sichtbar statt lesbar" stand schon in 2.1 – v1 zog es nur nicht durch. Die `hint.*`-Texte entfallen. |
+| **Keine Staffelung nach Level** | `maxHintsPerGroup` entfällt. Damit verschwindet auch der Ort, an dem der `levelId`-Fehler wirkte: die Regel, die ihn möglich machte, gibt es nicht mehr. |
+| **Aufgeben ist Weiterdrücken** | Kein zweiter Knopf, kein Bestätigungsdialog, keine Schwelle „erst alle Tipps". |
+| **Das gelöste Brett bleibt stehen** (PO) | Gegen *„Aufgeben schloss das Rätsel"*: die Lösung liegt als Chips da, die Notationszeile zeigt `… = Ziel`, Weitergehen ist eine eigene Geste. In v1 bezahlte man mit dem Eingeständnis und bekam die Antwort trotzdem nicht zu sehen. |
+
+**Verworfen:** die dreistufige Leiter nach Level-Gruppe · Tipptexte in beiden
+Sprachen · Tipps aus `puzzle.solutions` ableiten · Aufgeben als eigener Knopf mit
+Bestätigung · Aufgeben mit automatischem Wechsel zum nächsten Rätsel.
+
+---
+
+## 8. Arbeitsweise
 
 - **Erst besprechen, dann bauen.** Die gesamte Planung lief über Diskussion und
   klickbare Entwürfe, nicht über Code.
@@ -115,17 +159,28 @@ starke Formkodierung von Zahlen gegen Operatoren.
 - **Behauptungen prüfen.** Die Verschachtelungsfrage wurde nicht abgeschätzt,
   sondern mit einem Skript beantwortet, das selbst gegen bekannte Fälle
   abgesichert ist. Es liegt im Repository und ist wiederholbar.
+  In Runde 3 hat sich das ein zweites Mal ausgezahlt: `checkBankShapes.mjs`
+  widerlegt zwei Sätze, die in 2.1 als selbstverständlich standen – die Bank sei
+  unverändert übernehmbar, und F2.3 sei bloß nachzugenerieren. Beide klangen
+  plausibel; beide waren falsch. **Auch die eigenen Dokumente sind zu prüfen,
+  nicht nur der Code.**
 - **Spezifikationen auf Deutsch**, passend zu den beiden v1-Dokumenten.
 - **Branch:** `claude/zahlenkoenig-v2-planning-jcsi4d`, PR #1.
+  Runde 3: `claude/v2-docs-missing-requirements-2pybh9`.
 
 ---
 
-## 7. Nebenbefunde aus v1
+## 9. Nebenbefunde aus v1
 
-Nicht von v2 verursacht, aber beim Lesen aufgefallen:
+Nicht von v2 verursacht, aber beim Lesen aufgefallen. Alle drei sind in Runde 3
+erledigt – zwei davon anders als zunächst gedacht:
 
-| Befund | Warum es zählt |
+| Befund | Stand |
 |---|---|
-| **Standard-Level ist F2.1** | Ein neuer Spieler landet direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. Der Standard widerspricht dem Aufbau, den die Level abbilden. |
-| **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Wiederholung setzt schnell ein. |
-| **`levelId` der Bank (`E1-3`) passt nicht zu `LEVELS` (`E1.3`)** | `getLevelById` fällt still auf F2.1 zurück, `useHints` liest daher fast überall die Gruppe `advanced`: Experten-Level bieten 2 statt 3 Tipps. Betrifft v2 unmittelbar, weil die Tippleiter nach Gruppe gestaffelt ist. |
+| **Standard-Level ist F2.1** | Ein neuer Spieler landete direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. **Erledigt ohne Änderung am Standard:** die Bandsortierung stellt blockfreie Rätsel nach vorn (Abschnitt 6). |
+| **`puzzles-F2-3.json` enthält nur 35 Rätsel** | **Falsch diagnostiziert.** Es sah nach Nachlässigkeit aus, ist aber die Obergrenze der Aufgabe: für drei Zahlen mit Zielen 101–162 existieren überhaupt nur 60 lösbare Paare. Erschöpfende Generierung hebt 35 auf 60 – mehr gibt es nicht. Wiederholung ließe sich nur über den Zielbereich vermeiden. |
+| **`levelId` der Bank (`E1-3`) passt nicht zu `LEVELS` (`E1.3`)** | **Erledigt, indem beide Seiten verschwinden:** das Feld entfällt aus dem Datensatz, und mit `maxHintsPerGroup` entfällt der einzige Ort, an dem der Fehler wirkte. |
+
+Neu in Runde 3 dazugekommen, und gewichtiger als alle drei: **v1s Generator kennt
+v2s Gruppenmodell nicht** (Abschnitt 6), und **v2 hebt den Unterschied zwischen
+F3 und E1 auf** – die einzige noch offene PO-Frage.

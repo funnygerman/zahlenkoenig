@@ -27,27 +27,40 @@ the v2 concept wins for anything being built now.
 
 ## Where v2 stands
 
-Planning is complete; no application code has been written. The next step is
-`src/core/` — `expression.ts`, `evaluate.ts`, `solver.ts` — pure TypeScript with
-no React imports, testable from the terminal before any UI exists. `wrap` and
-`dissolve` are exact inverses, which is a property worth testing directly.
+Planning is complete; no application code has been written. Section 16 of the
+concept document lists the implementation steps, section 18 what is still
+missing before each one.
 
-Four questions are deliberately open; they are listed in section 16 of the
-concept document.
+Start at step 0: **add vitest** (`*.test.ts` beside the sources, `npm test`),
+then write `src/core/` — `expression.ts`, `evaluate.ts`, `solver.ts` — pure
+TypeScript with no React imports. First property to test: `wrap` and `dissolve`
+are exact inverses.
 
-**Section 17 lists what is missing before each implementation step.** The one
-that blocks the very first step: there is no test runner in this repository yet,
-and `core/` is specified as terminal-testable. Add vitest before writing
-`expression.ts`, and start with the property that `wrap` and `dissolve` are exact
-inverses.
+Two things to know before touching the puzzle bank:
+
+- **The v1 generator does not implement v2's rule.** It counts brackets; v2
+  counts nesting. At `maxBracketDepth: 1` it never emits two sibling groups
+  `(1+1)×(1+2)` or a three-number group `(1+1+1)×3` — the two shapes v2's whole
+  block interaction is built on. `node scripts/checkBankShapes.mjs` shows it.
+  So the banks get regenerated (concept section 15), and `generatePuzzles.mjs`
+  gets rewritten on the model in `checkDepth1.mjs`, which the solver shares.
+- **One question is genuinely open and blocks that regeneration:** with nesting
+  gone, F3 and E1 are the same level at the same target range. What
+  distinguishes E1 from now on is a PO decision (concept section 17).
+
+Everything else that section 17 of v2.1 left open is now decided; section 17.1
+lists what became of each.
 
 ## Conventions
 
 - **Specifications are written in German**, matching the existing ones. Code,
   comments and commit messages are in English.
-- **Verify claims rather than estimating them.** `scripts/checkDepth1.mjs` is the
-  pattern: it answers a design question exhaustively and is itself checked
-  against known-good and known-bad cases. Run it with `node scripts/checkDepth1.mjs`.
+- **Verify claims rather than estimating them.** `scripts/checkDepth1.mjs` and
+  `scripts/checkBankShapes.mjs` are the pattern: each answers a design question
+  exhaustively and is itself checked against known-good and known-bad cases
+  before it reports anything. This applies to the specs too — `checkBankShapes`
+  exists because two confident sentences in the v2.1 concept turned out to be
+  wrong.
 - **Decide layout questions by looking.** Where two options exist, render both
   and compare, rather than arguing them in prose.
 - The sibling project `funnygerman/flashcards` is the reference for house style:

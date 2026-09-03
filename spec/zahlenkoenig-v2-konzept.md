@@ -1,12 +1,19 @@
 # Zahlenkönig / Number King – v2 Konzept
 
-**Version:** 2.1
+**Version:** 2.2
 **Stand:** September 2026
-**Status:** Abgestimmt – bereit zur Umsetzung
+**Status:** Abgestimmt – bereit zur Umsetzung, bis auf eine offene Frage
+(Abschnitt 17: was E1 künftig von F3 unterscheidet)
 
 Dieses Dokument beschreibt die Neukonzeption von Eingabe und Gestaltung für v2.
 Es ersetzt die Abschnitte 2.4–2.6 sowie Kapitel 4 der Anforderungen v1.5.
-Level-System, Rätsel-Bank und Sprachumschaltung bleiben unverändert.
+Die Sprachumschaltung bleibt unverändert.
+
+**Neu in 2.2:** Tipps sind neu gedacht (Abschnitt 10), Bank und Generator werden
+ersetzt statt übernommen (Abschnitt 15), und die offenen Punkte aus 2.1 sind bis
+auf drei entschieden (Abschnitt 17.1). Damit fällt auch die Annahme, das
+Level-System bleibe unangetastet: Abschnitt 15.4 zeigt, dass v2 den Unterschied
+zwischen F3 und E1 aufhebt.
 
 ---
 
@@ -417,7 +424,7 @@ Pro Gruppe zwei Durchläufe über die Kinderliste: zuerst `×` und `÷`, dann `+
 
 ## 9. Abschicken und die Notationszeile
 
-### 8.1 Der `=`-Knopf
+### 9.1 Der `=`-Knopf
 
 Ein eigener **`=`-Knopf** in der Steuerspalte, unter dem Zielfeld.
 
@@ -425,7 +432,14 @@ Er ist **gedimmt und inaktiv**, solange nicht alle Zahlen gesetzt sind oder noch
 eine Lücke offen ist. Sein Zustand ersetzt damit die Meldung „alle Zahlen
 verwenden": „du bist noch nicht fertig" wird gezeigt statt gesagt.
 
-### 8.2 Die Notationszeile
+**Nach einer falschen Antwort bleibt der Knopf aktiv.** Derselbe Ausdruck darf
+erneut abgeschickt werden. Der Knopf kennt genau eine Frage – „ist der Ausdruck
+vollständig?" –, und die Antwort ändert sich durch eine falsche Lösung nicht.
+Ihn zusätzlich auf das Ergebnis reagieren zu lassen wäre eine zweite Regel für
+dasselbe Bedienelement; die Notationszeile trägt die Rückmeldung ohnehin schon
+und wird beim Bauen laufend aktualisiert.
+
+### 9.2 Die Notationszeile
 
 Unter dem Board steht eine ruhige Zeile mit **echter mathematischer Notation**,
 die beim Bauen mitwächst:
@@ -456,10 +470,15 @@ diese Zeile das gesamte Gespräch zwischen Spiel und Spieler.
 
 ## 10. Tipps neu gedacht
 
-v1 zerlegt Lösungszeichenketten mit regulären Ausdrücken und ignoriert, was der
-Spieler bereits gebaut hat. Mit dem Baum geht mehr.
+Am v1-Tippsystem wurden drei Dinge bemängelt: es war **ungleichmäßig stark**
+(mal nichtssagend, mal sofort verraten), es sprach **nur über einen Teil des
+Ausdrucks**, und **Aufgeben schloss das Rätsel, statt die Lösung zu zeigen**.
 
-### 9.1 Grundlage: der Restlöser
+Die ersten beiden teilen eine Ursache: v1 tippte über gespeicherte
+Lösungszeichenketten statt über das Brett, das vor dem Spieler liegt. Der dritte
+ist davon unabhängig und braucht eine eigene Antwort (10.4).
+
+### 10.1 Grundlage: der Restlöser
 
 Statt Zeichenketten zu vergleichen, beantwortet ein kleiner Löser die Frage:
 **„Lässt sich der angefangene Ausdruck mit den übrigen Zahlen noch auf die
@@ -472,27 +491,73 @@ arbeitet über Zeichenketten und `Function()`, das Prüfskript rechnet bereits �
 Operandenlisten und kennt die Ein-Ebenen-Regel. Robuster als jeder Textvergleich,
 weil es auch Lösungen erkennt, die nicht in der Bank stehen.
 
-### 9.2 Die Leiter
+### 10.2 Die kanonische Fortsetzung
 
-| Stufe | Inhalt | Verfügbar |
-|---|---|---|
-| **kostenlos** | *Sackgassen-Anzeige*: ist das Ziel nicht mehr erreichbar, färbt sich der Rahmen des Ausdrucks bernstein | alle Level |
-| 💡 1 | Zwischenwert: „Kannst du eine 15 bauen?" | alle Level |
-| 💡 2 | zwei zusammengehörige Zahlen **pulsieren in der Ablage** | Fortgeschritten, Experte |
-| 💡 3 | das Spiel **setzt ein Teil** – meist den Block an die richtige Stelle | Experte |
-| 🏳️ Aufgeben | eine Lösung wird als Chips gelegt, dann nächstes Rätsel | nach allen Tipps |
+Jeder Tipp – und die Sackgassen-Anzeige – liest **dasselbe** Ergebnis dieses
+Lösers:
 
-**Tipps sind sichtbar statt lesbar.** Stufe 2 lässt zwei Chips pulsieren, statt
-„Schau dir 2 und 5 an" zu schreiben. Die jüngsten Spieler lesen den deutschen
-Tipptext nicht zuverlässig – zwei leuchtende Chips schon.
+> Unter allen Ausdrücken mit höchstens einer Klammerebene, die die **restlichen
+> Zahlen aus der Ablage** verwenden und **den bereits gebauten Baum
+> fortsetzen**, ist die kanonische Fortsetzung die kleinste bezüglich einer
+> festen Ordnung: erst nach Anzahl der Blöcke, dann nach Dokumentreihenfolge.
+> Sie wird nach jedem Zug neu berechnet und pro Brettzustand zwischengespeichert.
 
-**Die Sackgassen-Anzeige ist kostenlos und dauerhaft.** Still in eine Sackgasse
-zu laufen ist die häufigste Frustration; für den Ausweg zu bezahlen wäre der
-falsche Druck.
+Zwei Eigenschaften folgen daraus, und beide sind Antworten auf die Kritik:
 
-Da es keine Streaks mehr gibt, kosten Tipps ohnehin nichts. Die Leiter dient nur
-der Dosierung. Aufgeben verliert jede Konsequenz und damit den
-Bestätigungsdialog.
+- **Ein Tipp betrifft nie nur einen Ausschnitt.** v1 las `solutions[0]` aus der
+  Bank und beschrieb deren erste Klammer – ein Fragment, das mit dem, was auf
+  dem Brett lag, nichts zu tun haben musste. Die kanonische Fortsetzung
+  widerspricht dem Gesetzten nie, weil sie es voraussetzt.
+- **Derselbe Tipp bleibt derselbe.** Solange sich das Brett nicht ändert, ändert
+  sich der Tipp nicht – auch bei Rätseln mit vielen Lösungen.
+
+Gibt es keine Fortsetzung, ist das Ziel nicht mehr erreichbar: **das** ist die
+Sackgassen-Anzeige. Ein Löser, drei Funktionen.
+
+### 10.3 Ein Knopf, gleichmäßige Schritte
+
+Es gibt **keine nach Level gestaffelte Tippleiter mehr**. Ein Tippknopf, auf
+jedem Level dasselbe Verhalten:
+
+| Druck | Wirkung |
+|---|---|
+| **kostenlos, dauerhaft** | *Sackgassen-Anzeige*: existiert keine Fortsetzung, färbt sich der Rahmen des Ausdrucks bernstein |
+| 1. Druck | die zwei zusammengehörigen Zahlen **pulsieren in der Ablage** |
+| jeder weitere | das Spiel **setzt einen weiteren Chip** – einen pro Druck |
+
+Welche zwei Zahlen pulsieren, war bisher offen. Jetzt ist es festgelegt: die
+beiden Operanden des **ersten Blocks der kanonischen Fortsetzung**, der noch
+vollständig in der Ablage liegt; hat sie keinen Block, die ersten beiden
+benachbarten Operanden.
+
+Drei Eigenschaften, jede gegen einen der drei Mängel:
+
+- **Gleichmäßig.** Jeder Druck fügt genau eine Portion Hilfe hinzu. Es gibt
+  keinen Sprung mehr von „nichtssagend" zu „verraten"; wie weit es geht,
+  entscheidet der Spieler durch Weiterdrücken.
+- **Kein Tipptext.** Damit entfallen die `hint.*`-Texte aus der i18n. Ein
+  Sechsjähriger und ein Erwachsener bekommen denselben Tipp – der eine muss ihn
+  nicht lesen können. Das war schon die Absicht hinter „sichtbar statt lesbar",
+  nur zog v1 sie nicht durch.
+- **Gleich auf allen Leveln.** `maxHintsPerGroup` entfällt ersatzlos. Damit
+  verschwindet auch der v1-Fehler, dass Experten-Level über die Level-Gruppe nur
+  zwei statt drei Tipps bekamen – die Regel, die ihn möglich machte, gibt es
+  nicht mehr.
+
+### 10.4 Aufgeben ist kein eigener Knopf mehr
+
+Wer weiterdrückt, bekommt Chip für Chip die vollständige Lösung gelegt. **Das
+ist das Aufgeben** – kein zweiter Knopf, kein Bestätigungsdialog, keine Schwelle
+„erst alle Tipps".
+
+Entscheidend ist, was danach passiert: **das gelöste Brett bleibt stehen.** Die
+Notationszeile zeigt den vollständigen Ausdruck mit `= Zielzahl`, die Chips
+liegen an ihrem Platz, und der Spieler kann sich das ansehen, solange er will.
+Weiterzugehen ist eine eigene, bewusste Geste. In v1 schloss Aufgeben das Rätsel
+sofort – man bezahlte mit dem Eingeständnis und bekam die Antwort trotzdem nicht
+zu sehen.
+
+Da es keine Streaks mehr gibt, kostet all das ohnehin nichts.
 
 ---
 
@@ -509,6 +574,8 @@ Gelöscht wird:
 - ●●○ auf den Level-Karten der Einstellungen
 - Aufgeben-Warnung „⚠️ Beide Streaks werden zurückgesetzt!"
 - i18n-Abschnitte `streak.*`, `game.streak_bonus`
+- die i18n-Abschnitte `hint.*` – Tipps haben keinen Text mehr (10.3)
+- `maxHintsPerGroup` und die Tippstaffelung nach Level-Gruppe (10.3)
 
 `StoredProgress` schrumpft von fünf Feldern auf zwei:
 
@@ -519,8 +586,12 @@ interface Settings {
 }
 ```
 
+Das Level-Freischalten verschwindet mit `unlockStreaks` – ohne Verlust: schon in
+v1 zeigte die Serie den Fortschritt nur an und **sperrte nichts** (Anforderungen
+1.5, Abschnitt 2.3). Alle Level bleiben frei wählbar.
+
 **Bewusste Folge:** Ein gelöstes Rätsel hinterlässt nichts Bleibendes. Der Moment
-des Lösens ist die einzige Belohnung – die Notationszeile (8.2) und der
+des Lösens ist die einzige Belohnung – die Notationszeile (9.2) und der
 Übergang zum nächsten Rätsel tragen sie allein und verdienen entsprechende
 Sorgfalt.
 
@@ -528,7 +599,7 @@ Sorgfalt.
 
 ## 12. Layout
 
-### 11.1 Das Raster
+### 12.1 Das Raster
 
 Fünf Spalten. Spalte 5 ist die Steuerspalte, die Spalten 1–4 tragen oben den
 Ausdruck und unten die Ablage.
@@ -550,7 +621,7 @@ Ausdruck und unten die Ablage.
   bequeme Daumenrichtung – und die Hand verdeckt beim Ziehen nicht, was man baut.
 - Der `=`-Knopf sitzt am rechten Rand, damit der Ziehkorridor frei bleibt.
 
-### 11.2 Formen
+### 12.2 Formen
 
 | Element | Form |
 |---|---|
@@ -566,7 +637,7 @@ Quadrat**. Es ist wahrheitsgemäß, weil auf diesem Board ein Quadrat eine Zahl 
 ein Kreis einen Operator bedeutet; der offene statt gefüllte Kreis in der Mitte
 verhindert, dass die drei Formen als Gesicht gelesen werden.
 
-### 11.3 Drei Markierungen, nie vermischt
+### 12.3 Drei Markierungen, nie vermischt
 
 | Markierung | Bedeutung |
 |---|---|
@@ -578,7 +649,7 @@ Die ersten beiden dürfen nicht gleich aussehen: sonst lässt sich ein
 3-Zahlen-Rätsel nicht von einem 4-Zahlen-Rätsel unterscheiden, bei dem schon eine
 Zahl gesetzt ist.
 
-### 11.4 Kontrast des Blocks
+### 12.4 Kontrast des Blocks
 
 Zwei Stufen Trennung, je eine in beide Richtungen: die Gruppe **weicht zurück**
 (Akzentfarbe, 17 % Deckung), ihr Inhalt **kommt nach vorn** (Chips darin weiß
@@ -586,7 +657,7 @@ statt ablagegrau). Das ist die Konvention, die eine verschachtelte Fläche als
 verschachtelt lesbar macht – und nebenbei sieht eine `6` innerhalb eines Blocks
 dadurch anders aus als eine `6` daneben.
 
-### 11.5 Größen: eine Zahl, kein Umbruch
+### 12.5 Größen: eine Zahl, kein Umbruch
 
 Alle Maße sind `calc()` auf einer einzigen Variablen `--cell`. Nichts hat eine
 absolute Größe; das Board skaliert aus einer Zahl.
@@ -601,7 +672,30 @@ geschätzt.
 Chips brauchen `flex: none`. Ohne das schrumpfen sie im Flex-Container, und ein
 Operatorkreis wird zur Ellipse.
 
-### 11.6 Hoch- und Querformat
+**Die Formel.** `--cell` folgt aus dem Raster aus 12.1 – fünf Spalten breit, drei
+Zeilen hoch, dazu Kopfzeile und Notationszeile. Mit `gap = 0,14 × cell` und
+`padding = 0,25 × cell`:
+
+```
+Breite:  5 cell + 4 gap + 2 padding  ≈ 6,06 cell   ≤ 100vw
+Höhe:    Kopfzeile 1,2 + Ausdruck 2 + zwei Ablagezeilen 2
+         + Notationszeile 1 + 4 gap + 2 padding    ≈ 7,26 cell   ≤ 100dvh
+```
+
+```css
+--cell: min(16vw, 13dvh, 88px);
+@media (min-aspect-ratio: 1 / 1) { --cell: min(16vw, 15dvh, 104px); }
+```
+
+Im Hochformat bindet der Höhenterm, im Querformat der Breitenterm – deshalb die
+eine Umschaltung aus 12.6 und kein Breakpoint.
+
+> Die beiden Konstanten – der Deckel (88 px / 104 px) und der dvh-Faktor – sind
+> **am Gerät zu bestätigen**, am schlimmsten Fall aus vier Zahlen, drei
+> Operatoren und zwei Blöcken. Die Formel gibt den Ausgangspunkt; gemessen wird
+> trotzdem.
+
+### 12.6 Hoch- und Querformat
 
 **Kein Breakpoint auf die Breite.** Wie bei *flashcards* gibt es genau eine
 Umschaltung, und zwar auf das Seitenverhältnis:
@@ -617,11 +711,49 @@ Kein Scrollen: `100dvh` (nicht `vh` – die einfahrende Adressleiste ist genau d
 Ursache des ungewollten Scrollens), dazu `overflow: hidden` und
 `overscroll-behavior: none`.
 
+### 12.7 Die Kopfzeile
+
+Nach dem Vorbild von *flashcards*, und mehr nicht:
+
+```
+┌──────────────────────────────────────────────┐
+│  ☰                  F2.1                  ?  │
+└──────────────────────────────────────────────┘
+```
+
+| Platz | Inhalt |
+|---|---|
+| links | ein Symbol: Menü (Level, Sprache) |
+| Mitte | die Level-Kennung als ruhiger Text in `--zk-muted` |
+| rechts | ein Symbol: Tipp (Abschnitt 10.3) |
+
+Der Titel „Zahlenkönig" entfällt – wer die App offen hat, weiß, welche es ist,
+und die Zeile ist die knappste Fläche im Layout. Die Krone bleibt dem App-Symbol
+vorbehalten. Kein 🔥, keine Punkte (Abschnitt 11); die Symbole sind Inline-SVG,
+nicht Emoji (13.2).
+
+Die Level-Kennung steht in der Mitte, weil sie das Einzige ist, was sich ändert,
+und weil damit beide Symbole am Rand liegen, wo der Daumen sie erreicht, ohne
+über das Ausdrucksfeld zu wandern.
+
+### 12.8 Der Rhythmus zwischen zwei Rätseln
+
+| Ereignis | Was passiert |
+|---|---|
+| richtige Antwort | die Notationszeile zeigt `… = Ziel`, nach **1200 ms** kommt das nächste Rätsel |
+| falsche Antwort | nichts wechselt; die Chips bleiben liegen, `=` bleibt aktiv (9.1) |
+| aufgegeben | **kein automatischer Wechsel** – das gelöste Brett bleibt stehen (10.4) |
+
+1200 ms ist der Wert aus v1; er hat sich bewährt und wird nicht ohne Anlass
+geändert. Er gilt ausschließlich nach einer richtigen Antwort: dort ist der
+Wechsel eine Belohnung. Nach dem Aufgeben wäre derselbe Wechsel das Gegenteil –
+er nähme dem Spieler die Lösung weg, die er gerade erst bekommen hat.
+
 ---
 
 ## 13. Design-System
 
-### 12.1 Eine Zahl steuert die Farben
+### 13.1 Eine Zahl steuert die Farben
 
 Alle Farbtoken leiten sich aus **einem Farbwinkel** ab. Die Neutralen sind
 derselbe Farbton mit sehr geringer Sättigung – deshalb wirken die Grautöne
@@ -640,7 +772,7 @@ gewählt statt tot. Das Schema zu wechseln ist eine Zeile.
 --zk-accent:     hsl(var(--hue) 62% 42%);     /* Klammern, Ziel, Absenden */
 ```
 
-### 12.2 Schrift und Symbole
+### 13.2 Schrift und Symbole
 
 - **`system-ui`, sonst nichts.** Keine Webschrift. Damit ist das Nebeneinander
   verschiedener Schriften aus v1 an der Wurzel erledigt. Courier New entfällt.
@@ -652,7 +784,7 @@ gewählt statt tot. Das Schema zu wechseln ist eine Zeile.
   Entwurf. (Dieselbe Begründung wie im Stylesheet von *flashcards*.)
 - Die Krone bleibt als einzige illustrative Marke (`public/crown.svg`).
 
-### 12.3 Bewegung
+### 13.3 Bewegung
 
 Ein zurückhaltender Entwurf braucht Bewegung, weil keine Farbcodierung mehr
 erklärt, was gerade passiert: Chip hebt beim Greifen ab, Flächen öffnen sich,
@@ -668,10 +800,10 @@ src/
 ├── core/                      rein, ohne React-Import
 │   ├── expression.ts          Baum + die vier Operationen + Flächen
 │   ├── evaluate.ts            Baum → Zahl (Präzedenz, kein eval)
-│   ├── solver.ts              „ist das Ziel noch erreichbar?"
-│   ├── hints.ts               Tippleiter über den Baum
+│   ├── solver.ts              „ist das Ziel noch erreichbar?" + kanonische Fortsetzung
+│   ├── hints.ts               Tippschritte über die kanonische Fortsetzung
 │   ├── levels.ts              aus models/Level.ts, plus maxGroups
-│   ├── puzzles.ts             Bank laden, mischen, ziehen
+│   ├── puzzles.ts             Bank laden, in Bänder teilen, ziehen
 │   └── settings.ts            LocalStorage
 ├── ui/
 │   ├── useDrag.ts             Pointer-Events-Ziehschicht
@@ -697,80 +829,242 @@ Die Dateizahl bleibt etwa gleich wie in v1 – der Gewinn liegt woanders:
   `useHints`, `NumberRow`, `KeyPad`, `InputRow`.
 - Netto etwa ein Drittel weniger Code als v1.
 
-**Unverändert übernommen:** die 13 Bank-Dateien und `generatePuzzles.mjs`, die
-Level-Definitionen (ergänzt um `maxGroups`), i18n, der GitHub-Actions-Deploy.
+**Unverändert übernommen:** i18n, der GitHub-Actions-Deploy und die
+Level-Definitionen (ergänzt um `maxGroups`). Bank und Generator **nicht** –
+siehe Abschnitt 15.
 
 ---
 
-## 15. Umsetzung in Schritten
+## 15. Rätselbank und Generierung
+
+Die Bank galt lange als unveränderter Bestand. Sie ist es nicht: der v1-Generator
+kennt v2s Gruppenmodell nicht.
+
+### 15.1 Der Befund
+
+v1 zählt **Klammern**, v2 zählt **Verschachtelung**. Das ist nicht dieselbe
+Regel. Bei `maxBracketDepth: 1` zählt `generatePuzzles.mjs` eine feste Liste von
+Formen auf – und es fehlen genau die, auf denen v2 aufbaut.
+`scripts/checkBankShapes.mjs` rechnet es aus:
+
+```
+  4 Zahlen
+    v1 bei maxBracketDepth 1 : 1+1+1+1  2+1+1  1+2+1  1+1+2
+    v2 (eine Ebene, ohne Verschachtelung): 1+1+1+1  1+1+2  1+2+1  1+3  2+1+1  2+2  3+1  4
+    v1 fehlen                : 1+3  2+2  3+1  4
+
+4-Zahlen-Rätsel, die v2 lösen kann und v1 bei Tiefe 1 nicht ausdrücken kann: 5874
+  1,1,1,2 → 6    (braucht Gruppengrößen 2+2)
+  1,1,1,3 → 9    (braucht Gruppengrößen 3+1)
+```
+
+Es fehlen also **zwei nebeneinanderliegende Gruppen** (`(1+1)×(1+2)`) und die
+**Dreiergruppe** (`(1+1+1)×3`) – ausgerechnet die beiden Formen, die Abschnitt 4
+und 6.2 zum Kern der Bedienung machen. v1 verbucht `2+2` als *zwei* Klammern und
+liefert es deshalb nur an E1 aus; die Dreiergruppe erzeugt es überhaupt nie.
+
+**Folge:** die F3-Bänke wurden nach einer engeren Regel erzeugt, als der Spieler
+in v2 bauen darf, und die gespeicherten `solutions` sind für v2 unbrauchbar – die
+von E1 sind zweistufig und gar nicht baubar.
+
+### 15.2 Der Datensatz schrumpft
+
+```ts
+interface Puzzle {
+  numbers: number[]
+  target: number
+  rank: number      // Schwierigkeitsrang innerhalb des Levels
+}
+```
+
+- **`levelId` entfällt.** `loadBank` bildet ohnehin schon `F2.1` auf
+  `puzzles-F2-1.json` ab – das Level ist an der Ladestelle bekannt. Dass jeder
+  Datensatz es zusätzlich mitführte, *in anderer Schreibweise*, war die Ursache
+  des Tippfehlers aus v1 (`E1-3` gegen `E1.3`). Das Feld zu streichen beseitigt
+  die ganze Fehlerklasse, nicht einen Fall davon.
+- **`solutions` entfällt.** `solver.ts` rechnet sie neu und ist das Einzige, was
+  die Ein-Ebenen-Regel kennt. Tipps (Abschnitt 10) und Aufgeben lesen ohnehin den
+  Löser; gespeicherte Zeichenketten wären eine zweite, veraltende Wahrheit.
+
+### 15.3 Der Generator
+
+`scripts/generatePuzzles.mjs` wird auf das Modell aus `scripts/checkDepth1.mjs`
+umgeschrieben – Kompositionen, Permutationen, Operatorbelegungen –, das v2s Regel
+bereits korrekt umsetzt. Abschnitt 10.1 nennt dasselbe Skript als Vorlage für
+`solver.ts`: **Generator und Löser teilen ein Modell**, sonst entsteht der
+Befund aus 15.1 erneut.
+
+Statt zu würfeln und dann nachzurechnen, zählt der Generator **je Zahlenmenge
+einmal** alle erreichbaren Ziele auf und sortiert sie nach Ergebnis ein. Das
+macht ihn erschöpfend statt stichprobenhaft, und die Lösungsanzahl fällt als
+Nebenprodukt ab. Gemessen: alle 495 Vierermengen in **rund 5 Sekunden**.
+
+Der Filter „1 bis 5 Lösungen" entfällt – er war willkürlich und hat F2.3 von 60
+auf 37 gekürzt.
+
+### 15.4 Was dabei herauskommt
+
+`checkBankShapes.mjs` stellt Bestand und Obergrenze gegenüber:
+
+```
+Level   Bank   v2 erschöpfend   ohne Block lösbar
+F2.1     500             1854                1407
+F2.2     210              291                 149
+F2.3      35               60                  24
+F3.1     500            16882               10526
+F3.2     500             6911                2249
+F3.3     337             3355                 632
+E1.1     500            16882               10526
+E1.2     500             6911                2249
+E1.3     500             5855                1228
+```
+
+Zwei Dinge sind daran wichtiger als die Größenordnung:
+
+**F2.3 ist klein, nicht vernachlässigt.** Es existieren überhaupt nur 60 lösbare
+Paare aus Zahlenmenge und Ziel. Die Bank hält 35 davon; erschöpfend erzeugt sind
+es 60 – mehr gibt es nicht. Die frühere Auflage „sollte nachgeneriert werden"
+unterstellte, es fehle an Fleiß; es fehlt an Rätseln. Wiederholung ist auf diesem
+Level nur über den Zielbereich zu vermeiden, nicht über den Generator.
+
+**E1 verliert sein Unterscheidungsmerkmal.** F3 und E1 trennte allein
+`maxBracketDepth` 1 gegen 2 – und v2 schafft Tiefe 2 ab. Bei gleichem
+Zielbereich sind die Mengen jetzt identisch: E1.1 und F3.1 sind beide 16882
+Rätsel, dieselben. Nur E1.3 unterscheidet sich noch, und auch nur, weil sein
+Zielbereich bis 324 statt bis 171 reicht. **Das ist eine offene Frage an den
+Produktverantwortlichen** (Abschnitt 17), keine Entscheidung dieses Dokuments:
+das Level-System galt bisher als unverändert.
+
+### 15.5 Rang und Reihenfolge
+
+`rank` entsteht bei der Generierung aus dem, was die erschöpfende Aufzählung
+ohnehin weiß:
+
+1. **Anzahl der Lösungen** – je weniger, desto schwerer (Hauptkriterium)
+2. **kleinste nötige Blockzahl** – ohne Block lösbar ist leichter
+3. **Punktrechnung nötig** – braucht jede Lösung `×` oder `÷`?
+
+Ausgespielt wird nach **Bändern**: nach `rank` sortieren, das Level in drei
+Bänder teilen, **innerhalb** eines Bandes mischen, die Bänder der Reihe nach
+durchspielen. Ein Level steigt damit an, ist aber in jeder Sitzung ein anderes
+Rätsel. Die Position lebt nur in der Sitzung – nichts wird gespeichert, `Settings`
+bleibt bei den zwei Feldern aus Abschnitt 11.
+
+**Damit erledigt sich der Widerspruch um das Standard-Level.** 1407 der 1854
+F2.1-Rätsel sind ganz ohne Block lösbar, also besteht Band 1 von F2.1 aus
+blockfreien Rätseln. Ein neuer Spieler startet weiter auf F2.1 und bekommt
+trotzdem keinen Block als Erstes zu sehen – ohne Sonderregel, als Nebenwirkung
+der Sortierung.
+
+### 15.6 Absicherung
+
+Neu erzeugte Bänke werden nicht auf Zuruf übernommen. `checkBankShapes.mjs` muss
+zeigen:
+
+- jedes Rätsel jeder neuen Bank ist unter der v2-Regel lösbar,
+- kein Rätsel der alten Bank, das noch im Zielbereich liegt, ist verloren
+  gegangen,
+- die Anzahl je Level entspricht der erschöpfenden Zählung.
+
+`checkDepth1.mjs` muss weiterhin `unsolvable with depth<=1: 0` melden. Die alten
+Bänke bleiben in der Git-Historie; `solutions` wieder mitzuschreiben wäre ein
+Schalter im Generator, keine Rückabwicklung.
+
+---
+
+## 16. Umsetzung in Schritten
 
 | # | Schritt | Ergebnis |
 |---|---|---|
+| 0 | vitest einrichten | `npm test` läuft |
 | 1 | `core/` schreiben: Baum, Auswertung, Löser | im Terminal prüfbar, ohne UI |
 | 2 | Ziehschicht + `Chip`, `Tray`, `Expression`, Blockgesten (Abschnitt 6) | ein fest verdrahtetes Rätsel ist spielbar |
+| 2b | Generator umschreiben, Bänke neu erzeugen (Abschnitt 15) | Bank passt zum Spielmodell |
 | 3 | Bank, Level, Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
-| 4 | Tipps und Sackgassen-Anzeige | Tippleiter steht |
+| 4 | Tipps und Sackgassen-Anzeige | ein Tippknopf steht |
 | 5 | Streaks entfernen, Emoji durch SVG ersetzen, Texte anpassen | v1-Reste sind weg |
 | 6 | Animationen, Querformat, PWA | Feinschliff |
 
 Nach Schritt 3 ist die App erstmals durchgehend spielbar; die Schritte 1 und 2
-tragen das gesamte Risiko. **Abschnitt 17 nennt, was vor dem jeweiligen Schritt
+tragen das gesamte Risiko. **Abschnitt 18 nennt, was vor dem jeweiligen Schritt
 noch fehlt.**
+
+Schritt 2b steht bewusst *hinter* Schritt 1: der Generator teilt sein Modell mit
+`solver.ts` (Abschnitt 15.3), und das entsteht in Schritt 1. Er steht *vor*
+Schritt 3, weil dort die Bank angebunden wird. Bis dahin genügt für Schritt 2 ein
+fest verdrahtetes Rätsel, das ohnehin vorgesehen ist.
 
 ---
 
-## 16. Offene Punkte und Risiken
+## 17. Offene Punkte und Risiken
 
 | Punkt | Stand |
 |---|---|
-| **Kopfzeile** | Noch nicht entschieden. Vorschlag nach dem Vorbild von *flashcards*: ein ruhiges Symbol oben rechts für das Menü, eines für Tipps, sonst nichts. |
+| **F3 und E1 sind unter v2 dasselbe Level** | **Neu, und die einzige Frage, die eine Antwort braucht.** F3 und E1 unterschied allein `maxBracketDepth` 1 gegen 2 – v2 schafft Tiefe 2 ab. Bei gleichem Zielbereich sind die Rätselmengen jetzt Zeichen für Zeichen identisch (E1.1 = F3.1 = 16882 Rätsel, Abschnitt 15.4); nur E1.3 hebt sich noch ab, und auch nur über seinen Zielbereich bis 324. Entweder E1 bekommt ein neues Merkmal (mehr Zahlen? engerer Zielbereich? nur eindeutig lösbare Rätsel?), oder die Gruppe verschmilzt mit F3. **PO-Entscheidung**, weil das Level-System bisher als unverändert galt. |
 | **Zwischenschritt beim Auflösen** | Optional. Die Notationszeile könnte die Klammern erst zu ihren Werten zusammenfallen lassen (`(6+2) × (9−3)` → `8 × 6` → `= 48`), bevor das Ergebnis erscheint. Das ist die einzige Stelle, an der das Spiel *Punkt vor Strich* zeigt. Vorgabe ist derzeit ohne diesen Schritt. |
 | **Dunkles Farbschema** | „Nice to have". Die Token-Struktur trägt es; entschieden ist nichts. |
-| **Standard-Level ist F2.1** | **Widerspruch aus v1:** ein neuer Spieler landet direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. Entweder beim ersten Start auf A1 setzen oder sicherstellen, dass das erste F2.1-Rätsel ohne Block lösbar ist. |
 | **Trefffläche des Klammerrands** | Der Rand ist schmal, Daumen sind es nicht. Abgesichert durch den antippbaren Platzhalter in der Ablage (6.6) – der genaue Weg darf nie der einzige sein. Am Gerät prüfen. |
-| **`levelId` in der Bank passt nicht zu `LEVELS`** | **Fehler aus v1, blockiert die Tippleiter.** Die Bank schreibt `"E1-3"`, `LEVELS` kennt `"E1.3"`. `getLevelById` findet nichts und liefert den Fallback F2.1 – `useHints` liest deshalb für fast alle Level die Gruppe `advanced`. Folge: **Experten-Level bieten 2 statt 3 Tipps, Stufe 3 ist unerreichbar.** Vor Schritt 4 zu beheben: entweder die Bank auf Punkte umstellen oder beim Laden normalisieren. |
-| **`puzzles-F2-3.json` enthält nur 35 Rätsel** | Altlast aus v1; Wiederholung setzt schnell ein. Sollte nachgeneriert werden. |
 | **Gleiche Zahlen** wie `[6, 6, 9]` | über `source` unterschieden, nicht über den Wert – im Test abdecken. |
 | **Gruppe um den ganzen Ausdruck** | erlaubt, verbraucht aber das Kontingent ohne Nutzen. |
 | **Ziehen auf iOS Safari** | `touch-action: none` nötig; die App scrollt ohnehin nicht. |
 
+### 17.1 Erledigt in dieser Runde
+
+| Punkt | Wie er erledigt wurde |
+|---|---|
+| **Kopfzeile** | Entschieden, siehe 12.7: ein Menüsymbol links, ein Tippsymbol rechts, dazwischen die Level-Kennung als ruhiger Text. |
+| **Standard-Level ist F2.1** | Bleibt F2.1. Der Widerspruch löst sich über die Bandsortierung (15.5): Band 1 von F2.1 ist blockfrei, weil 1407 der 1854 Rätsel keinen Block brauchen. |
+| **`levelId` passt nicht zu `LEVELS`** | Das Feld entfällt (15.2). Zugleich entfällt mit `maxHintsPerGroup` (10.3) der einzige Ort, an dem der Fehler wirkte. |
+| **`puzzles-F2-3.json` hat nur 35 Rätsel** | Kein Versäumnis: es existieren nur 60 lösbare Paare überhaupt (15.4). Erschöpfende Generierung hebt 35 auf 60, mehr ist nicht möglich. |
+| **Regel für Tipp 2** | Festgelegt über die kanonische Fortsetzung (10.2, 10.3). |
+| **Verhalten von `=` nach falscher Antwort** | Der Knopf bleibt aktiv (9.1). |
+| **Verzögerung bis zum nächsten Rätsel** | 1200 ms nach richtiger Antwort (12.8); nach Aufgeben gar keine. |
+| **Formel für `--cell`** | Ausgangsformel steht in 12.5. |
+
 ---
 
-## 17. Voraussetzungen vor der Umsetzung
+## 18. Voraussetzungen vor der Umsetzung
 
-Was fehlt, bevor der jeweilige Schritt aus Abschnitt 15 beginnen kann. Nach
-Dringlichkeit geordnet.
+Was fehlt, bevor der jeweilige Schritt aus Abschnitt 16 beginnen kann.
 
-### Vor Schritt 1 – `core/`
+### Vor Schritt 0 – der Test-Runner
+
+`package.json` kennt nur `dev`, `build`, `preview`. Die gesamte Begründung für
+ein reines `core/` ist, dass es im Terminal prüfbar ist – ohne Runner bleibt das
+eine Behauptung. Deshalb ist das Einrichten jetzt Schritt 0 statt einer
+Vorbedingung.
+
+- **vitest**, wie im Schwesterprojekt *flashcards*
+- Tests als `*.test.ts` **neben** den Quellen, nicht in einem eigenen Baum
+- `npm test` in `package.json`
+
+Die ersten Tests, in dieser Reihenfolge:
+
+1. `wrap` und `dissolve` sind exakte Umkehrungen – für `span = 3` und `span = 1`
+2. die Invariante aus 2.1 hält nach jeder der sechs Operationen
+3. `[6, 6, 9]`: zwei gleiche Zahlen bleiben über `source` unterscheidbar, auch
+   nach Tauschen und Auflösen
+
+### Vor Schritt 2b – Generator und Bank
 
 | Fehlt | Warum es blockiert |
 |---|---|
-| **Kein Test-Runner** | `package.json` kennt nur `dev`, `build`, `preview`. Es gibt weder vitest noch eine Konfiguration. Die gesamte Begründung für ein reines `core/` ist, dass es im Terminal prüfbar ist – ohne Runner bleibt das eine Behauptung. Das Schwesterprojekt *flashcards* nutzt vitest mit `*.test.js` neben den Quellen; dasselbe Vorgehen hier. Erster Test: `wrap` und `dissolve` sind exakte Umkehrungen, und die Invariante aus 2.1 hält nach jeder der sechs Operationen. |
+| **Merkmal für E1** | Abschnitt 17: unter v2 ist E1 bei gleichem Zielbereich mit F3 identisch. Der Generator muss wissen, was er für E1 erzeugen soll, bevor er läuft. **Einzige echte Blockade in diesem Dokument.** |
+| **Obergrenze je Bank** | Erschöpfend sind es bis zu 16882 Rätsel je Level; als JSON ist das mehr, als eine PWA je Level laden sollte. Zu entscheiden: Deckel (Vorschlag: 1500, gleichmäßig über die drei Bänder gezogen) und kompakte Schreibweise (Vorschlag: `[[1,2,3,4],50,2]` statt benannter Felder). Erst beim Erzeugen festzulegen, nicht danach. |
 
 ### Vor Schritt 3 – Bank, Level, Einstellungen
 
-| Fehlt | Warum es blockiert |
-|---|---|
-| **`levelId`-Abgleich** | Die Bank schreibt `E1-3`, `LEVELS` kennt `E1.3` (siehe Abschnitt 16). `puzzles.ts` und `hints.ts` lesen beide dieses Feld. Entweder beim Laden normalisieren oder die Bank auf Punkte umstellen – aber entschieden sein, bevor darauf gebaut wird. |
-| **Verzögerung bis zum nächsten Rätsel** | v1 nutzte 1200 ms. Nicht festgelegt. |
-| **Verhalten von `=` nach einer falschen Antwort** | Bleibt der Knopf aktiv, lässt sich derselbe Ausdruck erneut abschicken? Nicht festgelegt. |
+Nichts mehr offen. Zur Erinnerung, was jetzt festliegt: Verzögerung 1200 ms nach
+richtiger Antwort (12.8), `=` bleibt nach falscher Antwort aktiv (9.1), die
+Kopfzeile steht in 12.7.
 
 ### Vor Schritt 4 – Tipps
 
-| Fehlt | Warum es blockiert |
-|---|---|
-| **Regel für Tipp 2** | „Zwei zusammengehörige Zahlen pulsieren" – aber *welche* zwei, wenn ein Rätsel mehrere Lösungen hat? Braucht eine eindeutige Vorschrift, sonst ist der Tipp bei jedem Aufruf ein anderer. |
-| **`levelId`-Abgleich** | Solange er offen ist, liefert `getLevelById` fast überall die Gruppe `advanced`, und Stufe 3 der Leiter ist unerreichbar. |
+Nichts mehr offen. Die Tipp-Regel steht vollständig in Abschnitt 10; sie hängt
+an `solver.ts` aus Schritt 1 und an keiner Level-Eigenschaft mehr.
 
 ### Vor Schritt 6 – Feinschliff
 
 | Fehlt | Warum es blockiert |
 |---|---|
-| **Die Formel für `--cell`** | Abschnitt 12.5 legt fest, dass alle Maße aus einer Variablen folgen, und nennt die inneren Anteile – aber nicht die Formel für die Variable selbst. *flashcards* hat `min(75vw, 900px, (75dvh − footer) × 4/3)`; hier fehlt das Gegenstück. Das ist zu Recht eine Frage für den Feinschliff am echten Gerät, sollte aber nicht dort erst auffallen. |
-| **Die Kopfzeile** | Weiterhin offen (Abschnitt 16). Betrifft schon Schritt 3, weil sie Platz im Raster braucht. |
-
-### Nicht blockierend
-
-`puzzles-F2-3.json` mit nur 35 Rätseln und das Standard-Level F2.1 (beide
-Abschnitt 16) sind Altlasten aus v1. Sie sollten behoben werden, halten aber
-keinen Schritt auf.
+| **Die beiden Konstanten in `--cell`** | Die Formel steht in 12.5, ihre zwei Konstanten sind am Gerät zu bestätigen – am schlimmsten Fall aus vier Zahlen, drei Operatoren und zwei Blöcken. Das ist zu Recht eine Frage für den Feinschliff, sollte aber nicht erst dort auffallen. |
