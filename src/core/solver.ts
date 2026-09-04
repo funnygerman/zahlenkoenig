@@ -9,14 +9,14 @@
 // operand a bare number or a flat group of >=2 numbers, no group inside a
 // group, standard precedence.
 //
-// TODO(v2 step 1/4): `Operator` belongs to expression.ts's tree types
-// (concept section 2) once that file exists — re-export it from there
-// instead of defining it here. TODO(v2 step 4): the canonical-continuation
-// half of the solver (concept 10.2 — "given the tree already built, what's
-// the smallest completion?") isn't implemented yet; only the reachability
-// half generation needs is here so far.
+// TODO(v2 step 4): the canonical-continuation half of the solver (concept
+// 10.2 — "given the tree already built, what's the smallest completion?")
+// isn't implemented yet; only the reachability half generation needs is
+// here so far.
 
-export type Operator = '+' | '-' | '*' | '/'
+import type { Operator } from './expression'
+
+export type { Operator }
 
 const TARGET_MAX = 999 // concept 15.5: three digits fit the target chip
 

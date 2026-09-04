@@ -8,7 +8,8 @@
 // the (not yet implemented) hint system per concept 15.3's "ein Modell für
 // Generator und Löser".
 
-import { reachable, type Operator } from './solver'
+import { reachable } from './solver'
+import type { Operator } from './expression'
 
 export type { Operator }
 
@@ -163,10 +164,15 @@ function pickRandom<T>(items: T[]): T {
 
 // checkNextPuzzle.mjs measured the retry loop below across all 45
 // selections: without uniqueOnly, worst case stays in the low double
-// digits; "3 Zahlen, nur ÷" is the one uniqueOnly selection without an
-// exception list and needs more headroom (median 36, up to ~150). 300
-// covers every measured case with margin.
-const MAX_ATTEMPTS = 300
+// digits. "3 Zahlen, nur ÷" is the one uniqueOnly selection without an
+// exception list (concept 15.11) and needs real headroom: run against this
+// exact nextPuzzle(), 20,000 calls failed 303/20,000 (1.5%) at a cap of
+// 200, 49/20,000 (0.25%) at 300 — an earlier, unmeasured guess of "150 is
+// enough" was wrong, since 150 is *smaller* than 200 and would have been
+// worse — and 1/20,000 (0.005%) at 500. That last number is the real
+// residual risk at this cap: small, not zero, and now measured rather than
+// assumed.
+const MAX_ATTEMPTS = 500
 
 /**
  * A fresh puzzle for these settings, generated on the device (concept

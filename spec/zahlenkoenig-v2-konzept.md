@@ -1294,9 +1294,27 @@ nicht-kommutativen Rechenzeichen eine eindeutige Lösung erzwingt, ist die,
 die drei der vier Zahlen zu einer Klammer bündelt und die vierte davor
 stellt.
 
-Für „3 Zahlen, nur ÷" (25 eindeutige Ziele, Fehlerquote 2–3 %) lohnt sich
-keine Liste – ein Versuchslimit von etwa 150 statt 200 reicht, der Median
-liegt bei 36.
+Für „3 Zahlen, nur ÷" (25 eindeutige Ziele, Fehlerquote 2–3 % bei 200
+Versuchen) lohnt sich keine Liste – aber **150 war eine falsche erste
+Schätzung, nicht gemessen**: 150 liegt *unter* 200 und wäre damit schlechter,
+nicht besser. Nachgemessen (20 000 Läufe je Deckel, `core/puzzles.ts` selbst,
+nicht nur die Modellkopie im Skript):
+
+| Deckel | Fehlerquote (von 20 000 Läufen) |
+|---|---|
+| 200 | 303 (1,52 %) |
+| 300 | 49 (0,25 %) |
+| 500 | 1 (0,005 %) |
+
+`core/puzzles.ts` verwendet **500**, nicht 300 – bei 300 lag die Fehlerquote
+nachweisbar über null. 500 ist empirisch klein, nicht bewiesen null; ein
+Rest-Risiko bleibt (die Verteilung hat einen langen Schwanz: 1 von 20 000
+schlug selbst bei 500 fehl), aber um den Faktor 300 kleiner als beim
+ursprünglich angenommenen Wert von 300. Der Fehler kam daher, dass diese
+Sitzung den Deckel im Code aufschrieb, ohne ihn nachzumessen –
+`checkNextPuzzle.mjs` hatte bei seinem eigenen Deckel von 200 die Fehlerquote
+bereits korrekt gezeigt (48 von 1500 bei Band *klein*), das wurde beim
+Übertragen in den echten Code nur nicht zu Ende gedacht.
 
 **Folge für die PWA:** Der Service Worker muss nur den App-Shell (JS, CSS,
 Manifest, Icons) cachen, kein Datensatz. Offline-Spielbarkeit ist damit ein
