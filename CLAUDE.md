@@ -36,6 +36,12 @@ then write `src/core/` — `expression.ts`, `evaluate.ts`, `solver.ts` — pure
 TypeScript with no React imports. First property to test: `wrap` and `dissolve`
 are exact inverses.
 
+**There are no levels any more.** A1–F3 and E1 are gone; the player sets three
+things directly — how many numbers, which operators, how big the target — and the
+target range is *derived* from that selection rather than fixed, so no
+combination can be empty. Concept section 15 is the whole story;
+`models/Level.ts` and `LEVELS` disappear with it.
+
 Two things to know before touching the puzzle bank:
 
 - **The v1 generator does not implement v2's rule.** It counts brackets; v2
@@ -44,12 +50,14 @@ Two things to know before touching the puzzle bank:
   block interaction is built on. `node scripts/checkBankShapes.mjs` shows it.
   So the banks get regenerated (concept section 15), and `generatePuzzles.mjs`
   gets rewritten on the model in `checkDepth1.mjs`, which the solver shares.
-- **One question is genuinely open and blocks that regeneration:** with nesting
-  gone, F3 and E1 are the same level at the same target range. What
-  distinguishes E1 from now on is a PO decision (concept section 17).
+- **The bank gains two things:** a 15-bit operator vector per puzzle (only 61
+  distinct values exist, so one byte), and a 45-row lookup table of band
+  boundaries and bank sizes — 2.7 KB, so the selection never has to solve
+  anything on the device.
 
-Everything else that section 17 of v2.1 left open is now decided; section 17.1
-lists what became of each.
+One layout question is open and affects step 2: the worst-case expression
+`(6+2) × (9−3)` does not fit the five-column grid. Section 12.5 has the measured
+numbers; section 17 has the two ways out.
 
 ## Conventions
 

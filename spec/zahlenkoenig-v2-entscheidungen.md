@@ -95,7 +95,7 @@ Abschnitt 17 des Konzepts, damit die Wahl erhalten bleibt.
 | **`system-ui`, keine Webschrift** | Erledigt das Nebeneinander mehrerer Schriften aus v1 an der Wurzel. |
 | **Inline-SVG statt Emoji** | Emoji sehen auf jedem Gerät anders aus und sind mehrfarbig. Dieselbe Begründung steht bereits im Stylesheet von *flashcards*. |
 | **Nur eine Umschaltung: `min-aspect-ratio: 1/1`** | Ein quer gehaltenes Telefon und ein kleines Desktop-Fenster sind derselbe Fall; eine Breiten-Abfrage behauptet das Gegenteil. |
-| **Ausdruck bricht nie um und scrollt nie** | Der Inhalt ist beschränkt (vier Zahlen, drei Operatoren, zwei Blöcke), also wird auf den schlimmsten Fall dimensioniert – gemessen, nicht geschätzt. |
+| **Ausdruck bricht nie um und scrollt nie** | Der Inhalt ist beschränkt (vier Zahlen, drei Operatoren, zwei Blöcke), also wird auf den schlimmsten Fall dimensioniert. **Der Zusatz „gemessen, nicht geschätzt" war in 2.1/2.2 unzutreffend** – nachgemessen passt der Fall nicht (Konzept 12.5). Die Regel bleibt, der Weg dorthin ist offen. |
 | **Zwei verschiedene Leer-Markierungen** | Gestrichelt = diese Zahl liegt im Feld. Gar nichts = diese Zelle gehört nicht zu diesem Rätsel. Sähen sie gleich aus, wäre ein 3-Zahlen-Rätsel nicht von einem angefangenen 4-Zahlen-Rätsel zu unterscheiden. |
 
 **Verworfen:** Courier New · Webschriften · Emoji als Symbole · Breakpoints nach
@@ -149,7 +149,32 @@ Bestätigung · Aufgeben mit automatischem Wechsel zum nächsten Rätsel.
 
 ---
 
-## 8. Arbeitsweise
+## 8. Level entfallen (Runde 4)
+
+| Entscheidung | Begründung |
+|---|---|
+| **Keine Level mehr** (PO) | Die 13 Kürzel kodierten drei Angaben, von denen zwei echt waren. Der Spieler setzt sie jetzt direkt: wie viele Zahlen, welche Rechenzeichen, wie groß das Ziel. Nichts zu entschlüsseln. |
+| **E1 entfällt ersatzlos** (PO) | `maxBracketDepth` war sein einziges Merkmal, und v2 schafft Verschachtelung ab. Der PO kam selbst darauf, dass verschachtelte Blöcke bei vier Zahlen immer überflüssig sind und „zwei Blöcke nötig" stets auf `(a ± b) ×/÷ (c ± d)` hinausläuft. Nachgerechnet: nur 911 von 29 648 Rätseln (3 %) brauchen zwei Blöcke, gehäuft auf entarteten Mengen. |
+| **Zielbereich abgeleitet, nicht fest** | Der PO fand die Lücke: 2 Zahlen mit `+ −` und Ziel 100–324 ergibt nichts. Ausgezählt waren 38 von 180 Kombinationen leer. Relative Bänder über die tatsächlich erreichbaren Ziele machen jede Auswahl nicht-leer – geprüft über alle 45 Auswahlen. |
+| **Rechenzeichen einzeln, nicht paarweise** | Der PO fragte, ob `(+ −)` und `(× ÷)` als Gruppen reichen. Nein: die dünnen Fälle waren fast alle Einzelauswahlen, und die sind jetzt abgesichert. „Nur `+`, zwei Zahlen" ist zugleich der sanfteste Einstieg, den es je gab – Paare könnten ihn nicht ausdrücken. |
+| **Stufe entfällt** (PO) | Zwei Schwierigkeitsregler nebeneinander, und keiner weiß, welchen er drehen soll. Das Zielband gewinnt, weil man seine Wirkung sieht; die Suchschwierigkeit bleibt als innere Reihenfolge. |
+| **Bank bleibt, mit Filterspalten** (PO) | Der PO wollte die Bank behalten. Sie trägt jetzt einen 15-Bit-Operator-Vektor je Rätsel (nur 61 verschiedene im ganzen Raum, also ein Byte) und eine 45-Zeilen-Tabelle mit Bandgrenzen, zusammen 2,7 KB. Damit muss auf dem Gerät nichts gerechnet werden. |
+| **Eindeutigkeit als Schalter, zwei Bänke** (PO) | Der Vorschlag des PO ist tragfähig, und mein Einwand war überzogen: Rechenzeichen wegzunehmen kann Lösungen nur entfernen, nie hinzufügen. Eine Bank „genau eine Lösung über alle vier Zeichen" bleibt daher unter jeder Teilmenge gültig. |
+| **Zielzahl höchstens 999** | Drei Ziffern passen in den Zielchip mit einer Schriftstufe kleiner, vier nicht. Kostet 148 von 31 527 Rätseln. |
+| **Zeile 1 ist eine Chiphöhe hoch** (PO) | Die Zielzahl ist derselbe Chip wie eine Zahl, das Ausdrucksfeld genauso hoch. Ein doppelt hohes Feld war ein Zwischenstand und wiederholte einen v1-Fehler. |
+| **Letztes Rechenzeichen: gesperrt, nicht ausgegraut** (PO) | Ausgegraut liest sich wie unbenutzbar; es ist bloß das letzte. Es bleibt gewählt, der Druck läuft ins Leere, die Berührung erklärt es. |
+
+**Verworfen:** Level in jeder Form · E1 mit neuem Merkmal · „zwei Blöcke nötig"
+als Level · „nur eindeutige Rätsel" als Level (93 bzw. 0 Rätsel in den Ecken) ·
+feste Zielbereiche · Rechenzeichen nur paarweise · Stufe als eigener Regler ·
+Zielzahl über 999 · doppelt hohes Ausdrucksfeld · ausgegrautes letztes
+Rechenzeichen.
+
+**Offen:** die Breite der Ausdruckszeile (Abschnitt 17 des Konzepts).
+
+---
+
+## 9. Arbeitsweise
 
 - **Erst besprechen, dann bauen.** Die gesamte Planung lief über Diskussion und
   klickbare Entwürfe, nicht über Code.
@@ -164,20 +189,28 @@ Bestätigung · Aufgeben mit automatischem Wechsel zum nächsten Rätsel.
   unverändert übernehmbar, und F2.3 sei bloß nachzugenerieren. Beide klangen
   plausibel; beide waren falsch. **Auch die eigenen Dokumente sind zu prüfen,
   nicht nur der Code.**
+  In Runde 4 ein drittes Mal: der Satz „die Anteile sind so gewählt, dass der
+  schlimmste Fall passt – gemessen, nicht geschätzt" (12.5) war **selbst
+  geschätzt**. Gemessen passt er nicht. Ein Satz, der Sorgfalt behauptet, ist
+  kein Beleg für Sorgfalt.
+- **Am Entwurf entscheiden.** Runde 4 lief über einen klickbaren Entwurf, der die
+  Rätsel live nach der v2-Regel erzeugt. Drei Befunde – die leeren Kombinationen,
+  die zu hohe Ausdruckszeile, die überlaufende Klammerzeile – fielen erst auf,
+  weil man sie sehen konnte.
 - **Spezifikationen auf Deutsch**, passend zu den beiden v1-Dokumenten.
 - **Branch:** `claude/zahlenkoenig-v2-planning-jcsi4d`, PR #1.
   Runde 3: `claude/v2-docs-missing-requirements-2pybh9`.
 
 ---
 
-## 9. Nebenbefunde aus v1
+## 10. Nebenbefunde aus v1
 
 Nicht von v2 verursacht, aber beim Lesen aufgefallen. Alle drei sind in Runde 3
 erledigt – zwei davon anders als zunächst gedacht:
 
 | Befund | Stand |
 |---|---|
-| **Standard-Level ist F2.1** | Ein neuer Spieler landete direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. **Erledigt ohne Änderung am Standard:** die Bandsortierung stellt blockfreie Rätsel nach vorn (Abschnitt 6). |
+| **Standard-Level ist F2.1** | Ein neuer Spieler landete direkt auf dem ersten Level mit Klammern, ohne A1–A3 gespielt zu haben. **Seit Runde 4 gegenstandslos:** es gibt keine Level mehr (Abschnitt 8). Die Vorgabe ist eine Auswahl, und ihr unterstes Zielband kommt ohne Block aus. |
 | **`puzzles-F2-3.json` enthält nur 35 Rätsel** | **Falsch diagnostiziert.** Es sah nach Nachlässigkeit aus, ist aber die Obergrenze der Aufgabe: für drei Zahlen mit Zielen 101–162 existieren überhaupt nur 60 lösbare Paare. Erschöpfende Generierung hebt 35 auf 60 – mehr gibt es nicht. Wiederholung ließe sich nur über den Zielbereich vermeiden. |
 | **`levelId` der Bank (`E1-3`) passt nicht zu `LEVELS` (`E1.3`)** | **Erledigt, indem beide Seiten verschwinden:** das Feld entfällt aus dem Datensatz, und mit `maxHintsPerGroup` entfällt der einzige Ort, an dem der Fehler wirkte. |
 
