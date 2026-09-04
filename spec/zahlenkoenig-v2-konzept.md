@@ -1,12 +1,17 @@
 # Zahlenkönig / Number King – v2 Konzept
 
-**Version:** 2.3
+**Version:** 2.4
 **Stand:** September 2026
 **Status:** Abgestimmt – bereit zur Umsetzung
 
 Dieses Dokument beschreibt die Neukonzeption von Eingabe und Gestaltung für v2.
 Es ersetzt die Abschnitte 2.4–2.6 sowie Kapitel 4 der Anforderungen v1.5.
 Die Sprachumschaltung bleibt unverändert.
+
+**Neu in 2.4:** Die Bank entfällt zugunsten Generierung im Gerät (Abschnitt
+15.10), PWA-Anforderungen sind konkretisiert (Abschnitt 19), der
+Produktions-Build bekommt ein Größenbudget statt einer zweiten Fassung
+(Abschnitt 20).
 
 **Neu in 2.2:** Tipps sind neu gedacht (Abschnitt 10), Bank und Generator werden
 ersetzt statt übernommen (Abschnitt 15).
@@ -853,7 +858,7 @@ src/
 │   ├── evaluate.ts            Baum → Zahl (Präzedenz, kein eval)
 │   ├── solver.ts              „ist das Ziel noch erreichbar?" + kanonische Fortsetzung
 │   ├── hints.ts               Tippschritte über die kanonische Fortsetzung
-│   ├── puzzles.ts             Bank + 45-Zeilen-Tabelle, Bänder, ziehen
+│   ├── puzzles.ts             Generierung + 45-Zeilen-Tabelle, ziehen (15.10)
 │   └── settings.ts            LocalStorage
 ├── ui/
 │   ├── useDrag.ts             Pointer-Events-Ziehschicht
@@ -1075,7 +1080,21 @@ Schalter ab.
 nicht: die kanonische Fortsetzung (10.2) wählt deterministisch. Eindeutigkeit ist
 Geschmack, keine technische Notwendigkeit.
 
-### 15.8 Was die Bank speichern muss
+### 15.8 Superseded – Bank entfällt (siehe 15.10)
+
+Dieser Abschnitt beschrieb ursprünglich, was eine Bank-Datei speichern muss.
+Runde 5 ersetzt die Bank durch Generierung im Gerät (15.10); die
+Puzzle-Struktur unten ist nur noch als Zwischenergebnis der Generierung
+gültig, nicht mehr als Dateiformat.
+
+```ts
+interface Puzzle {
+  numbers: number[]
+  target:  number
+  ops:     number   // 15 Bit: unter welchen Rechenzeichen-Auswahlen lösbar
+  rank:    number   // Suchschwierigkeit innerhalb des Bandes
+}
+```
 
 ```ts
 interface Puzzle {
@@ -1127,6 +1146,73 @@ Zusätzlich für die Auswahl (15.4–15.8):
 Bänke bleiben in der Git-Historie; `solutions` wieder mitzuschreiben wäre ein
 Schalter im Generator, keine Rückabwicklung.
 
+Dieser Abschnitt (15.9) beschreibt die Absicherung einer *gebauten* Bank und
+ist damit ebenfalls historisch – 15.10 ersetzt das Bauen durch Generieren zur
+Laufzeit, die Absicherung verschiebt sich entsprechend auf den Generator
+selbst (siehe dort).
+
+### 15.10 Runde 5: die Bank entfällt zugunsten Generierung im Gerät
+
+**PO-Entscheidung, widerruft Runde 4** (Entscheidungen, Abschnitt 6: „Bank
+bleibt, mit Filterspalten"). Zwei Gründe waren ausschlaggebend:
+
+- Eine PWA muss nicht alle Rätsel einer Auswahl auf Vorrat laden, wenn zu
+  jedem Zeitpunkt nur eines gebraucht wird.
+- Ein einzelnes Rätsel zu erzeugen ist **schnell genug für den Spielzug**:
+  `checkDepth1.mjs` prüft eine Zahlenmenge (bis zu 4! Permutationen ×
+  Kompositionen × 4^(n−1) Operatorbelegungen) in deutlich unter 10 ms; die
+  „5 Sekunden für alle 495 Vierermengen" aus 15.3 sind die Summe über *alle*
+  Mengen, nicht die Kosten eines einzelnen Rätsels.
+
+**Was bleibt:** die 45-Zeilen-Tabelle aus 15.8 (Bandgrenzen, Anzahl,
+verfügbare Eindeutigkeit) – sie wird weiterhin einmalig vorab berechnet und
+als Konstante ausgeliefert, denn sie beantwortet Fragen über den *gesamten*
+Suchraum einer Auswahl (wie viele Rätsel gibt es, ist Eindeutigkeit
+verfügbar), die ein einzelner Zug nicht beantworten kann. Ebenso bleibt der
+15-Bit-Operator-Vektor als Idee erhalten, nur wird er nicht mehr gespeichert,
+sondern bei Bedarf berechnet.
+
+**Was entfällt:** jede Puzzle-JSON-Datei. `core/puzzles.ts` lädt nichts mehr,
+es rechnet.
+
+**Der Ablauf pro Rätsel** (`nextPuzzle(settings)` in `core/puzzles.ts`,
+dasselbe Modell wie `checkDepth1.mjs` und `solver.ts` – Abschnitt 15.3 gilt
+unverändert: **ein Modell für Generator und Löser**):
+
+1. `numbers.length` Zufallszahlen 1–9 ziehen (mit Wiederholung).
+2. Mit dem Löser **alle** unter `settings.ops` erreichbaren Ziele dieser
+   Zahlenmenge aufzählen (ist ohnehin `solver.ts`s Grundoperation).
+3. Gegen das Band aus der 45-Zeilen-Tabelle filtern; bei `uniqueOnly` zugleich
+   auf genau eine kanonische Lösung filtern (15.7 gilt unverändert).
+4. Bleibt nichts übrig, **zurück zu Schritt 1** – nicht jede Zahlenmenge
+   deckt jedes Band ab, auch wenn kein Band über den ganzen Suchraum leer ist
+   (15.5). Ein Zähler begrenzt die Versuche.
+5. Sonst eine der verbliebenen Zielzahlen ziehen (gewichtet nach `rank`, wie
+   die Bänder es in 15.6 taten) → `{ numbers, target }`.
+
+**Zu verifizieren, nicht zu schätzen** (Vorlage: `checkBankShapes.mjs`): ein
+neues Skript zieht für jede der 45 Auswahlen viele tausend Runden dieses
+Ablaufs und protokolliert die Verteilung der Versuche aus Schritt 4 – vor
+allem das Maximum. Bleibt es klein (einstellig), ist ein synchroner Aufruf im
+Hauptthread unbedenklich; wird es zweistellig oder unbeschränkt in einer
+Ecke, braucht diese Auswahl entweder eine kleine Ausnahmeliste vorab
+gezogener Zahlenmengen oder die Generierung wandert in einen Web Worker,
+damit ein UI-Frame nie blockiert. Diese Prüfung ist eine Voraussetzung vor
+Schritt 2b (Abschnitt 18), keine Annahme.
+
+**Folge für die PWA:** Der Service Worker muss nur den App-Shell (JS, CSS,
+Manifest, Icons) cachen, kein Datensatz. Offline-Spielbarkeit ist damit ein
+Abfallprodukt, nicht ein eigenes Cachingproblem – `core/` hat ohnehin keine
+Netzwerkabhängigkeit.
+
+**Folge für Abschnitt 14 (Dateistruktur):** `puzzles.ts` „Bank + 45-Zeilen-
+Tabelle, Bänder, ziehen" wird zu „Generierung + 45-Zeilen-Tabelle, ziehen" –
+kein Laden mehr, nur Rechnen.
+
+**Verworfen:** Bank als JSON-Datei · Vorabladen aller Rätsel einer Auswahl ·
+Deckel „1500 Rätsel je Zahlenanzahl" (Abschnitt 18) – gegenstandslos, es gibt
+nichts mehr zu deckeln.
+
 ---
 
 ## 16. Umsetzung in Schritten
@@ -1136,11 +1222,11 @@ Schalter im Generator, keine Rückabwicklung.
 | 0 | vitest einrichten | `npm test` läuft |
 | 1 | `core/` schreiben: Baum, Auswertung, Löser | im Terminal prüfbar, ohne UI |
 | 2 | Ziehschicht + `Chip`, `Tray`, `Expression`, Blockgesten (Abschnitt 6) | ein fest verdrahtetes Rätsel ist spielbar |
-| 2b | Generator umschreiben, Bänke neu erzeugen (Abschnitt 15) | Bank passt zum Spielmodell |
-| 3 | Bank, Auswahl (Abschnitt 15), Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
+| 2b | Generator umschreiben zu `nextPuzzle()` (Abschnitt 15.10), 45-Zeilen-Tabelle berechnen, Versuchsverteilung verifizieren | Rätsel werden im Gerät erzeugt, kein Bank-JSON |
+| 3 | Generierung, Auswahl (Abschnitt 15), Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
 | 4 | Tipps und Sackgassen-Anzeige | ein Tippknopf steht |
 | 5 | Streaks entfernen, Emoji durch SVG ersetzen, Texte anpassen | v1-Reste sind weg |
-| 6 | Animationen, Querformat, PWA | Feinschliff |
+| 6 | Animationen, Querformat, PWA (Abschnitt 19) | Feinschliff |
 
 Nach Schritt 3 ist die App erstmals durchgehend spielbar; die Schritte 1 und 2
 tragen das gesamte Risiko. **Abschnitt 18 nennt, was vor dem jeweiligen Schritt
@@ -1206,15 +1292,16 @@ Die ersten Tests, in dieser Reihenfolge:
 3. `[6, 6, 9]`: zwei gleiche Zahlen bleiben über `source` unterscheidbar, auch
    nach Tauschen und Auflösen
 
-### Vor Schritt 2b – Generator und Bank
+### Vor Schritt 2b – Generierung im Gerät
 
 | Fehlt | Warum es blockiert |
 |---|---|
-| **Obergrenze je Bank** | Erschöpfend sind es bis zu 31 379 Vierer-Rätsel; als JSON ist das mehr, als eine PWA laden sollte. Zu entscheiden: Deckel (Vorschlag: 1500 je Zahlenanzahl, gleichmäßig über die drei Bänder gezogen) und kompakte Schreibweise (Vorschlag: `[[1,2,3,4],50,7,2]` statt benannter Felder). Erst beim Erzeugen festzulegen, nicht danach. |
+| **Versuchsverteilung von `nextPuzzle()`** | 15.10 verlangt ein Prüfskript (Vorlage `checkBankShapes.mjs`), das für alle 45 Auswahlen die Anzahl der Zufallsversuche bis zum Treffer misst. Erst wenn das Maximum bekannt ist, lässt sich entscheiden, ob ein synchroner Aufruf reicht oder ein Web Worker nötig ist. |
 
-Nicht mehr offen: das Merkmal für E1. E1 entfällt (15.4).
+Nicht mehr offen: das Merkmal für E1 (E1 entfällt, 15.4) und die Bank-Obergrenze
+(entfällt mit der Bank selbst, 15.10).
 
-### Vor Schritt 3 – Bank, Auswahl, Einstellungen
+### Vor Schritt 3 – Generierung, Auswahl, Einstellungen
 
 Nichts mehr offen. Zur Erinnerung, was jetzt festliegt: Verzögerung 1200 ms nach
 richtiger Antwort (12.8), `=` bleibt nach falscher Antwort aktiv (9.1), die
@@ -1231,3 +1318,124 @@ an `solver.ts` aus Schritt 1 und an keiner Level-Eigenschaft mehr.
 | Fehlt | Warum es blockiert |
 |---|---|
 | **Die beiden Konstanten in `--cell`** | Die Formel steht in 12.5, ihre zwei Konstanten sind am Gerät zu bestätigen – am schlimmsten Fall aus vier Zahlen, drei Operatoren und zwei Blöcken. |
+| **App-Icons in allen Größen** | Abschnitt 19.2 nennt die Größen; erzeugt werden sie aus `public/crown.svg` (13.2), das bislang keine gefüllte, für kleine Icon-Größen taugliche Fassung hat. |
+
+---
+
+## 19. PWA
+
+Die Anforderungen (Abschnitt 1) legen den App-Typ bereits als PWA fest; dieser
+Abschnitt macht daraus konkrete, prüfbare Punkte für Schritt 6.
+
+### 19.1 Web App Manifest
+
+`public/manifest.webmanifest`, verlinkt aus `index.html`:
+
+```json
+{
+  "name": "Zahlenkönig",
+  "short_name": "Zahlenkönig",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "hsl(214 20% 98.5%)",
+  "theme_color": "hsl(214 62% 42%)",
+  "orientation": "any",
+  "icons": [ /* siehe 19.2 */ ]
+}
+```
+
+`background_color`/`theme_color` sind `--zk-bg`/`--zk-accent` aus 13.1 als
+feste Werte – das Manifest kann keine CSS-Variable lesen. Ändert sich `--hue`,
+müssen beide Stellen von Hand synchron bleiben; ein Kommentar im CSS verweist
+auf das Manifest.
+
+`orientation: any`, nicht `portrait`: 12.6 unterstützt Quer- und Hochformat
+gleichwertig, das Manifest darf das nicht einschränken.
+
+### 19.2 Icons
+
+Aus `public/crown.svg` (13.2) erzeugt, als PNG in `192×192` und `512×512`
+sowie einer `512×512`-Variante mit `"purpose": "maskable"` (sicherer
+Innenabstand, damit Android-Launcher nicht beschneiden). Die Krone braucht
+dafür einen ausreichenden Rand im SVG – zu prüfen, nicht anzunehmen (18,
+„App-Icons in allen Größen").
+
+### 19.3 Service Worker
+
+Ein Cache-first App-Shell-Worker (HTML, JS, CSS, Manifest, Icons), kein
+Runtime-Caching von Daten – denn es gibt seit 15.10 keine Daten mehr zu
+cachen, `core/` erzeugt Rätsel offline aus reinem JS. Registrierung:
+
+```ts
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
+```
+
+**Update-Strategie:** `skipWaiting` + `clients.claim`, mit einem knappen
+Hinweis in der Kopfzeile („Aktualisieren", 12.7-Menü) statt eines
+Popup-Dialogs – konsistent mit Abschnitt 11: die App drängt sich nicht auf.
+Vite bietet dafür `vite-plugin-pwa` an, das Manifest, Service Worker und
+Precache-Liste aus dem Build ableitet, statt beides von Hand zu pflegen; die
+Alternative ist ein von Hand geschriebener, ca. 20-zeiliger Worker. Beides ist
+mit „keine Bibliothek für den Kern" (Entscheidungen, Abschnitt 1) vereinbar,
+weil es Build-Tooling ist, keine Laufzeitabhängigkeit im Spielcode.
+
+### 19.4 Installierbarkeit
+
+Folgt aus 19.1–19.3 ohne weiteren Code: HTTPS (GitHub Pages liefert das),
+Manifest mit den Pflichtfeldern, ein registrierter Service Worker. Kein
+eigener „Installieren"-Knopf in v2.0 – der Browser bietet den eigenen
+Installationsdialog (`beforeinstallprompt`) an; ein selbstgebauter Knopf ist
+ein Ausbauschritt, keine Voraussetzung.
+
+### 19.5 Offline-Verhalten
+
+Weil Rätsel im Gerät erzeugt werden (15.10) und `core/` keine
+Netzwerkabhängigkeit hat, ist Offline-Spielbarkeit nach dem ersten Laden
+vollständig: der Service Worker liefert den App-Shell aus dem Cache, der Rest
+läuft ohnehin lokal. Nichts davon ist eine neue Anforderung an `core/` –
+Abschnitt 1 der Entscheidungen verlangte das bereits, hier wird nur sichtbar,
+dass es sich auszahlt.
+
+---
+
+## 20. Produktions-Build: klein statt eine zweite Fassung
+
+Auf die Frage nach einer „minimierten Version zum Einbetten von der Website"
+gibt es **keine zweite Fassung** – gemeint war der normale Produktions-Build,
+nur bewusst klein gehalten, nicht ein eingebetteter Widget-Modus (der wäre
+eine eigene Funktionsanforderung, siehe 20.3).
+
+### 20.1 Was bereits dafür sorgt
+
+`npm run build` läuft über Vite/esbuild und minifiziert, tree-shaked und
+hasht die Dateinamen ohnehin. Die Entscheidungen, die die Bundle-Größe klein
+halten, stehen bereits fest, nur nicht unter diesem Namen:
+
+- **keine Drag-Bibliothek** (Entscheidungen, Abschnitt 1) – ~150 Zeilen statt
+  einer Abhängigkeit mit eigenem Modell,
+- **`system-ui`, keine Webschrift** (13.2) – kein Font-Download,
+- **Inline-SVG statt Emoji-Bibliothek** (13.2),
+- **keine Bank-JSON mehr** (15.10) – der bisher größte einzelne Netzwerk-
+  Request entfällt vollständig, nicht nur verkleinert sich,
+- zwei Laufzeitabhängigkeiten insgesamt: `react`, `react-dom`.
+
+### 20.2 Was noch fehlt
+
+Keine Vorgabe existiert bisher für ein **Budget** und seine **Prüfung**:
+
+| Zu ergänzen | Vorschlag |
+|---|---|
+| Größenbudget | z. B. **< 60 KB** JS gzip für den kritischen Pfad (App-Shell ohne Icons) – am Gerät zu bestätigen wie die `--cell`-Konstanten (17), nicht zu raten |
+| Prüfung im Build | `vite-bundle-visualizer` oder ein einfaches `ls -la dist/assets | gzip -c | wc -c`-Skript, das bei Überschreitung fehlschlägt – dasselbe Prinzip wie `checkBankShapes.mjs`: eine Behauptung, die sich selbst nachrechnet |
+| `React.StrictMode`/Dev-Only-Code | sicherstellen, dass `import.meta.env.DEV`-Zweige aus dem Produktions-Build fallen (Vite tut das automatisch, aber unverifiziert) |
+
+Dieser Punkt gehört vor Schritt 6 (Feinschliff, Abschnitt 18) – erst dort
+existiert ein vollständiger Build, den man messen kann.
+
+### 20.3 Falls doch ein Embed-Modus gemeint war
+
+Offen gelassen, falls sich die Anforderung später doch als eigener
+Einbettungsmodus (z. B. ein `<iframe>` mit einem einzelnen Rätsel ohne
+Kopfzeile) herausstellt: das wäre kein Bundle-Größen-Thema mehr, sondern eine
+eigene Route mit eigenem Layout, und bräuchte eine eigene PO-Entscheidung.
+Nicht Teil dieser Runde.

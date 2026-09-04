@@ -174,7 +174,35 @@ Rechenzeichen.
 
 ---
 
-## 9. Arbeitsweise
+## 9. PWA, Bank und Build (Runde 5)
+
+Drei Anstöße kamen diesmal vom PO in einer Sitzung, nicht aus dem Review eines
+Entwurfs: die PWA-Anforderung explizit machen, eine „minimierte Version zum
+Einbetten von der Website" und ein erneuter Zweifel an der Bank-Entscheidung
+aus Runde 4.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Bank entfällt, Rätsel werden im Gerät erzeugt** (PO, widerruft Runde 4) | Der PO nannte zwei Gründe: man muss nicht alle Rätsel einer Auswahl laden, wenn nur eines gebraucht wird; und die Generierung eines einzelnen Rätsels ist schnell genug, um sie bei Bedarf statt im Voraus zu rechnen. Beides stimmt – `checkDepth1.mjs` prüft eine einzelne Zahlenmenge in unter 10 ms, die „5 Sekunden" aus 15.3 sind die Summe über alle 495 Vierermengen, nicht die Kosten eines Zugs. Die 45-Zeilen-Tabelle (Bandgrenzen, Anzahl, Eindeutigkeits-Verfügbarkeit) bleibt, weil sie über den *gesamten* Suchraum einer Auswahl Auskunft gibt – das kann ein einzelner generierter Versuch nicht. Details in Konzept 15.10. |
+| **„Minimierte Version" ist der normale Produktions-Build, keine zweite Fassung** | Nachgefragt: gemeint war eine kleine, minifizierte Datei „wie `zahlenkoenig.min.js`, aber mit der ganzen Funktionalität" – nicht ein eigener Embed-Modus mit reduziertem Funktionsumfang. Das leistet `vite build` bereits (Minifizierung, Tree-Shaking, Hashing); neu ist nur ein Größenbudget und dessen Prüfung im Build, siehe Konzept 20. |
+| **PWA-Anforderungen konkretisiert statt nur benannt** | Die v1-Spezifikation nennt „PWA" bereits als App-Typ, ohne Manifest, Icons oder Service-Worker-Strategie festzulegen. Konzept 19 macht das für v2 konkret: Manifest mit festen Farbwerten (CSS-Variablen kann ein Manifest nicht lesen), zwei Icon-Großen plus maskable-Variante aus der Krone, ein App-Shell-Service-Worker ohne Daten-Caching – Letzteres eine direkte Folge der Bank-Entscheidung: es gibt nichts mehr zu cachen außer dem Shell selbst. |
+
+**Verworfen:** Bank als vorab erzeugte JSON-Datei (Runde 4, jetzt widerrufen) ·
+ein eigener `/embed`-Build oder Iframe-Modus (nicht angefragt; siehe Konzept
+20.3, falls später doch gewollt) · Runtime-Caching von Rätseldaten im Service
+Worker (gegenstandslos ohne Bank) · ein selbstgebauter
+„Installieren"-Knopf für v2.0 (der native Browser-Dialog genügt zunächst).
+
+**Offen:** die Versuchsverteilung von `nextPuzzle()` über alle 45 Auswahlen
+ist noch nicht gemessen (Konzept 18, „Vor Schritt 2b") – erst danach steht
+fest, ob die Generierung synchron laufen kann oder einen Web Worker braucht.
+Ebenso offen: das konkrete Größenbudget für den Produktions-Build (Konzept
+20.2) und ob `public/crown.svg` genug Innenabstand für ein maskable Icon hat
+(Konzept 19.2).
+
+---
+
+## 10. Arbeitsweise
 
 - **Erst besprechen, dann bauen.** Die gesamte Planung lief über Diskussion und
   klickbare Entwürfe, nicht über Code.
@@ -200,10 +228,11 @@ Rechenzeichen.
 - **Spezifikationen auf Deutsch**, passend zu den beiden v1-Dokumenten.
 - **Branch:** `claude/zahlenkoenig-v2-planning-jcsi4d`, PR #1.
   Runde 3: `claude/v2-docs-missing-requirements-2pybh9`.
+  Runde 5: `claude/v2-pwa-requirements-qs1xi7`.
 
 ---
 
-## 10. Nebenbefunde aus v1
+## 11. Nebenbefunde aus v1
 
 Nicht von v2 verursacht, aber beim Lesen aufgefallen. Alle drei sind in Runde 3
 erledigt – zwei davon anders als zunächst gedacht:
