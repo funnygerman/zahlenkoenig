@@ -1190,15 +1190,35 @@ unverändert: **ein Modell für Generator und Löser**):
 5. Sonst eine der verbliebenen Zielzahlen ziehen (gewichtet nach `rank`, wie
    die Bänder es in 15.6 taten) → `{ numbers, target }`.
 
-**Zu verifizieren, nicht zu schätzen** (Vorlage: `checkBankShapes.mjs`): ein
-neues Skript zieht für jede der 45 Auswahlen viele tausend Runden dieses
-Ablaufs und protokolliert die Verteilung der Versuche aus Schritt 4 – vor
-allem das Maximum. Bleibt es klein (einstellig), ist ein synchroner Aufruf im
-Hauptthread unbedenklich; wird es zweistellig oder unbeschränkt in einer
-Ecke, braucht diese Auswahl entweder eine kleine Ausnahmeliste vorab
-gezogener Zahlenmengen oder die Generierung wandert in einen Web Worker,
-damit ein UI-Frame nie blockiert. Diese Prüfung ist eine Voraussetzung vor
-Schritt 2b (Abschnitt 18), keine Annahme.
+**Verifiziert, nicht geschätzt** (Vorlage: `checkBankShapes.mjs`):
+`scripts/checkNextPuzzle.mjs` zieht für jede der 45 Auswahlen 1500 Runden
+dieses Ablaufs (3 Bänder × mit/ohne `uniqueOnly`, je bis zu 200 Versuche) und
+protokolliert die Verteilung. Ergebnis:
+
+- **Fast überall einstellig, meist Versuch 1.** Ohne `uniqueOnly` liegt der
+  Median bei 1–3 Versuchen, das Maximum über alle 45×3 Bänder bei niedrigen
+  zweistelligen Werten. Ein synchroner Aufruf im Hauptthread ist dafür
+  unbedenklich.
+- **Drei Auswahlen brechen mit `uniqueOnly` ein:** 3 Zahlen nur `÷`, 4 Zahlen
+  nur `−`, 4 Zahlen nur `÷`. Dort ist die Eindeutigkeits-Bank zwar nicht leer
+  (65–347 eindeutige Ziele bei 922–2222 erreichbaren insgesamt), aber dünn
+  genug, dass blindes Neuziehen bis zu 200 Versuche braucht und in einem
+  spürbaren Teil der Läufe **gar nicht** trifft (bis zu 74 % Fehlerquote bei
+  „4 Zahlen, nur ÷, Band klein"). Genau der Fall, den 15.10 vorausgesehen
+  hatte: diese drei Auswahlen brauchen eine kleine Ausnahmeliste vorab
+  gezogener Zahlenmengen für den `uniqueOnly`-Fall, kein Web Worker – überall
+  sonst reicht ein normaler Aufruf.
+- **Ein Nebenbefund beim Bau des Skripts:** die „Gruppe um den ganzen
+  Ausdruck" (Abschnitt 17) duplizierte anfangs jede Lösung um eine
+  bedeutungslose Klammer-Variante und drückte die gemessene Eindeutigkeit auf
+  0 bei allen 2-Zahlen-Auswahlen. Sie hat nie einen äußeren Operator, gegen
+  den die Klammer schützen müsste, ist also wertgleich zur flachen Variante
+  und wurde aus der Eindeutigkeits-Zählung ausgeschlossen – ändert nichts an
+  den erreichbaren Werten, nur an der Zählung distinkter Lösungen.
+
+Diese Prüfung war eine Voraussetzung vor Schritt 2b (Abschnitt 18) und ist
+jetzt erledigt; offen bleibt nur noch, welche Zahlenmengen die drei
+Ausnahmelisten bekommen.
 
 **Folge für die PWA:** Der Service Worker muss nur den App-Shell (JS, CSS,
 Manifest, Icons) cachen, kein Datensatz. Offline-Spielbarkeit ist damit ein
@@ -1294,12 +1314,18 @@ Die ersten Tests, in dieser Reihenfolge:
 
 ### Vor Schritt 2b – Generierung im Gerät
 
+Nichts mehr offen für den allgemeinen Fall. `scripts/checkNextPuzzle.mjs`
+misst die Versuchsverteilung von `nextPuzzle()` über alle 45 Auswahlen
+(Ergebnis in 15.10): ein synchroner Aufruf im Hauptthread reicht, kein Web
+Worker nötig.
+
 | Fehlt | Warum es blockiert |
 |---|---|
-| **Versuchsverteilung von `nextPuzzle()`** | 15.10 verlangt ein Prüfskript (Vorlage `checkBankShapes.mjs`), das für alle 45 Auswahlen die Anzahl der Zufallsversuche bis zum Treffer misst. Erst wenn das Maximum bekannt ist, lässt sich entscheiden, ob ein synchroner Aufruf reicht oder ein Web Worker nötig ist. |
+| **Ausnahmelisten für drei dünne `uniqueOnly`-Auswahlen** | 3 Zahlen nur `÷`, 4 Zahlen nur `−`, 4 Zahlen nur `÷` brauchen bei aktivem Eindeutigkeits-Schalter eine kleine vorab gezogene Liste geeigneter Zahlenmengen statt blinden Neuziehens (15.10) – welche genau, ist noch zu bestimmen. |
 
-Nicht mehr offen: das Merkmal für E1 (E1 entfällt, 15.4) und die Bank-Obergrenze
-(entfällt mit der Bank selbst, 15.10).
+Nicht mehr offen: das Merkmal für E1 (E1 entfällt, 15.4), die Bank-Obergrenze
+(entfällt mit der Bank selbst, 15.10) und die Versuchsverteilung im
+Allgemeinen.
 
 ### Vor Schritt 3 – Generierung, Auswahl, Einstellungen
 

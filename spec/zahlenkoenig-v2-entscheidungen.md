@@ -193,12 +193,16 @@ ein eigener `/embed`-Build oder Iframe-Modus (nicht angefragt; siehe Konzept
 Worker (gegenstandslos ohne Bank) · ein selbstgebauter
 „Installieren"-Knopf für v2.0 (der native Browser-Dialog genügt zunächst).
 
-**Offen:** die Versuchsverteilung von `nextPuzzle()` über alle 45 Auswahlen
-ist noch nicht gemessen (Konzept 18, „Vor Schritt 2b") – erst danach steht
-fest, ob die Generierung synchron laufen kann oder einen Web Worker braucht.
-Ebenso offen: das konkrete Größenbudget für den Produktions-Build (Konzept
-20.2) und ob `public/crown.svg` genug Innenabstand für ein maskable Icon hat
-(Konzept 19.2).
+**Erledigt seit dieser Sitzung:** die Versuchsverteilung von `nextPuzzle()`
+ist gemessen (`scripts/checkNextPuzzle.mjs`, Konzept 15.10) – synchron auf
+dem Hauptthread reicht, bis auf drei dünne `uniqueOnly`-Auswahlen (3 Zahlen
+nur `÷`, 4 Zahlen nur `−`, 4 Zahlen nur `÷`), die eine kleine Ausnahmeliste
+statt blinden Neuziehens brauchen.
+
+**Offen:** welche Zahlenmengen diese drei Ausnahmelisten bekommen; das
+konkrete Größenbudget für den Produktions-Build (Konzept 20.2); ob
+`public/crown.svg` genug Innenabstand für ein maskable Icon hat (Konzept
+19.2).
 
 ---
 
