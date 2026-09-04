@@ -1,0 +1,1241 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zahlenkönig v2 — Entwurf</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo:wght@400;500;600&display=swap">
+<style>
+  :root{
+    --page-bg:#f4f4f5; --page-surface:#fff; --page-ink:#17181c; --page-muted:#6a6d76;
+    --page-line:#e2e3e7; --page-accent:#2c4a7c;
+    --font-page:"Archivo",system-ui,sans-serif;
+    --font-board:system-ui,-apple-system,"Segoe UI",sans-serif;
+  }
+  @media (prefers-color-scheme:dark){
+    :root:not([data-theme="light"]){
+      --page-bg:#131417; --page-surface:#1c1e23; --page-ink:#e8e9ec;
+      --page-muted:#979aa3; --page-line:#2b2e35; --page-accent:#8ab0e8;
+    }
+  }
+  :root[data-theme="dark"]{
+    --page-bg:#131417; --page-surface:#1c1e23; --page-ink:#e8e9ec;
+    --page-muted:#979aa3; --page-line:#2b2e35; --page-accent:#8ab0e8;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--page-bg);color:var(--page-ink);font-family:var(--font-page);line-height:1.55;-webkit-font-smoothing:antialiased}
+  .wrap{max-width:64rem;margin:0 auto;padding:3rem 1.25rem 5rem}
+  .eyebrow{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--page-muted);margin:0 0 .5rem}
+  h1{font-size:clamp(1.8rem,4vw,2.5rem);font-weight:600;margin:0 0 .6rem;text-wrap:balance;letter-spacing:-.02em}
+  .lede{margin:0;color:var(--page-muted);max-width:46rem;font-size:1.02rem}
+  h2{font-size:1.15rem;font-weight:600;margin:0 0 .3rem;letter-spacing:-.01em;text-wrap:balance}
+  .note{color:var(--page-muted);font-size:.92rem;margin:0 0 1.25rem;max-width:45rem}
+  .note code,.callout code{font-size:.86em;background:var(--page-bg);padding:.1em .35em;border-radius:4px}
+  .note b,.callout b{color:var(--page-ink)}
+  section{margin-top:3.25rem}
+  .control{position:sticky;top:0;z-index:30;background:var(--page-surface);border:1px solid var(--page-line);
+    border-radius:12px;padding:1rem 1.15rem;display:flex;flex-wrap:wrap;align-items:center;gap:1rem 1.5rem;margin-bottom:2.5rem}
+  .control label{font-size:.82rem;color:var(--page-muted);font-weight:500}
+  .control input[type=range]{flex:1 1 10rem;min-width:9rem;accent-color:var(--page-accent)}
+  .pills{display:flex;gap:.4rem;flex-wrap:wrap}
+  .pills button{font:inherit;font-size:.8rem;padding:.3rem .75rem;border:1px solid var(--page-line);
+    background:var(--page-surface);color:var(--page-ink);border-radius:999px;cursor:pointer}
+  .pills button:hover,.pills button:focus-visible{border-color:var(--page-accent)}
+  .pills button[aria-pressed="true"]{background:var(--page-accent);border-color:var(--page-accent);color:#fff}
+  .hueval{font-variant-numeric:tabular-nums;font-size:.82rem;color:var(--page-muted);min-width:3.2rem}
+  .ctl-group{display:flex;align-items:center;gap:.6rem}
+  .specimens{display:grid;gap:2rem;grid-template-columns:repeat(auto-fit,minmax(20rem,1fr))}
+  .specimens.trio{grid-template-columns:repeat(auto-fit,minmax(15rem,1fr))}
+  figure{margin:0}
+  figcaption{font-size:.82rem;color:var(--page-muted);margin-top:.75rem}
+  figcaption b{color:var(--page-ink);font-weight:600;display:block;margin-bottom:.1rem}
+  .frame{background:var(--zk-bg,#fff);border:1px solid var(--page-line);border-radius:14px;
+    padding:1.5rem 1.25rem;display:grid;place-items:center;overflow-x:auto}
+  .frame.tight{padding:1.5rem 1rem}
+  .frame.live{position:relative;overflow:visible}
+  .callout{border-left:2px solid var(--page-accent);padding:.1rem 0 .1rem 1rem;margin:1.5rem 0 0;
+    color:var(--page-muted);font-size:.92rem;max-width:45rem}
+  .fitnote{font-size:.8rem;color:var(--page-muted);background:var(--page-surface);border:1px solid var(--page-line);
+    border-radius:9px;padding:.7rem .85rem;margin-top:1rem;font-variant-numeric:tabular-nums}
+  .fitnote.bad{border-color:hsl(2 62% 48%);color:hsl(2 62% 48%)}
+  .tokens{display:grid;gap:.5rem;grid-template-columns:repeat(auto-fit,minmax(11rem,1fr))}
+  .token{display:flex;align-items:center;gap:.6rem;font-size:.8rem;color:var(--page-muted);
+    background:var(--page-surface);border:1px solid var(--page-line);border-radius:9px;padding:.5rem .65rem}
+  .token span.sw{width:26px;height:26px;border-radius:6px;border:1px solid var(--page-line);flex:none}
+  .token code{color:var(--page-ink);font-size:.78rem}
+
+  /* ==== THE BOARD — proportions are load-bearing, see konzept 12.5 ======= */
+  .zk{
+    --hue:214;
+    --zk-bg:hsl(var(--hue) 20% 98.5%);
+    --zk-surface:hsl(var(--hue) 24% 100%);
+    --zk-chip:hsl(var(--hue) 26% 95%);
+    --zk-line:hsl(var(--hue) 22% 85%);
+    --zk-ink:hsl(var(--hue) 30% 18%);
+    --zk-muted:hsl(var(--hue) 14% 58%);
+    --zk-accent:hsl(var(--hue) 62% 42%);
+    --zk-amber:hsl(38 78% 46%);
+    --zk-group-bg:hsl(var(--hue) 48% 42% / .17);
+    --zk-group-chip:hsl(var(--hue) 30% 100%);
+    --cell:64px; --gap:10px; --radius:12px;
+    --fn:calc(var(--cell) * .52);   /* number in the field  */
+    --fo:calc(var(--cell) * .39);   /* operator in the field */
+    --fg:calc(var(--cell) * .065);
+    --gp:calc(var(--cell) * .08);
+    --stroke:2px;
+    font-family:var(--font-board);
+    display:grid;grid-template-columns:repeat(5,var(--cell));gap:var(--gap);background:var(--zk-bg);
+  }
+  .zk.v-dark{--zk-group-bg:hsl(var(--hue) 48% 42% / .20);--zk-group-chip:var(--zk-chip)}
+  .zk.v-light{--zk-group-bg:hsl(var(--hue) 48% 42% / .08);--zk-group-chip:hsl(var(--hue) 30% 100%)}
+  .zk-field{grid-column:1 / 5;height:var(--cell);border:1.5px solid var(--zk-line);border-radius:var(--radius);
+    background:var(--zk-surface);display:flex;align-items:center;justify-content:center;gap:var(--fg);padding:0 var(--gp)}
+  .zk-field.dead{border-color:var(--zk-amber)}
+  .zk-target{height:var(--cell);width:var(--cell);border-radius:var(--radius);background:var(--zk-accent);
+    color:#fff;display:flex;align-items:center;justify-content:center;font-variant-numeric:tabular-nums}
+  .zk-target .inner{display:flex;align-items:baseline;gap:3px}
+  .zk-target .eq{font-size:.78rem;opacity:.62}
+  .zk-target .val{font-size:1.3rem;font-weight:500}
+  .zk-target .val.w3{font-size:1.02rem}
+  .chip{width:var(--cell);height:var(--cell);flex:none;display:grid;place-items:center;font-size:1.3rem;
+    color:var(--zk-ink);background:var(--zk-chip);border-radius:var(--radius);font-variant-numeric:tabular-nums;user-select:none}
+  .chip.op{border-radius:50%}
+  .chip.is-ghost{opacity:.3}
+  button.chip{border:0;font-family:inherit;cursor:pointer;padding:0}
+  .zk-field .chip{width:var(--fn);height:var(--fn);font-size:.95rem;border-radius:calc(var(--cell) * .16)}
+  .zk-field .chip.op{width:var(--fo);height:var(--fo);font-size:.85rem;border-radius:50%;
+    background:transparent;border:1.5px solid var(--zk-line)}
+  .chip.pulse{box-shadow:0 0 0 3px hsl(var(--hue) 62% 42% / .3);animation:pl 1s ease-in-out infinite}
+  @keyframes pl{0%,100%{box-shadow:0 0 0 2px hsl(var(--hue) 62% 42% / .22)}50%{box-shadow:0 0 0 7px hsl(var(--hue) 62% 42% / .05)}}
+
+  .zk-group{position:relative;flex:none;display:flex;align-items:center;gap:var(--fg);
+    padding:calc(var(--cell) * .05) calc(var(--cell) * .14);background:var(--zk-group-bg);cursor:pointer}
+  .zk-group .chip{background:var(--zk-group-chip)}
+  .zk-group .chip.op{background:var(--zk-group-chip);border-color:var(--zk-line)}
+  .brackets-round .zk-group{border-left:var(--stroke) solid var(--zk-accent);
+    border-right:var(--stroke) solid var(--zk-accent);border-radius:calc(var(--cell) * .30)}
+  .brackets-square .zk-group{border-radius:3px}
+  /* absolutely positioned: the bracket edges cost NO width (konzept 12.5) */
+  .brackets-square .zk-group::before,.brackets-square .zk-group::after{
+    content:'';position:absolute;top:0;bottom:0;width:calc(var(--cell) * .10);
+    border-top:var(--stroke) solid var(--zk-accent);border-bottom:var(--stroke) solid var(--zk-accent)}
+  .brackets-square .zk-group::before{left:0;border-left:var(--stroke) solid var(--zk-accent)}
+  .brackets-square .zk-group::after{right:0;border-right:var(--stroke) solid var(--zk-accent)}
+
+  .chip.block{background:var(--zk-chip)}
+  .blockicon{position:relative;box-sizing:border-box;width:calc(var(--cell) * .74);height:calc(var(--cell) * .36);
+    padding:0 calc(var(--cell) * .145);display:flex;align-items:center;justify-content:center;gap:calc(var(--cell) * .038)}
+  .brackets-round .blockicon{border-left:var(--stroke) solid var(--zk-accent);
+    border-right:var(--stroke) solid var(--zk-accent);border-radius:calc(var(--cell) * .22)}
+  .brackets-square .blockicon::before,.brackets-square .blockicon::after{
+    content:'';position:absolute;top:0;bottom:0;width:calc(var(--cell) * .08);
+    border-top:var(--stroke) solid var(--zk-accent);border-bottom:var(--stroke) solid var(--zk-accent)}
+  .brackets-square .blockicon::before{left:0;border-left:var(--stroke) solid var(--zk-accent)}
+  .brackets-square .blockicon::after{right:0;border-right:var(--stroke) solid var(--zk-accent)}
+  .blockicon i,.blockicon em,.blockicon u{display:block;flex:none;background:var(--zk-accent);opacity:.42}
+  .blockicon i{width:calc(var(--cell) * .13);height:calc(var(--cell) * .13);border-radius:2.5px}
+  .blockicon em{width:calc(var(--cell) * .13);height:calc(var(--cell) * .13);border-radius:50%}
+  .blockicon u{width:calc(var(--cell) * .062);height:calc(var(--cell) * .062);border-radius:50%}
+  .blockicon.ic-dot i,.blockicon.ic-ring i{width:calc(var(--cell) * .155);height:calc(var(--cell) * .155);border-radius:3px}
+  .blockicon.ic-ring em{width:calc(var(--cell) * .12);height:calc(var(--cell) * .12);
+    background:transparent;border:1.5px solid var(--zk-accent);opacity:.55}
+
+  .zk.solo{grid-template-columns:auto}
+  .zk.zoom{--cell:128px}
+  .iconstack{display:flex;flex-direction:column;align-items:center;gap:1.1rem}
+  .cell-empty{width:var(--cell);height:var(--cell)}
+  .cell-hole{width:var(--cell);height:var(--cell);border:1.5px dashed var(--zk-line);
+    border-radius:var(--radius);background:transparent;cursor:pointer}
+  button.cell-hole{padding:0}
+  .chip.submit{background:var(--zk-accent);color:#fff;font-size:1.35rem;cursor:pointer}
+  .chip.submit.is-off{background:var(--zk-chip);color:var(--zk-muted);cursor:default}
+  .zk-drag{position:relative}
+  .chip.lifted{position:absolute;left:132px;top:-36px;box-shadow:0 10px 22px hsl(var(--hue) 40% 20% / .22);
+    transform:scale(1.06) rotate(-3deg);background:var(--zk-surface);border:1.5px solid var(--zk-accent);z-index:3}
+  .slot-live{width:var(--fn);height:var(--fn);flex:none;border-radius:calc(var(--cell) * .16);
+    border:1.5px dashed var(--zk-accent);background:hsl(var(--hue) 62% 42% / .10)}
+  .ghost{width:var(--fn);height:var(--fn);flex:none;border-radius:calc(var(--cell) * .16);
+    background:var(--zk-chip);opacity:.5}
+  .ghost.op{width:var(--fo);height:var(--fo);border-radius:50%;background:transparent;
+    border:1.5px solid var(--zk-line);opacity:.55}
+  .wrapview{position:relative;display:flex;align-items:center;gap:var(--fg);
+    padding:calc(var(--cell) * .05) calc(var(--cell) * .14);flex:none}
+  .wrapview::before,.wrapview::after{content:'';position:absolute;top:0;bottom:0;width:calc(var(--cell) * .10);
+    border-top:var(--stroke) dashed var(--zk-accent);border-bottom:var(--stroke) dashed var(--zk-accent);opacity:.75}
+  .wrapview::before{left:0;border-left:var(--stroke) dashed var(--zk-accent)}
+  .wrapview::after{right:0;border-right:var(--stroke) dashed var(--zk-accent)}
+  .cand{outline:1.5px dashed var(--zk-line);outline-offset:3px;border-radius:calc(var(--cell) * .16)}
+  .showhit .zk-group::before,.showhit .zk-group::after{background:hsl(2 70% 55% / .16)}
+  .showhit .cell-hole{background:hsl(2 70% 55% / .10)}
+  .readout{grid-column:1 / 6;text-align:center;font-size:.95rem;color:var(--zk-muted);
+    font-variant-numeric:tabular-nums;min-height:1.5em;margin-top:2px}
+  .readout .res{color:var(--zk-accent);font-weight:500}
+  .readout.is-wrong .res{color:hsl(2 62% 48%)}
+
+  /* ---- the live board: header + selection panel ---- */
+  .device{position:relative;display:flex;flex-direction:column;gap:var(--gap,10px)}
+  .zk-hdr{display:grid;grid-template-columns:auto 1fr auto;align-items:center;
+    width:calc(64px * 5 + 10px * 4);font-family:var(--font-board)}
+  .icon{width:34px;height:34px;display:grid;place-items:center;border:0;background:none;padding:0;
+    color:hsl(var(--hue,214) 14% 58%);cursor:pointer;border-radius:9px}
+  .icon:hover{color:hsl(var(--hue,214) 30% 18%)}
+  .icon svg{width:21px;height:21px;fill:none;stroke:currentColor;stroke-width:1.5;stroke-linecap:round;stroke-linejoin:round}
+  .lvlchip{justify-self:center;display:flex;align-items:center;gap:7px;background:hsl(var(--hue,214) 26% 95%);
+    border:1px solid transparent;border-radius:999px;padding:5px 12px;cursor:pointer;font:inherit}
+  .lvlchip[aria-expanded="true"]{background:#fff;border-color:hsl(var(--hue,214) 62% 42%)}
+  .mini{display:flex;align-items:center;gap:3px}
+  .mini i{display:block;width:7px;height:7px;background:hsl(var(--hue,214) 30% 18%);border-radius:1.5px;opacity:.8}
+  .mini b{display:block;width:6px;height:6px;border:1.3px solid hsl(var(--hue,214) 62% 42%);border-radius:50%}
+  .lvlchip .rng{font-size:.7rem;color:hsl(var(--hue,214) 14% 58%);letter-spacing:.02em}
+  .panel{position:absolute;left:0;right:0;top:42px;background:#fff;border:1px solid hsl(var(--hue,214) 22% 85%);
+    border-radius:14px;box-shadow:0 14px 30px -12px hsl(var(--hue,214) 40% 20% / .3);padding:11px;z-index:20;
+    display:flex;flex-direction:column;gap:8px;font-family:var(--font-board)}
+  .panel[hidden]{display:none}
+  .prow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+  .plabel{font-size:.64rem;text-transform:uppercase;letter-spacing:.08em;color:hsl(var(--hue,214) 14% 58%);width:100%;margin-bottom:-4px}
+  .opt{border:1.5px solid hsl(var(--hue,214) 22% 85%);background:#fff;color:hsl(var(--hue,214) 30% 18%);
+    border-radius:9px;padding:5px 9px;cursor:pointer;display:flex;align-items:center;gap:4px;font:inherit;font-size:.76rem}
+  .opt[aria-pressed="true"]{border-color:hsl(var(--hue,214) 62% 42%);background:hsl(var(--hue,214) 62% 42% / .1)}
+  .opt:disabled{opacity:.34;cursor:not-allowed}
+  .opt.locked{cursor:not-allowed}
+  .opt .sq{width:8px;height:8px;background:hsl(var(--hue,214) 30% 18%);border-radius:1.5px;display:block}
+  .opt .ci{width:17px;height:17px;border:1.5px solid currentColor;border-radius:50%;display:grid;place-items:center;font-size:.8rem;line-height:1}
+  .opt.band{flex-direction:column;align-items:center;gap:1px;padding:5px 10px}
+  .opt.band .bl{font-size:.76rem}
+  .opt.band .bn{font-size:.63rem;color:hsl(var(--hue,214) 14% 58%);font-variant-numeric:tabular-nums}
+  .pfoot{display:flex;flex-direction:column;gap:5px;border-top:1px solid hsl(var(--hue,214) 22% 85%);
+    padding-top:9px;font-size:.72rem;color:hsl(var(--hue,214) 14% 58%)}
+  .stats{display:flex;flex-wrap:wrap;gap:.4rem .9rem;font-size:.78rem;color:var(--page-muted);
+    margin-top:1rem;font-variant-numeric:tabular-nums}
+  .stats b{color:var(--page-ink);font-weight:600}
+  @media (prefers-reduced-motion:reduce){*{transition:none!important;animation:none!important}}
+  :focus-visible{outline:2px solid var(--page-accent);outline-offset:2px}
+</style>
+</head>
+<body>
+<div class="wrap brackets-square" id="root">
+  <header>
+    <p class="eyebrow">Zahlenkönig v2 · Entwurf</p>
+    <h1>Brett, Block und Auswahl</h1>
+    <p class="lede">
+      Der klickbare Entwurf zum Konzept. Oben das lebende Brett samt Auswahl — die Rätsel werden
+      nach der v2-Regel erzeugt, eine Klammerebene, keine Verschachtelung. Darunter die
+      Gestaltungsstudien, an denen Klammerform, Blockkontrast und Blocksymbol entschieden wurden.
+    </p>
+  </header>
+
+  <div class="control">
+    <div class="ctl-group">
+      <label for="hue">Farbton</label>
+      <input id="hue" type="range" min="0" max="360" value="214" step="1">
+      <span class="hueval" id="hueval">214°</span>
+    </div>
+    <div class="ctl-group">
+      <label>Klammern</label>
+      <div class="pills" id="brackets">
+        <button data-br="round" aria-pressed="false">( rund )</button>
+        <button data-br="square" aria-pressed="true">[ eckig ]</button>
+      </div>
+    </div>
+    <div class="ctl-group">
+      <label>Symbol</label>
+      <div class="pills" id="icons">
+        <button data-ic="dot" aria-pressed="false">&#9633;&#8226;&#9633;</button>
+        <button data-ic="sq3" aria-pressed="false">&#9633;&#9633;&#9633;</button>
+        <button data-ic="ci3" aria-pressed="false">&#9675;&#9675;&#9675;</button>
+        <button data-ic="ring" aria-pressed="true">&#9633;&#9675;&#9633;</button>
+      </div>
+    </div>
+    <div class="pills" id="presets">
+      <button data-hue="214">Schiefer</button>
+      <button data-hue="158">Kiefer</button>
+      <button data-hue="28">Ton</button>
+      <button data-hue="280">Pflaume</button>
+    </div>
+  </div>
+
+  <section id="live">
+    <h2>Das Brett, spielbar</h2>
+    <p class="note">
+      Zahl antippen: sie wandert in die nächste offene Fläche, nochmal antippen bringt sie zurück.
+      Der Block umschließt; auf den Klammerrand tippen löst ihn auf und lässt den Inhalt stehen.
+      Die Glühbirne lässt erst zwei Zahlen pulsieren und setzt danach pro Druck einen Chip.
+      <b>Der Chip in der Kopfzeile ist die Auswahl</b> — antippen öffnet sie.
+    </p>
+    <div class="frame live">
+      <div class="device" id="dev">
+        <div class="zk-hdr">
+          <button class="icon" aria-label="Menü"><svg viewBox="0 0 24 24"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+          <button class="lvlchip" id="lvlchip" aria-expanded="false" aria-controls="panel">
+            <span class="mini" id="miniNums"></span><span class="mini" id="miniOps"></span>
+            <span class="rng" id="miniRange"></span>
+          </button>
+          <button class="icon" id="hintBtn" aria-label="Tipp"><svg viewBox="0 0 24 24"><path d="M9 18h6M10 21h4M12 3a6 6 0 0 0-3.6 10.8c.5.4.8 1 .9 1.6l.1.6h5.2l.1-.6c.1-.6.4-1.2.9-1.6A6 6 0 0 0 12 3Z"/></svg></button>
+        </div>
+        <div class="panel" id="panel" hidden>
+          <div class="prow"><span class="plabel">Wie viele Zahlen</span><span id="rowNums" style="display:flex;gap:8px"></span></div>
+          <div class="prow"><span class="plabel">Welche Rechenzeichen</span><span id="rowOps" style="display:flex;gap:8px"></span></div>
+          <div class="prow"><span class="plabel">Wie groß das Ziel</span><span id="rowBand" style="display:flex;gap:8px;flex-wrap:wrap"></span></div>
+          <div class="pfoot">
+            <label style="display:flex;align-items:center;gap:7px;cursor:pointer">
+              <input type="checkbox" id="uniqOnly"><span>nur Rätsel mit <b>einer</b> Lösung</span>
+            </label>
+            <span id="poolCount"></span>
+          </div>
+        </div>
+        <div class="zk" id="board"></div>
+      </div>
+    </div>
+    <p class="stats" id="stats"></p>
+    <p class="fitnote" id="fitnote">Messe…</p>
+  </section>
+
+  <section>
+    <h2>Rund oder eckig — dasselbe Brett nebeneinander</h2>
+    <p class="note">
+      Beide als echte Kanten gezeichnet, nicht als getippte Zeichen: das runde Paar ist ein
+      gebogener Steg, das eckige ein gerader mit Serifen. Der Umschalter oben legt die Wahl auf
+      jedes andere Brett dieser Seite, damit sie im Zusammenhang zu beurteilen ist.
+      <b>Entschieden wurde eckig</b> (Entscheidungen, Abschnitt 5).
+    </p>
+    <div class="specimens">
+      <figure class="brackets-round">
+        <div class="frame"><div class="zk">
+          <div class="zk-field">
+            <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+            <div class="chip op">&times;</div>
+            <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+          </div>
+          <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+          <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+          <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+          <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+          <div class="chip submit">=</div>
+        </div></div>
+        <figcaption><b>Rund</b>Weicher, näher an handgeschriebener Mathematik, die Kurve liest sich als „hält etwas". Etwas breiter, weil eine Kurve Platz zum Drehen braucht.</figcaption>
+      </figure>
+      <figure class="brackets-square">
+        <div class="frame"><div class="zk">
+          <div class="zk-field">
+            <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+            <div class="chip op">&times;</div>
+            <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+          </div>
+          <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+          <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+          <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+          <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+          <div class="chip submit">=</div>
+        </div></div>
+        <figcaption><b>Eckig — gewählt</b>Klarer und behälterhafter: die Serifen schließen die Form oben und unten, sie liest sich als Kasten statt als Umarmung. Schmaler, und das zählt — die Breite ist knapp.</figcaption>
+      </figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Wie stark soll der Block trennen?</h2>
+    <p class="note">
+      Drei Möglichkeiten, gleicher Farbton. Gewählt wurde die dritte: <b>beides, je eine Stufe</b> —
+      der Behälter tritt zurück, sein Inhalt tritt vor. Das ist die Konvention, die eine
+      verschachtelte Fläche als verschachtelt lesbar macht.
+    </p>
+    <div class="specimens trio">
+      <figure><div class="frame tight"><div class="zk v-dark">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div>
+          <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+      </div></div><figcaption><b>Nur dunklerer Block</b>Chips behalten das Ablagegrau. Starke Trennung, aber der Block wird schwer und überwiegt die Zahlen.</figcaption></figure>
+      <figure><div class="frame tight"><div class="zk v-light">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div>
+          <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+      </div></div><figcaption><b>Nur hellere Chips</b>Der Block bleibt ein blasser Hauch. Luftig, aber die Blockkante trägt alles allein.</figcaption></figure>
+      <figure><div class="frame tight"><div class="zk">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div>
+          <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+      </div></div><figcaption><b>Beides — gewählt</b>Je eine Stufe. Eine Zahl im Block sieht dadurch anders aus als eine daneben, was ein kostenloses Zusatzsignal ist.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Blocksymbol — vier Entwürfe</h2>
+    <p class="note">
+      Auf diesem Brett heißt ein Quadrat „Zahl" und ein Kreis „Operator". A und D beschreiben
+      deshalb wahrheitsgemäß, was ein Block enthält; B sagt „drei Zahlen", C sagt „drei Operatoren".
+      <b>Gewählt wurde D</b> — der offene Kreis liest sich weniger als Auge als ein voller Punkt.
+      Der Umschalter oben setzt die Wahl auf jedes andere Brett.
+    </p>
+    <div class="specimens trio">
+      <figure><div class="frame tight"><div class="iconstack">
+        <div class="zk solo zoom"><div class="chip block"><span class="blockicon ic-dot" data-fixed><i></i><u></u><i></i></span></div></div>
+        <div class="zk"><div class="chip">3</div><div class="chip">9</div><div class="chip">2</div><div class="chip">6</div>
+          <div class="chip block"><span class="blockicon ic-dot" data-fixed><i></i><u></u><i></i></span></div></div>
+      </div></div><figcaption><b>A &nbsp;&#9633; &#8226; &#9633;</b>Wahrheitsgemäß: Quadrat, Operator, Quadrat. Ob die drei Formen als Gesicht gelesen werden, war die Frage.</figcaption></figure>
+      <figure><div class="frame tight"><div class="iconstack">
+        <div class="zk solo zoom"><div class="chip block"><span class="blockicon ic-sq3" data-fixed><i></i><i></i><i></i></span></div></div>
+        <div class="zk"><div class="chip">3</div><div class="chip">9</div><div class="chip">2</div><div class="chip">6</div>
+          <div class="chip block"><span class="blockicon ic-sq3" data-fixed><i></i><i></i><i></i></span></div></div>
+      </div></div><figcaption><b>B &nbsp;&#9633; &#9633; &#9633;</b>Ruhigste der vier und sicher kein Gesicht — aber ein Quadrat heißt hier Zahl, also liest es sich als „drei Zahlen".</figcaption></figure>
+      <figure><div class="frame tight"><div class="iconstack">
+        <div class="zk solo zoom"><div class="chip block"><span class="blockicon ic-ci3" data-fixed><em></em><em></em><em></em></span></div></div>
+        <div class="zk"><div class="chip">3</div><div class="chip">9</div><div class="chip">2</div><div class="chip">6</div>
+          <div class="chip block"><span class="blockicon ic-ci3" data-fixed><em></em><em></em><em></em></span></div></div>
+      </div></div><figcaption><b>C &nbsp;&#9675; &#9675; &#9675;</b>Weichste, aber ein Kreis heißt überall sonst Operator — das Symbol sagt das Gegenteil dessen, was ein Block hält.</figcaption></figure>
+      <figure><div class="frame tight"><div class="iconstack">
+        <div class="zk solo zoom"><div class="chip block"><span class="blockicon ic-ring" data-fixed><i></i><em></em><i></i></span></div></div>
+        <div class="zk"><div class="chip">3</div><div class="chip">9</div><div class="chip">2</div><div class="chip">6</div>
+          <div class="chip block"><span class="blockicon ic-ring" data-fixed><i></i><em></em><i></i></span></div></div>
+      </div></div><figcaption><b>D &nbsp;&#9633; &#9675; &#9633; — gewählt</b>Die mittlere Kachel wird ein umrandeter Kreis — genau so, wie ein Operator im Feld gezeichnet ist.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Das leere Feld zeigt, was fehlt</h2>
+    <p class="note">
+      Die Chipzahl steht fest: <i>n</i> Zahlen brauchen immer <i>n</i> Zahlen und
+      <i>n&nbsp;&minus;&nbsp;1</i> Operatoren, gleich wie die Blöcke fallen. Also zeichnet das Feld
+      die fehlenden blass vor — und wenn keine mehr da sind, ist der Ausdruck vollständig. Das ist
+      derselbe Moment, in dem <b>=</b> aufleuchtet.
+    </p>
+    <div class="specimens">
+      <figure><div class="frame"><div class="zk">
+        <div class="zk-field">
+          <div class="ghost"></div><div class="ghost op"></div><div class="ghost"></div><div class="ghost op"></div>
+          <div class="ghost"></div><div class="ghost op"></div><div class="ghost"></div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="chip">3</div><div class="chip">9</div><div class="chip">2</div><div class="chip">6</div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit is-off">=</div>
+      </div></div><figcaption><b>Vier Zahlen, nichts gesetzt</b>Sieben Platzhalter: vier Zahlen, drei Operatoren. Volle Chipbreite, damit das Feld beim Setzen nicht springt.</figcaption></figure>
+      <figure><div class="frame"><div class="zk">
+        <div class="zk-field"><div class="ghost"></div><div class="ghost op"></div><div class="ghost"></div></div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">14</span></span></div>
+        <div class="cell-empty"></div><div class="cell-empty"></div><div class="chip">9</div><div class="chip">5</div>
+        <div class="cell-empty"></div>
+        <div class="chip op">+</div><div class="chip op">&minus;</div><div class="cell-empty"></div><div class="cell-empty"></div>
+        <div class="chip submit is-off">=</div>
+      </div></div><figcaption><b>Zwei Zahlen erklären sich selbst</b>Kein Block, kein &times; oder &divide;. Das Feld liest sich als Anleitung: eine Zahl, ein Operator, eine Zahl. Ohne Worte.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Einen Block ziehen: was aufleuchtet</h2>
+    <p class="note">
+      Der Zeiger steht über dem <b>+</b>, und die gestrichelte Klammer zeigt <b>genau</b>, was beim
+      Loslassen umschlossen würde. Auf die <code>6</code> zu zielen ergibt dasselbe — die
+      Umschließung einer Zahl ist stets identisch mit der des Operators rechts daneben, also ist die
+      ganze linke Hälfte eines Paares eine große Trefffläche.
+    </p>
+    <div class="specimens">
+      <figure><div class="frame"><div class="zk zk-drag">
+        <div class="zk-field">
+          <div class="wrapview"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op cand">&times;</div><div class="chip cand">9</div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block is-ghost"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip block lifted"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit is-off">=</div>
+      </div></div><figcaption><b>Über dem +</b>Die durchgezogene gestrichelte Klammer ist das Ergebnis. Die blassen Umrisse an &times; und 9 sind die anderen Kandidaten.</figcaption></figure>
+      <figure><div class="frame"><div class="zk showhit">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div><div class="chip">9</div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit">=</div>
+      </div></div><figcaption><b>Die zwei Wege zum Auflösen</b>Nur hier rot getönt, um das sonst Unsichtbare zu zeigen: die Greifstreifen an den Klammern und die Platzhalter in der Ablage. Jeder Platzhalter holt zurück, was ihn verlassen hat.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Auflösen behält die Zahlen</h2>
+    <p class="note">
+      Auf den Klammerrand tippen — oder auf seinen Platzhalter in der Ablage — und die Klammern
+      gehen, während die Chips exakt stehen bleiben. Es kehrt nichts in die Ablage zurück außer dem
+      Block selbst. Wer einen Block entfernt, will fast immer <i>andere</i> Klammern, nicht weniger
+      Zahlen.
+    </p>
+    <div class="specimens">
+      <figure><div class="frame"><div class="zk">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div><div class="chip">9</div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit">=</div>
+        <div class="readout">(6 + 2) &times; 9</div>
+      </div></div><figcaption><b>Vorher</b>Der Block-Chip ist im Einsatz, seine Ablagezelle daher ein Platzhalter.</figcaption></figure>
+      <figure><div class="frame"><div class="zk">
+        <div class="zk-field">
+          <div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div>
+          <div class="chip op">&times;</div><div class="chip">9</div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit">=</div>
+        <div class="readout">6 + 2 &times; 9</div>
+      </div></div><figcaption><b>Nachher</b>Dieselben fünf Chips, dieselbe Reihenfolge, Klammern weg. Der Block-Chip liegt wieder in der Ablage.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Die Notationszeile antwortet</h2>
+    <p class="note">
+      <b>=</b> auf einem der Bretter drücken. Die ersten beiden sind die Vorgabe: der Ausdruck steht
+      beim Bauen da, das Ergebnis kommt auf Anforderung dazu. Das dritte zeigt den optionalen
+      Zwischenschritt, der weiterhin offen ist (Konzept, Abschnitt 17).
+    </p>
+    <div class="specimens">
+      <figure><div class="frame"><div class="zk" data-demo="right" data-expr="(6 + 2) &times; (9 &minus; 3)" data-step="8 &times; 6" data-result="48" data-target="48">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div>
+          <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit">=</div>
+        <div class="readout">(6 + 2) &times; (9 &minus; 3)</div>
+      </div></div><figcaption><b>Richtig</b>Der Ausdruck, dann <code>= 48</code>. Ohne Animation. Dieses Brett trägt zugleich die Messung unten.</figcaption></figure>
+      <figure><div class="frame"><div class="zk" data-demo="wrong" data-expr="(6 + 2) &times; 9 &minus; 3" data-step="8 &times; 9 &minus; 3" data-result="69" data-target="48">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit">=</div>
+        <div class="readout">(6 + 2) &times; 9 &minus; 3</div>
+      </div></div><figcaption><b>Falsch</b>69 statt 48. Die Rechnung zeigt sich selbst; die Chips bleiben liegen und lassen sich berichtigen.</figcaption></figure>
+      <figure><div class="frame"><div class="zk" data-demo="collapse" data-collapse="1" data-expr="(6 + 2) &times; (9 &minus; 3)" data-step="8 &times; 6" data-result="48" data-target="48">
+        <div class="zk-field">
+          <div class="zk-group"><div class="chip">6</div><div class="chip op">+</div><div class="chip">2</div></div>
+          <div class="chip op">&times;</div>
+          <div class="zk-group"><div class="chip">9</div><div class="chip op">&minus;</div><div class="chip">3</div></div>
+        </div>
+        <div class="zk-target"><span class="inner"><span class="eq">=</span><span class="val">48</span></span></div>
+        <div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div><div class="cell-hole"></div>
+        <div class="chip block"><span class="blockicon ic-ring"><i></i><em></em><i></i></span></div>
+        <div class="chip op">&times;</div><div class="chip op">&divide;</div><div class="chip op">+</div><div class="chip op">&minus;</div>
+        <div class="chip submit">=</div>
+        <div class="readout">(6 + 2) &times; (9 &minus; 3)</div>
+      </div></div><figcaption><b>Optional: ein Zwischenschritt</b>Die Klammern fallen erst zu <code>8 &times; 6</code> zusammen. Eine halbe Sekunde länger, zeigt aber, <i>warum</i> die Blöcke zählten. Vorgabe ist ohne.</figcaption></figure>
+    </div>
+  </section>
+
+  <section>
+    <h2>Die Palette ist eine Zahl</h2>
+    <p class="note">Jedes Token leitet sich aus <code>--hue</code> ab, auch die Füllung des Blocks.</p>
+    <div class="tokens" id="tokens"></div>
+    <p class="callout">
+      <b>Kopfzeile:</b> entschieden (Konzept 12.7) — ein Menüsymbol links, ein Tippsymbol rechts,
+      dazwischen der Auswahl-Chip. Er zeigt an <i>und</i> ändert; oben im lebenden Brett zu sehen.
+    </p>
+  </section>
+</div>
+
+<script>
+"use strict";
+/* ===================== v2 model: depth-1 arrangements ===================== */
+var OPS=['+','-','*','/'];
+var GLYPH={'+':'+','-':'\u2212','*':'\u00d7','/':'\u00f7'};
+var BANDS={"2":{"1":{"n":45,"u":44,"b":[[2,8,15],[8,12,15],[12,18,15]]},"2":{"n":36,"u":35,"b":[[1,2,12],[2,4,12],[4,8,12]]},"3":{"n":81,"u":79,"b":[[1,4,27],[4,9,27],[9,18,27]]},"4":{"n":45,"u":35,"b":[[1,12,15],[12,30,15],[32,81,15]]},"5":{"n":89,"u":79,"b":[[1,9,30],[9,16,30],[16,81,29]]},"6":{"n":81,"u":70,"b":[[1,4,27],[4,15,27],[16,81,27]]},"7":{"n":125,"u":114,"b":[[1,6,42],[6,12,42],[13,81,41]]},"8":{"n":23,"u":13,"b":[[1,1,8],[1,3,8],[4,9,7]]},"9":{"n":68,"u":57,"b":[[1,5,23],[5,10,23],[10,18,22]]},"10":{"n":58,"u":48,"b":[[1,2,20],[2,4,20],[4,9,18]]},"11":{"n":103,"u":92,"b":[[1,3,35],[3,8,35],[8,18,33]]},"12":{"n":59,"u":48,"b":[[1,5,20],[6,24,20],[25,81,19]]},"13":{"n":103,"u":92,"b":[[1,8,35],[8,15,35],[15,81,33]]},"14":{"n":94,"u":83,"b":[[1,3,32],[3,12,32],[12,81,30]]},"15":{"n":138,"u":127,"b":[[1,4,46],[4,12,46],[12,81,46]]}},"3":{"1":{"n":165,"u":144,"b":[[3,13,55],[13,17,55],[17,27,55]]},"2":{"n":50,"u":27,"b":[[1,2,17],[2,3,17],[3,7,16]]},"3":{"n":550,"u":388,"b":[[1,5,184],[5,11,184],[11,27,182]]},"4":{"n":165,"u":112,"b":[[1,45,55],[48,144,55],[144,729,55]]},"5":{"n":1035,"u":881,"b":[[1,21,345],[21,51,345],[51,729,345]]},"6":{"n":839,"u":560,"b":[[1,10,280],[11,32,280],[32,729,279]]},"7":{"n":1973,"u":1546,"b":[[1,12,658],[12,33,658],[33,729,657]]},"8":{"n":28,"u":0,"b":[[1,1,10],[1,3,10],[3,9,8]]},"9":{"n":453,"u":266,"b":[[1,5,151],[5,11,151],[11,27,151]]},"10":{"n":316,"u":118,"b":[[1,2,106],[2,4,106],[5,9,104]]},"11":{"n":973,"u":601,"b":[[1,4,325],[4,8,325],[8,27,323]]},"12":{"n":297,"u":141,"b":[[1,8,99],[8,56,99],[60,729,99]]},"13":{"n":1370,"u":1032,"b":[[1,13,457],[13,40,457],[40,729,456]]},"14":{"n":1083,"u":680,"b":[[1,6,361],[7,24,361],[24,729,361]]},"15":{"n":2253,"u":1788,"b":[[1,9,751],[9,28,751],[28,729,751]]}},"4":{"1":{"n":495,"u":171,"b":[[4,17,165],[17,23,165],[23,36,165]]},"2":{"n":41,"u":2,"b":[[1,1,14],[1,3,14],[3,6,13]]},"3":{"n":2717,"u":478,"b":[[1,6,906],[6,13,906],[13,36,905]]},"4":{"n":377,"u":176,"b":[[1,112,126],[120,360,126],[360,980,125]]},"5":{"n":13314,"u":8206,"b":[[1,51,4438],[51,119,4438],[119,980,4438]]},"6":{"n":11768,"u":3650,"b":[[1,18,3923],[18,56,3923],[56,980,3922]]},"7":{"n":28035,"u":14701,"b":[[1,29,9345],[29,81,9345],[81,980,9345]]},"8":{"n":29,"u":0,"b":[[1,1,10],[1,3,10],[3,9,9]]},"9":{"n":3425,"u":414,"b":[[1,5,1142],[5,11,1142],[11,36,1141]]},"10":{"n":3330,"u":74,"b":[[1,3,1110],[3,7,1110],[7,81,1110]]},"11":{"n":6572,"u":946,"b":[[1,5,2191],[5,11,2191],[11,81,2190]]},"12":{"n":1134,"u":237,"b":[[1,16,378],[16,72,378],[72,980,378]]},"13":{"n":19261,"u":9581,"b":[[1,28,6421],[28,82,6421],[82,980,6419]]},"14":{"n":14841,"u":4503,"b":[[1,15,4947],[15,46,4947],[46,980,4947]]},"15":{"n":31379,"u":17021,"b":[[1,26,10460],[26,73,10460],[73,980,10459]]}}};
+var BAND_LABELS=['klein','mittel','gro\u00df'];
+
+function apply(a,o,b){return o==='+'?a+b:o==='-'?a-b:o==='*'?a*b:(b===0?NaN:a/b);}
+function evalFlat(nums,ops){
+  var n=[nums[0]],o=[],i;
+  for(i=0;i<ops.length;i++){
+    if(ops[i]==='*'||ops[i]==='/'){
+      n[n.length-1]=apply(n[n.length-1],ops[i],nums[i+1]);
+      if(!isFinite(n[n.length-1]))return NaN;
+    } else {o.push(ops[i]);n.push(nums[i+1]);}
+  }
+  var acc=n[0];
+  for(i=0;i<o.length;i++)acc=apply(acc,o[i],n[i+1]);
+  return acc;
+}
+function permute(a){
+  if(a.length<=1)return [a];
+  var out=[],i;
+  for(i=0;i<a.length;i++){
+    var rest=a.slice(0,i).concat(a.slice(i+1));
+    permute(rest).forEach(function(p){out.push([a[i]].concat(p));});
+  }
+  return out;
+}
+function compositions(n){
+  if(n===0)return [[]];
+  var out=[],f;
+  for(f=1;f<=n;f++)compositions(n-f).forEach(function(r){out.push([f].concat(r));});
+  return out;
+}
+function opAssign(k,allowed){
+  if(k===0)return [[]];
+  var out=[];
+  allowed.forEach(function(op){opAssign(k-1,allowed).forEach(function(r){out.push([op].concat(r));});});
+  return out;
+}
+/* canonical form: 6+5 === 5+6, but 4*2*3*1 !== (1+2+3)*4 */
+function tree(operands,ops){
+  var nodes=[operands[0]],joins=[],i;
+  for(i=0;i<ops.length;i++){
+    if(ops[i]==='*'||ops[i]==='/'){
+      var prev=nodes[nodes.length-1];
+      var f=(prev&&prev.type==='P')?prev:{type:'P',factors:[{inv:false,node:prev}]};
+      f.factors.push({inv:ops[i]==='/',node:operands[i+1]});
+      nodes[nodes.length-1]=f;
+    } else {joins.push(ops[i]);nodes.push(operands[i+1]);}
+  }
+  if(nodes.length===1)return nodes[0];
+  var terms=[{sign:1,node:nodes[0]}];
+  for(i=0;i<joins.length;i++)terms.push({sign:joins[i]==='+'?1:-1,node:nodes[i+1]});
+  return {type:'S',terms:terms};
+}
+function canon(n){
+  if(typeof n==='number')return String(n);
+  var flat=[];
+  if(n.type==='S'){
+    (function push(s,x){
+      if(typeof x!=='number'&&x.type==='S')x.terms.forEach(function(t){push(s*t.sign,t.node);});
+      else flat.push((s>0?'+':'-')+canon(x));
+    });
+    var pushS=function(s,x){
+      if(typeof x!=='number'&&x.type==='S')x.terms.forEach(function(t){pushS(s*t.sign,t.node);});
+      else flat.push((s>0?'+':'-')+canon(x));
+    };
+    n.terms.forEach(function(t){pushS(t.sign,t.node);});
+    return 'S('+flat.sort().join(',')+')';
+  }
+  var pushP=function(inv,x){
+    if(typeof x!=='number'&&x.type==='P')x.factors.forEach(function(g){pushP(inv!==g.inv,g.node);});
+    else flat.push((inv?'/':'*')+canon(x));
+  };
+  n.factors.forEach(function(g){pushP(g.inv,g.node);});
+  return 'P('+flat.sort().join(',')+')';
+}
+function arrangements(nums,allowed){
+  var n=nums.length,comps=compositions(n),assigns=opAssign(n-1,allowed),out=[];
+  permute(nums).forEach(function(perm){
+    comps.forEach(function(comp){
+      assigns.forEach(function(ops){
+        var operands=[],tn=[],ni=0,oi=0,ok=true;
+        for(var ci=0;ci<comp.length;ci++){
+          var size=comp[ci];
+          if(size===1){operands.push({k:'num',v:perm[ni]});tn.push(perm[ni]);ni++;}
+          else{
+            var gN=perm.slice(ni,ni+size),gO=ops.slice(oi,oi+size-1);
+            var v=evalFlat(gN,gO);
+            if(!isFinite(v)){ok=false;break;}
+            var kids=[];
+            for(var k=0;k<size;k++){kids.push({k:'num',v:gN[k]});if(k<size-1)kids.push({k:'op',v:gO[k]});}
+            operands.push({k:'group',children:kids});
+            tn.push(tree(gN,gO));
+            ni+=size;oi+=size-1;
+          }
+          if(ni<n)oi++;
+        }
+        if(!ok)return;
+        var joins=[],cur=0;
+        for(var i=0;i<comp.length-1;i++){cur+=comp[i]-1;joins.push(ops[cur]);cur+=1;}
+        var vals=operands.map(function(o){
+          return o.k==='group'
+            ? evalFlat(o.children.filter(function(c){return c.k==='num';}).map(function(c){return c.v;}),
+                       o.children.filter(function(c){return c.k==='op';}).map(function(c){return c.v;}))
+            : o.v;
+        });
+        var r=evalFlat(vals,joins);
+        if(!isFinite(r)||r<0)return;
+        var t=Math.round(r);
+        if(Math.abs(r-t)>1e-9||t<1||t>999)return;
+        var slots=[];
+        operands.forEach(function(o,i){slots.push(o);if(i<joins.length)slots.push({k:'op',v:joins[i]});});
+        out.push({target:t,slots:slots,groups:comp.filter(function(s){return s>1;}).length,canon:canon(tree(tn,joins))});
+      });
+    });
+  });
+  return out;
+}
+
+/* ===================== state ===================== */
+var cfg={numbers:3,ops:['+','-','*','/'],band:0,uniqOnly:false};
+var puzzle=null,root=[],trayUsed=[],blockUsed=false,hintStage=0,pulsePair=null,status='idle';
+function $(id){return document.getElementById(id);}
+function maskOf(ops){var m=0;ops.forEach(function(o){m|=({'+':1,'-':2,'*':4,'/':8})[o];});return m;}
+function rowOf(){return BANDS[cfg.numbers][maskOf(cfg.ops)];}
+function bandOf(){
+  var r=rowOf();
+  if(!r||!r.b.length)return null;
+  var b=r.b[Math.min(cfg.band,r.b.length-1)];
+  return {lo:b[0],hi:b[1],count:b[2]};
+}
+function makePuzzle(){
+  var r=bandOf();
+  if(!r)return null;
+  for(var tries=0;tries<400;tries++){
+    var nums=[],i;
+    for(i=0;i<cfg.numbers;i++)nums.push(1+Math.floor(Math.random()*9));
+    var arr=arrangements(nums,cfg.ops);
+    if(!arr.length)continue;
+    var byT={};
+    arr.forEach(function(a){
+      if(a.target<r.lo||a.target>r.hi)return;
+      (byT[a.target]=byT[a.target]||[]).push(a);
+    });
+    var keys=Object.keys(byT).filter(function(t){
+      if(!cfg.uniqOnly)return true;
+      var s={};byT[t].forEach(function(a){s[a.canon]=1;});
+      return Object.keys(s).length===1;
+    });
+    if(!keys.length)continue;
+    var target=+keys[Math.floor(Math.random()*keys.length)];
+    var list=byT[target];
+    list.sort(function(a,b){return a.groups-b.groups||a.canon.localeCompare(b.canon);});
+    var set={};list.forEach(function(a){set[a.canon]=1;});
+    return {numbers:nums,target:target,sols:list,distinct:Object.keys(set).length,
+            minBlocks:Math.min.apply(null,list.map(function(a){return a.groups;}))};
+  }
+  return null;
+}
+function newPuzzle(){
+  puzzle=makePuzzle();
+  root=[];trayUsed=[];blockUsed=false;hintStage=0;pulsePair=null;status='idle';
+  if(puzzle)trayUsed=puzzle.numbers.map(function(){return false;});
+  render();
+}
+
+/* ---- tree helpers ---- */
+function nextOpenOperand(){
+  var i,j;
+  for(i=0;i<root.length;i++){
+    var s=root[i];
+    if(s&&s.k==='group')for(j=0;j<s.children.length;j+=2)if(!s.children[j])return {inG:i,idx:j};
+  }
+  for(i=0;i<root.length;i+=2)if(!root[i])return {idx:i};
+  return {idx:root.length===0?0:(root.length%2===0?root.length:root.length+1)};
+}
+function nextOpenOperator(){
+  var i,j;
+  for(i=0;i<root.length;i++){
+    var s=root[i];
+    if(s&&s.k==='group')for(j=1;j<s.children.length;j+=2)if(!s.children[j])return {inG:i,idx:j};
+  }
+  for(i=1;i<root.length;i+=2)if(!root[i])return {idx:i};
+  return null;
+}
+function countKind(kind){
+  var c=0;
+  (function walk(a){a.forEach(function(s){if(!s)return;if(s.k===kind)c++;else if(s.k==='group')walk(s.children);});})(root);
+  return c;
+}
+function countOpen(parity){
+  var c=0,i,j;
+  for(i=0;i<root.length;i++){
+    var s=root[i];
+    if(s&&s.k==='group'){for(j=parity;j<s.children.length;j+=2)if(!s.children[j])c++;}
+    else if(i%2===parity&&!s)c++;
+  }
+  return c;
+}
+function isComplete(){
+  if(!puzzle)return false;
+  if(countKind('num')!==puzzle.numbers.length)return false;
+  if(countKind('op')!==puzzle.numbers.length-1)return false;
+  var ok=true;
+  (function walk(a){a.forEach(function(s){if(!s){ok=false;return;}if(s.k==='group')walk(s.children);});})(root);
+  return ok&&root.length%2===1;
+}
+function valueOf(){
+  var vals=[],ops=[],i;
+  for(i=0;i<root.length;i++){
+    var s=root[i];
+    if(!s)return NaN;
+    if(i%2===0){
+      if(s.k==='group'){
+        vals.push(evalFlat(s.children.filter(function(c){return c&&c.k==='num';}).map(function(c){return c.v;}),
+                           s.children.filter(function(c){return c&&c.k==='op';}).map(function(c){return c.v;})));
+      } else vals.push(s.v);
+    } else ops.push(s.v);
+  }
+  return evalFlat(vals,ops);
+}
+function matches(sol){
+  if(root.length>sol.slots.length)return false;
+  for(var i=0;i<root.length;i++){
+    var b=root[i],s=sol.slots[i];
+    if(!b)continue;
+    if(b.k==='group'){
+      if(s.k!=='group'||s.children.length!==b.children.length)return false;
+      for(var j=0;j<b.children.length;j++){
+        var bc=b.children[j];
+        if(bc&&(bc.k!==s.children[j].k||bc.v!==s.children[j].v))return false;
+      }
+    } else if(s.k!==b.k||s.v!==b.v)return false;
+  }
+  return true;
+}
+function completion(){
+  if(!puzzle)return null;
+  for(var i=0;i<puzzle.sols.length;i++)if(matches(puzzle.sols[i]))return puzzle.sols[i];
+  return null;
+}
+
+/* ---- actions ---- */
+function tapNumber(i){
+  if(trayUsed[i]||!puzzle)return;
+  var p=nextOpenOperand();
+  if(p.inG!==undefined)root[p.inG].children[p.idx]={k:'num',v:puzzle.numbers[i],src:i};
+  else{
+    while(root.length<p.idx)root.push(null);
+    root[p.idx]={k:'num',v:puzzle.numbers[i],src:i};
+  }
+  trayUsed[i]=true;hintStage=0;pulsePair=null;status='idle';render();
+}
+function tapOperator(op){
+  if(!puzzle)return;
+  var p=nextOpenOperator();
+  if(!p){
+    if(root.length%2===1&&root.length>0&&countKind('op')<puzzle.numbers.length-1)root.push({k:'op',v:op});
+    else return;
+  }
+  else if(p.inG!==undefined)root[p.inG].children[p.idx]={k:'op',v:op};
+  else root[p.idx]={k:'op',v:op};
+  hintStage=0;pulsePair=null;status='idle';render();
+}
+function removeAt(path){
+  if(path.inG!==undefined){
+    var g=root[path.inG],s=g.children[path.idx];
+    if(!s)return;
+    if(s.k==='op')g.children[path.idx]=null;
+    else{
+      trayUsed[s.src]=false;
+      if(g.children.length>3){g.children.splice(path.idx,2);if(g.children.length%2===0)g.children.pop();}
+      else g.children[path.idx]=null;
+    }
+  } else {
+    var t=root[path.idx];
+    if(!t)return;
+    if(t.k==='op')root[path.idx]=null;
+    else if(t.k==='group'){dissolve(path.idx);return;}
+    else{trayUsed[t.src]=false;root.splice(path.idx,2);if(root.length%2===0)root.pop();}
+  }
+  hintStage=0;pulsePair=null;status='idle';render();
+}
+function wrap(){
+  if(blockUsed||!puzzle)return;
+  var i;
+  for(i=0;i<root.length;i+=2){
+    if(root[i]&&root[i].k==='num'&&root[i+1]&&root[i+2]&&root[i+2].k==='num'){
+      root.splice(i,3,{k:'group',children:root.slice(i,i+3)});
+      blockUsed=true;hintStage=0;render();return;
+    }
+  }
+  for(i=0;i<root.length;i+=2){
+    if(root[i]&&root[i].k==='num'){
+      root.splice(i,1,{k:'group',children:[root[i],null,null]});
+      blockUsed=true;hintStage=0;render();return;
+    }
+  }
+  root.splice(0,0,{k:'group',children:[null,null,null]});
+  if(root.length%2===0)root.push(null);
+  blockUsed=true;hintStage=0;render();
+}
+function dissolve(i){
+  var g=root[i];
+  var kids=g.children.filter(function(c){return c!==null;});
+  root.splice.apply(root,[i,1].concat(kids));
+  if(root.length%2===0)root.push(null);
+  blockUsed=false;hintStage=0;pulsePair=null;render();
+}
+function hint(){
+  var sol=completion();
+  if(!sol)return;
+  if(hintStage===0){
+    var g=null,i;
+    for(i=0;i<sol.slots.length;i++)if(sol.slots[i].k==='group'){g=sol.slots[i];break;}
+    var want=(g?g.children.filter(function(c){return c.k==='num';})
+                :sol.slots.filter(function(s){return s.k==='num';})).slice(0,2).map(function(c){return c.v;});
+    var idx=[];
+    want.forEach(function(v){
+      for(var k=0;k<puzzle.numbers.length;k++)
+        if(puzzle.numbers[k]===v&&!trayUsed[k]&&idx.indexOf(k)<0){idx.push(k);return;}
+    });
+    pulsePair=idx;hintStage=1;render();return;
+  }
+  for(var i=0;i<sol.slots.length;i++){
+    var s=sol.slots[i],b=root[i];
+    if(s.k==='group'){
+      if(!b||b.k!=='group'){
+        if(!blockUsed){
+          while(root.length<i)root.push(null);
+          root[i]={k:'group',children:s.children.map(function(){return null;})};
+          blockUsed=true;pulsePair=null;render();return;
+        }
+      } else {
+        for(var j=0;j<s.children.length;j++){
+          if(!b.children[j]){
+            var c=s.children[j];
+            if(c.k==='num'){
+              var k=-1;
+              for(var q=0;q<puzzle.numbers.length;q++)if(puzzle.numbers[q]===c.v&&!trayUsed[q]){k=q;break;}
+              if(k<0)continue;
+              b.children[j]={k:'num',v:c.v,src:k};trayUsed[k]=true;
+            } else b.children[j]={k:'op',v:c.v};
+            pulsePair=null;render();return;
+          }
+        }
+      }
+    } else if(!b){
+      while(root.length<i)root.push(null);
+      if(s.k==='num'){
+        var kk=-1;
+        for(var qq=0;qq<puzzle.numbers.length;qq++)if(puzzle.numbers[qq]===s.v&&!trayUsed[qq]){kk=qq;break;}
+        if(kk<0)continue;
+        root[i]={k:'num',v:s.v,src:kk};trayUsed[kk]=true;
+      } else root[i]={k:'op',v:s.v};
+      pulsePair=null;render();return;
+    }
+  }
+}
+function submit(){
+  if(!isComplete())return;
+  status=Math.abs(valueOf()-puzzle.target)<1e-9?'correct':'wrong';
+  render();
+  if(status==='correct')setTimeout(newPuzzle,1200);
+}
+function notationOf(){
+  function part(s){
+    if(!s)return '\u2b1a';
+    if(s.k==='num')return String(s.v);
+    if(s.k==='op')return GLYPH[s.v];
+    return '('+s.children.map(part).join(' ')+')';
+  }
+  return root.map(part).join(' ');
+}
+
+/* ---- render ---- */
+function el(tag,cls,txt){var e=document.createElement(tag);if(cls)e.className=cls;if(txt!=null)e.textContent=txt;return e;}
+function chipEl(s,path){
+  var b=el('button','chip'+(s.k==='op'?' op':''),s.k==='op'?GLYPH[s.v]:s.v);
+  b.addEventListener('click',function(){removeAt(path);});
+  return b;
+}
+function ghostEl(op){return el('div','ghost'+(op?' op':''));}
+function render(){
+  renderChip();renderPanel();
+  var board=$('board');board.textContent='';
+  if(!puzzle){board.appendChild(el('div','readout','Keine R\u00e4tsel f\u00fcr diese Auswahl.'));return;}
+  var field=el('div','zk-field');
+  var dead=!completion();
+  if(dead&&countKind('num')>0)field.classList.add('dead');
+  root.forEach(function(s,i){
+    if(s&&s.k==='group'){
+      var g=el('div','zk-group');
+      g.title='Klammerrand antippen: l\u00f6st auf, Inhalt bleibt';
+      g.addEventListener('click',function(e){if(e.target===g)dissolve(i);});
+      s.children.forEach(function(c,j){g.appendChild(c?chipEl(c,{inG:i,idx:j}):ghostEl(j%2===1));});
+      field.appendChild(g);
+    }
+    else if(s)field.appendChild(chipEl(s,{idx:i}));
+    else field.appendChild(ghostEl(i%2===1));
+  });
+  var needN=Math.max(0,puzzle.numbers.length-countKind('num')-countOpen(0));
+  var needO=Math.max(0,(puzzle.numbers.length-1)-countKind('op')-countOpen(1));
+  var parity=root.length%2;
+  while(needN>0||needO>0){
+    if(parity===0){if(needN===0)break;field.appendChild(ghostEl(false));needN--;}
+    else{if(needO===0)break;field.appendChild(ghostEl(true));needO--;}
+    parity=1-parity;
+  }
+  board.appendChild(field);
+
+  var tg=el('div','zk-target');
+  var inner=el('span','inner');
+  inner.appendChild(el('span','eq','='));
+  inner.appendChild(el('span','val'+(String(puzzle.target).length>2?' w3':''),puzzle.target));
+  tg.appendChild(inner);board.appendChild(tg);
+
+  var c;
+  for(c=0;c<4;c++){
+    var idx=c-(4-puzzle.numbers.length);
+    if(idx<0){board.appendChild(el('div','cell-empty'));continue;}
+    if(trayUsed[idx]){
+      (function(k){
+        var h=el('button','cell-hole');h.setAttribute('aria-label','zur\u00fcckholen');
+        h.addEventListener('click',function(){returnNumber(k);});
+        board.appendChild(h);
+      })(idx);
+    } else {
+      (function(k){
+        var b=el('button','chip'+(pulsePair&&pulsePair.indexOf(k)>=0?' pulse':''),puzzle.numbers[k]);
+        b.addEventListener('click',function(){tapNumber(k);});
+        board.appendChild(b);
+      })(idx);
+    }
+  }
+  if(blockUsed){
+    var bh=el('button','cell-hole');bh.setAttribute('aria-label','Block zur\u00fcckholen');
+    bh.addEventListener('click',function(){
+      for(var i=0;i<root.length;i++)if(root[i]&&root[i].k==='group'){dissolve(i);return;}
+    });
+    board.appendChild(bh);
+  } else {
+    var bb=el('button','chip block');bb.setAttribute('aria-label','Block');
+    bb.innerHTML='<span class="blockicon '+ICON_CLASS+'">'+ICON_HTML+'</span>';
+    bb.addEventListener('click',wrap);
+    board.appendChild(bb);
+  }
+  OPS.forEach(function(op){
+    if(cfg.ops.indexOf(op)<0){board.appendChild(el('div','cell-empty'));return;}
+    var b=el('button','chip op',GLYPH[op]);
+    b.addEventListener('click',function(){tapOperator(op);});
+    board.appendChild(b);
+  });
+  var eq=el('button','chip submit'+(isComplete()?'':' is-off'),'=');
+  eq.addEventListener('click',submit);
+  board.appendChild(eq);
+
+  var out=el('div','readout');
+  out.appendChild(el('span',null,notationOf()));
+  if(status!=='idle'){
+    var r=el('span','res','= '+Math.round(valueOf()));
+    if(status==='wrong')out.classList.add('is-wrong');
+    out.appendChild(document.createTextNode(' '));
+    out.appendChild(r);
+  }
+  board.appendChild(out);
+
+  var row=rowOf(),bd=bandOf();
+  $('stats').innerHTML=
+    'R\u00e4tsel in diesem Band <b>'+(bd?bd.count.toLocaleString('de-DE'):'0')+'</b>'+
+    ' \u00b7 Zielbereich <b>'+(bd?bd.lo+'\u2013'+bd.hi:'\u2014')+'</b>'+
+    ' \u00b7 L\u00f6sungen f\u00fcr dieses R\u00e4tsel <b>'+puzzle.distinct+
+    (puzzle.distinct===1?' (eindeutig)':'')+'</b>'+
+    ' \u00b7 Bl\u00f6cke n\u00f6tig <b>'+(puzzle.minBlocks===0?'keiner':puzzle.minBlocks)+'</b>'+
+    (dead&&countKind('num')>0?' \u00b7 <b>Sackgasse</b>':'');
+}
+function returnNumber(i){
+  function find(arr,inG){
+    for(var k=0;k<arr.length;k++){
+      var s=arr[k];
+      if(!s)continue;
+      if(s.k==='group'){var r=find(s.children,k);if(r)return r;}
+      else if(s.k==='num'&&s.src===i)return inG!==undefined?{inG:inG,idx:k}:{idx:k};
+    }
+    return null;
+  }
+  var p=find(root);
+  if(p)removeAt(p);
+}
+
+/* ---- header chip + panel ---- */
+var ICON_CLASS='ic-ring',ICON_HTML='<i></i><em></em><i></i>';
+function renderChip(){
+  var mn=$('miniNums');mn.textContent='';
+  for(var i=0;i<cfg.numbers;i++)mn.appendChild(document.createElement('i'));
+  var mo=$('miniOps');mo.textContent='';
+  cfg.ops.forEach(function(){mo.appendChild(document.createElement('b'));});
+  var b=bandOf();
+  $('miniRange').textContent=b?BAND_LABELS[Math.min(cfg.band,rowOf().b.length-1)]+' '+b.lo+'\u2013'+b.hi:'\u2014';
+}
+var ctl={nums:[],ops:[],bands:[]},panelBuilt=false;
+function buildPanel(){
+  [2,3,4].forEach(function(n){
+    var b=el('button','opt');b.type='button';b.setAttribute('aria-label',n+' Zahlen');
+    for(var i=0;i<n;i++)b.appendChild(el('span','sq'));
+    b.addEventListener('click',function(){if(cfg.numbers===n)return;cfg.numbers=n;newPuzzle();});
+    ctl.nums.push({el:b,n:n});$('rowNums').appendChild(b);
+  });
+  OPS.forEach(function(op){
+    var b=el('button','opt');b.type='button';b.setAttribute('aria-label',GLYPH[op]);
+    b.appendChild(el('span','ci',GLYPH[op]));
+    b.addEventListener('click',function(){
+      var on=cfg.ops.indexOf(op)>=0;
+      if(on&&cfg.ops.length===1)return;      /* refused, not greyed out */
+      cfg.ops=on?cfg.ops.filter(function(o){return o!==op;})
+                :cfg.ops.concat([op]).sort(function(x,y){return OPS.indexOf(x)-OPS.indexOf(y);});
+      newPuzzle();
+    });
+    ctl.ops.push({el:b,op:op});$('rowOps').appendChild(b);
+  });
+  [0,1,2].forEach(function(i){
+    var b=el('button','opt band');b.type='button';
+    b.appendChild(el('span','bl'));b.appendChild(el('span','bn'));
+    b.addEventListener('click',function(){if(cfg.band===i)return;cfg.band=i;newPuzzle();});
+    ctl.bands.push({el:b,i:i});$('rowBand').appendChild(b);
+  });
+  panelBuilt=true;
+}
+function renderPanel(){
+  if(!panelBuilt)buildPanel();
+  ctl.nums.forEach(function(c){c.el.setAttribute('aria-pressed',String(cfg.numbers===c.n));});
+  ctl.ops.forEach(function(c){
+    var on=cfg.ops.indexOf(c.op)>=0,locked=on&&cfg.ops.length===1;
+    c.el.setAttribute('aria-pressed',String(on));
+    c.el.classList.toggle('locked',locked);
+    c.el.title=locked?'Mindestens ein Rechenzeichen muss ausgew\u00e4hlt bleiben':'';
+  });
+  var r=rowOf();
+  ctl.bands.forEach(function(c){
+    var b=r&&r.b[c.i];
+    c.el.setAttribute('aria-pressed',String(cfg.band===c.i));
+    c.el.disabled=!b;
+    c.el.querySelector('.bl').textContent=BAND_LABELS[c.i];
+    c.el.querySelector('.bn').textContent=b?b[0]+'\u2013'+b[1]:'\u2014';
+  });
+  var box=$('uniqOnly'),has=r&&r.u>0;
+  box.disabled=!has;
+  if(!has&&cfg.uniqOnly){cfg.uniqOnly=false;box.checked=false;}
+  $('poolCount').textContent=has
+    ? r.u.toLocaleString('de-DE')+' der '+r.n.toLocaleString('de-DE')+' R\u00e4tsel sind eindeutig'
+    : 'f\u00fcr diese Auswahl gibt es keine eindeutigen R\u00e4tsel';
+}
+
+/* ===================== page chrome ===================== */
+var root_=document.getElementById('root');
+var slider=$('hue'),label=$('hueval');
+var TOKENS=[
+  ['--zk-bg','hsl(H 20% 98.5%)','Grundfl\u00e4che'],
+  ['--zk-surface','hsl(H 24% 100%)','Ausdrucksfeld'],
+  ['--zk-chip','hsl(H 26% 95%)','Chip-F\u00fcllung'],
+  ['--zk-group-bg','hsl(H 48% 42% / .17)','Block-F\u00fcllung'],
+  ['--zk-group-chip','hsl(H 30% 100%)','Chip im Block'],
+  ['--zk-line','hsl(H 22% 85%)','Haarlinien'],
+  ['--zk-ink','hsl(H 30% 18%)','Ziffern'],
+  ['--zk-accent','hsl(H 62% 42%)','Klammern, Ziel, Absenden']
+];
+function buildTokens(h){
+  var host=$('tokens');host.textContent='';
+  TOKENS.forEach(function(t){
+    var row=el('div','token'),sw=el('span','sw');
+    sw.style.background=t[1].replace('H',h);
+    var txt=document.createElement('div'),code=el('code',null,t[0]);
+    txt.appendChild(code);txt.appendChild(document.createElement('br'));
+    txt.appendChild(document.createTextNode(t[2]));
+    row.appendChild(sw);row.appendChild(txt);host.appendChild(row);
+  });
+}
+function paint(h){
+  document.querySelectorAll('.zk').forEach(function(b){b.style.setProperty('--hue',h);});
+  document.querySelector('.device').style.setProperty('--hue',h);
+  label.textContent=h+'\u00b0';
+  buildTokens(h);
+}
+slider.addEventListener('input',function(){paint(slider.value);});
+document.querySelectorAll('#presets button').forEach(function(b){
+  b.addEventListener('click',function(){slider.value=b.getAttribute('data-hue');paint(slider.value);});
+});
+var ICONS={dot:['ic-dot','<i></i><u></u><i></i>'],sq3:['ic-sq3','<i></i><i></i><i></i>'],
+           ci3:['ic-ci3','<em></em><em></em><em></em>'],ring:['ic-ring','<i></i><em></em><i></i>']};
+document.querySelectorAll('#icons button').forEach(function(b){
+  b.addEventListener('click',function(){
+    var def=ICONS[b.getAttribute('data-ic')];
+    ICON_CLASS=def[0];ICON_HTML=def[1];
+    document.querySelectorAll('.blockicon:not([data-fixed])').forEach(function(e){
+      e.className='blockicon '+def[0];e.innerHTML=def[1];
+    });
+    document.querySelectorAll('#icons button').forEach(function(o){o.setAttribute('aria-pressed',String(o===b));});
+  });
+});
+document.querySelectorAll('#brackets button').forEach(function(b){
+  b.addEventListener('click',function(){
+    var mode=b.getAttribute('data-br');
+    root_.classList.toggle('brackets-round',mode==='round');
+    root_.classList.toggle('brackets-square',mode==='square');
+    document.querySelectorAll('#brackets button').forEach(function(o){o.setAttribute('aria-pressed',String(o===b));});
+    requestAnimationFrame(measure);
+  });
+});
+var reduce=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+function reveal(board){
+  var out=board.querySelector('.readout');
+  var expr=board.getAttribute('data-expr'),step=board.getAttribute('data-step');
+  var result=board.getAttribute('data-result'),collapse=board.getAttribute('data-collapse')==='1';
+  out.classList.toggle('is-wrong',result!==board.getAttribute('data-target'));
+  function show(prefix){
+    out.innerHTML=prefix+' <span class="res">= '+result+'</span>';
+    board.dataset.done='1';
+    setTimeout(function(){out.innerHTML=expr;out.classList.remove('is-wrong');delete board.dataset.done;},3200);
+  }
+  if(collapse&&!reduce){out.innerHTML=step;setTimeout(function(){show(step);},520);}
+  else show(expr);
+}
+document.querySelectorAll('.zk[data-demo] .submit').forEach(function(btn){
+  var board=btn.closest('.zk');
+  btn.setAttribute('role','button');btn.setAttribute('tabindex','0');
+  btn.addEventListener('click',function(){if(!board.dataset.done)reveal(board);});
+  btn.addEventListener('keydown',function(e){
+    if(e.key==='Enter'||e.key===' '){e.preventDefault();if(!board.dataset.done)reveal(board);}
+  });
+});
+/* The worst case, measured on every render — konzept 12.5 says this must fit. */
+function measure(){
+  var board=document.querySelector('.zk[data-demo="right"]');
+  if(!board)return;
+  var field=board.querySelector('.zk-field'),kids=field.children,used=0;
+  for(var i=0;i<kids.length;i++)used+=kids[i].getBoundingClientRect().width;
+  var s=getComputedStyle(field);
+  var need=used+(kids.length-1)*parseFloat(s.gap||0);
+  var inner=field.getBoundingClientRect().width-parseFloat(s.paddingLeft)-parseFloat(s.paddingRight);
+  var slack=inner-need,note=$('fitnote');
+  note.textContent='Schlimmster Fall \u2014 vier Zahlen, drei Operatoren, zwei Bl\u00f6cke: '+
+    'Inhalt braucht '+need.toFixed(1)+' px, das Feld bietet '+inner.toFixed(1)+' px. '+
+    'Reserve: '+slack.toFixed(1)+' px. '+
+    (slack>=0?'Nichts scrollt, nichts bricht um.':'\u00dcBERLAUF \u2014 die Anteile aus 12.5 wurden ver\u00e4ndert.');
+  note.classList.toggle('bad',slack<0);
+}
+$('lvlchip').addEventListener('click',function(){
+  var p=$('panel'),open=p.hidden;
+  p.hidden=!open;$('lvlchip').setAttribute('aria-expanded',String(open));
+});
+document.addEventListener('click',function(e){
+  var p=$('panel');
+  if(p.hidden)return;
+  var path=e.composedPath?e.composedPath():[e.target];
+  if(path.indexOf(p)>=0||path.indexOf($('lvlchip'))>=0)return;
+  p.hidden=true;$('lvlchip').setAttribute('aria-expanded','false');
+});
+document.addEventListener('keydown',function(e){
+  if(e.key!=='Escape')return;
+  var p=$('panel');
+  if(p.hidden)return;
+  p.hidden=true;$('lvlchip').setAttribute('aria-expanded','false');$('lvlchip').focus();
+});
+$('uniqOnly').addEventListener('change',function(e){cfg.uniqOnly=e.target.checked;newPuzzle();});
+$('hintBtn').addEventListener('click',hint);
+
+newPuzzle();
+paint(214);
+requestAnimationFrame(measure);
+</script>
+</body>
+</html>

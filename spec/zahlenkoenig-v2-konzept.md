@@ -693,30 +693,27 @@ absolute Größe; das Board skaliert aus einer Zahl.
 Der Inhalt ist beschränkt: der schlimmste Fall sind vier Zahlen, drei Operatoren
 und zwei Blöcke, also `(6+2) × (9−3)`. Eine Gruppe mit drei Zahlen ist schmaler.
 
-**Korrektur zu 2.1/2.2.** Dort stand, die Anteile seien so gewählt, dass dieser
-Fall passe – „gemessen, nicht geschätzt". **Gemessen war er nicht, und er passt
-nicht.** Am Entwurf nachgerechnet, bei einem Feld von 253 px:
+**Er passt – aber nur mit diesen Anteilen.** `spec/entwurf.html` misst es bei
+jedem Rendern selbst und zeigt das Ergebnis an; bei `--cell: 64px` braucht der
+Inhalt **268,7 px**, das Feld bietet **275,8 px**.
 
-| Chipgröße im Ausdruck | Breite des schlimmsten Falls |
-|---|---|
-| 0,60 `--cell` (Normalgröße) | 330 px |
-| 0,50 `--cell` | 269 px |
-| 0,42 `--cell` | 253 px |
+Die Reserve ist damit **rund 7 px**, bei einem Feld von 276. Das ist kein Zufall,
+sondern die Folge davon, dass die Ausdruckszeile im schlimmsten Fall *sieben*
+Chips und *zwei* Klammerrahmen in der Breite von vier Zellen tragen muss. Drei
+Anteile sind deshalb **tragend und nicht frei wählbar**:
 
-Die Ursache ist strukturell: das Breitenbudget stammt aus der **Ablage** mit
-ihren fünf Spalten, aber die Ausdruckszeile muss im schlimmsten Fall *sieben*
-Chips **plus zwei Klammerrahmen** tragen, und jeder Rahmen kostet rund 34 px –
-mehr als ein ganzer Chip.
+| Anteil | Wert | warum er tragend ist |
+|---|---|---|
+| Zahl im Ausdruck | `0,52 × --cell` | kleiner als ein Ablage-Chip; das ist der Preis für den schlimmsten Fall |
+| Operator im Ausdruck | `0,39 × --cell` | deutlich kleiner als eine Zahl, und nur umrandet statt gefüllt |
+| Klammerrand | `position: absolute` | er liegt **über** der Polsterung und kostet **keine Breite** |
 
-**Vorgabe bis auf Weiteres:** der Ausdruck geht bei Überlauf **eine oder zwei
-Stufen kleiner** (0,60 → 0,50 → 0,42 `--cell`), statt umzubrechen oder zu
-scrollen. Das hält die Regel oben ein, ist aber ein Pflaster: bei 0,42 passt es
-mit **null Reserve**, und die Chips im Ausdruck sind dann sichtbar kleiner als
-die in der Ablage.
-
-**Sauber wäre eines von beiden**, und das ist noch zu entscheiden (Abschnitt 17):
-die Zielzahl verlässt die Ausdruckszeile und gibt deren Breite frei, oder der
-Klammerrahmen wird billiger als 34 px.
+**Warnung an spätere Sitzungen.** Werden die Chips im Ausdruck auf Ablagegröße
+gebracht oder die Klammerränder als eigene Flex-Kinder gezeichnet, wächst der
+schlimmste Fall sofort um 50 bis 80 px und läuft über. Genau das ist in einem
+Entwurf passiert und wurde fälschlich als Fehler des Konzepts gedeutet. Wer die
+Anteile ändert, misst neu – der Entwurf im Repository rechnet die Reserve selbst
+aus und zeigt sie an.
 
 Chips brauchen `flex: none`. Ohne das schrumpfen sie im Flex-Container, und ein
 Operatorkreis wird zur Ellipse.
@@ -1160,7 +1157,7 @@ fest verdrahtetes Rätsel, das ohnehin vorgesehen ist.
 
 | Punkt | Stand |
 |---|---|
-| **Die Breite der Ausdruckszeile** | **Der einzige offene Punkt mit Folgen für die Umsetzung.** Der schlimmste Fall passt nur über zwei Verkleinerungsstufen und dann mit null Reserve (12.5). Zu entscheiden: Zielzahl aus der Ausdruckszeile nehmen, oder den Klammerrahmen billiger machen. Am Gerät zu prüfen. |
+| **Die Reserve der Ausdruckszeile** | Der schlimmste Fall passt mit rund 7 px Reserve (12.5) – knapp gegenüber den 50 bis 80 px, die eine Änderung der Anteile sofort kostet. Am Gerät zu prüfen, ob Schriftmetriken das kippen; `spec/entwurf.html` zeigt die Reserve laufend an. |
 | **Zwischenschritt beim Auflösen** | Optional. Die Notationszeile könnte die Klammern erst zu ihren Werten zusammenfallen lassen (`(6+2) × (9−3)` → `8 × 6` → `= 48`), bevor das Ergebnis erscheint. Das ist die einzige Stelle, an der das Spiel *Punkt vor Strich* zeigt. Vorgabe ist derzeit ohne diesen Schritt. |
 | **Dunkles Farbschema** | „Nice to have". Die Token-Struktur trägt es; entschieden ist nichts. |
 | **Trefffläche des Klammerrands** | Der Rand ist schmal, Daumen sind es nicht. Abgesichert durch den antippbaren Platzhalter in der Ablage (6.6) – der genaue Weg darf nie der einzige sein. Am Gerät prüfen. |
@@ -1234,4 +1231,3 @@ an `solver.ts` aus Schritt 1 und an keiner Level-Eigenschaft mehr.
 | Fehlt | Warum es blockiert |
 |---|---|
 | **Die beiden Konstanten in `--cell`** | Die Formel steht in 12.5, ihre zwei Konstanten sind am Gerät zu bestätigen – am schlimmsten Fall aus vier Zahlen, drei Operatoren und zwei Blöcken. |
-| **Die Breite der Ausdruckszeile** | Abschnitt 17. Die Verkleinerungsstufen sind ein Pflaster; die saubere Lösung ist noch zu wählen. Betrifft schon Schritt 2. |

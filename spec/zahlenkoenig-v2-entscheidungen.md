@@ -95,7 +95,7 @@ Abschnitt 17 des Konzepts, damit die Wahl erhalten bleibt.
 | **`system-ui`, keine Webschrift** | Erledigt das Nebeneinander mehrerer Schriften aus v1 an der Wurzel. |
 | **Inline-SVG statt Emoji** | Emoji sehen auf jedem Gerät anders aus und sind mehrfarbig. Dieselbe Begründung steht bereits im Stylesheet von *flashcards*. |
 | **Nur eine Umschaltung: `min-aspect-ratio: 1/1`** | Ein quer gehaltenes Telefon und ein kleines Desktop-Fenster sind derselbe Fall; eine Breiten-Abfrage behauptet das Gegenteil. |
-| **Ausdruck bricht nie um und scrollt nie** | Der Inhalt ist beschränkt (vier Zahlen, drei Operatoren, zwei Blöcke), also wird auf den schlimmsten Fall dimensioniert. **Der Zusatz „gemessen, nicht geschätzt" war in 2.1/2.2 unzutreffend** – nachgemessen passt der Fall nicht (Konzept 12.5). Die Regel bleibt, der Weg dorthin ist offen. |
+| **Ausdruck bricht nie um und scrollt nie** | Der Inhalt ist beschränkt (vier Zahlen, drei Operatoren, zwei Blöcke), also wird auf den schlimmsten Fall dimensioniert – gemessen, nicht geschätzt: 268,7 px Inhalt in 275,8 px Feld. Die Reserve ist rund 7 px, was drei Anteile in 12.5 unantastbar macht. `spec/entwurf.html` rechnet sie bei jedem Rendern neu aus. |
 | **Zwei verschiedene Leer-Markierungen** | Gestrichelt = diese Zahl liegt im Feld. Gar nichts = diese Zelle gehört nicht zu diesem Rätsel. Sähen sie gleich aus, wäre ein 3-Zahlen-Rätsel nicht von einem angefangenen 4-Zahlen-Rätsel zu unterscheiden. |
 
 **Verworfen:** Courier New · Webschriften · Emoji als Symbole · Breakpoints nach
@@ -189,10 +189,10 @@ Rechenzeichen.
   unverändert übernehmbar, und F2.3 sei bloß nachzugenerieren. Beide klangen
   plausibel; beide waren falsch. **Auch die eigenen Dokumente sind zu prüfen,
   nicht nur der Code.**
-  In Runde 4 ein drittes Mal: der Satz „die Anteile sind so gewählt, dass der
-  schlimmste Fall passt – gemessen, nicht geschätzt" (12.5) war **selbst
-  geschätzt**. Gemessen passt er nicht. Ein Satz, der Sorgfalt behauptet, ist
-  kein Beleg für Sorgfalt.
+  Runde 4 zeigt die andere Richtung derselben Regel: dort wurde 12.5 als falsch
+  gemeldet, weil ein **neuer** Entwurf überlief. Nachgemessen lag es am Entwurf,
+  nicht am Konzept – er hatte die Anteile stillschweigend geändert. **Wer eine
+  Messung gegen ein Dokument stellt, muss prüfen, ob er dasselbe gemessen hat.**
 - **Am Entwurf entscheiden.** Runde 4 lief über einen klickbaren Entwurf, der die
   Rätsel live nach der v2-Regel erzeugt. Drei Befunde – die leeren Kombinationen,
   die zu hohe Ausdruckszeile, die überlaufende Klammerzeile – fielen erst auf,
