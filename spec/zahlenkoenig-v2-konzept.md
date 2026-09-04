@@ -1201,13 +1201,14 @@ protokolliert die Verteilung. Ergebnis:
   unbedenklich.
 - **Drei Auswahlen brechen mit `uniqueOnly` ein:** 3 Zahlen nur `÷`, 4 Zahlen
   nur `−`, 4 Zahlen nur `÷`. Dort ist die Eindeutigkeits-Bank zwar nicht leer
-  (65–347 eindeutige Ziele bei 922–2222 erreichbaren insgesamt), aber dünn
+  (25–65 eindeutige Ziele bei 177–2222 erreichbaren insgesamt), aber dünn
   genug, dass blindes Neuziehen bis zu 200 Versuche braucht und in einem
   spürbaren Teil der Läufe **gar nicht** trifft (bis zu 74 % Fehlerquote bei
   „4 Zahlen, nur ÷, Band klein"). Genau der Fall, den 15.10 vorausgesehen
-  hatte: diese drei Auswahlen brauchen eine kleine Ausnahmeliste vorab
-  gezogener Zahlenmengen für den `uniqueOnly`-Fall, kein Web Worker – überall
-  sonst reicht ein normaler Aufruf.
+  hatte. Bei „3 Zahlen, nur ÷" bleibt die Fehlerquote niedrig (2–3 %, Median
+  36 Versuche) – ein höheres Versuchslimit genügt dort, eine Liste lohnt sich
+  nicht. Die beiden 4-Zahlen-Auswahlen brechen deutlich häufiger (bis 74 %)
+  und bekommen die Ausnahmeliste unten.
 - **Ein Nebenbefund beim Bau des Skripts:** die „Gruppe um den ganzen
   Ausdruck" (Abschnitt 17) duplizierte anfangs jede Lösung um eine
   bedeutungslose Klammer-Variante und drückte die gemessene Eindeutigkeit auf
@@ -1217,8 +1218,85 @@ protokolliert die Verteilung. Ergebnis:
   den erreichbaren Werten, nur an der Zählung distinkter Lösungen.
 
 Diese Prüfung war eine Voraussetzung vor Schritt 2b (Abschnitt 18) und ist
-jetzt erledigt; offen bleibt nur noch, welche Zahlenmengen die drei
-Ausnahmelisten bekommen.
+jetzt erledigt.
+
+### 15.11 Die beiden Ausnahmelisten
+
+Für „4 Zahlen, nur `−`" und „4 Zahlen, nur `÷`" ist die vollständige
+`uniqueOnly`-Lösungsmenge selbst schon klein genug, um sie **erschöpfend**
+statt kuratiert auszuliefern – kein Ziehen mehr nötig, `nextPuzzle()` wählt
+bei diesen zwei Auswahlen mit `uniqueOnly` direkt aus der Liste. Erzeugt
+durch denselben Löser wie 15.10 und reproduzierbar über
+`node scripts/dumpUniqueExceptions.mjs`. Randziele wie `5` bei „nur `−`"
+tauchen in zwei Nachbarbändern auf; das ist dieselbe Einschluss-Konvention
+wie beim 45-Zeilen-Beispiel in 15.8 (`26` als „bis" von Band 1 und „von" von
+Band 2), keine doppelte Zählung im Datensatz.
+
+**4 Zahlen, nur `−` (65 eindeutige Ziele):**
+
+```ts
+const exceptions_4_minus = {
+  klein: [ // [1,5]
+    [[1,1,1,1],2], [[1,2,2,2],5], [[2,2,2,2],4], [[2,2,2,3],3], [[2,2,2,5],1],
+    [[3,3,3,4],5], [[3,3,3,5],4], [[3,3,3,7],2], [[3,3,3,8],1], [[4,4,4,7],5],
+    [[4,4,4,9],3],
+  ],
+  mittel: [ // [5,10]
+    [[1,2,2,2],5], [[1,3,3,3],8], [[2,3,3,3],7], [[2,4,4,4],10], [[3,3,3,3],6],
+    [[3,3,3,4],5], [[3,4,4,4],9], [[4,4,4,4],8], [[4,4,4,5],7], [[4,4,4,6],6],
+    [[4,4,4,7],5], [[5,5,5,5],10], [[5,5,5,6],9], [[5,5,5,7],8], [[5,5,5,8],7],
+    [[5,5,5,9],6], [[6,6,6,8],10], [[6,6,6,9],9],
+  ],
+  groß: [ // [11,26]
+    [[1,4,4,4],11], [[1,5,5,5],14], [[1,6,6,6],17], [[1,7,7,7],20], [[1,8,8,8],23],
+    [[1,9,9,9],26], [[2,5,5,5],13], [[2,6,6,6],16], [[2,7,7,7],19], [[2,8,8,8],22],
+    [[2,9,9,9],25], [[3,5,5,5],12], [[3,6,6,6],15], [[3,7,7,7],18], [[3,8,8,8],21],
+    [[3,9,9,9],24], [[4,5,5,5],11], [[4,6,6,6],14], [[4,7,7,7],17], [[4,8,8,8],20],
+    [[4,9,9,9],23], [[5,6,6,6],13], [[5,7,7,7],16], [[5,8,8,8],19], [[5,9,9,9],22],
+    [[6,6,6,6],12], [[6,6,6,7],11], [[6,7,7,7],15], [[6,8,8,8],18], [[6,9,9,9],21],
+    [[7,7,7,7],14], [[7,7,7,8],13], [[7,7,7,9],12], [[7,8,8,8],17], [[7,9,9,9],20],
+    [[8,8,8,8],16], [[8,8,8,9],15], [[8,9,9,9],19], [[9,9,9,9],18],
+  ],
+}
+```
+
+Auffällig: jede Zahlenmenge hat die Form `[a,b,b,b]` – drei gleiche Zahlen und
+eine andere (der Sonderfall `a=b`, also `[b,b,b,b]`, eingeschlossen). Folgt
+aus der Rechnung selbst: `b−(a−b−b) = 3b−a`, und das ist über alle 65
+Einträge die einzige Form, die bei reinem `−` je eine eindeutige Lösung
+ergibt. Nichts davon ist kuratiert, es ist die vollständige Menge – mehr
+eindeutige Ziele gibt es für diese Auswahl nicht.
+
+**4 Zahlen, nur `÷` (26 eindeutige Ziele):**
+
+```ts
+const exceptions_4_divide = {
+  klein: [ // [1,12]
+    [[1,2,2,2],8], [[2,2,2,2],4], [[3,3,3,3],9], [[4,4,4,8],8],
+  ],
+  mittel: [ // [12,42]
+    [[1,3,3,3],27], [[2,4,4,4],32], [[4,4,4,4],16], [[5,5,5,5],25],
+    [[6,6,6,6],36], [[6,6,6,8],27], [[6,6,6,9],24],
+  ],
+  groß: [ // [42,729]
+    [[1,4,4,4],64], [[1,5,5,5],125], [[1,6,6,6],216], [[1,7,7,7],343],
+    [[1,8,8,8],512], [[1,9,9,9],729], [[2,6,6,6],108], [[2,8,8,8],256],
+    [[3,6,6,6],72], [[3,9,9,9],243], [[4,6,6,6],54], [[4,8,8,8],128],
+    [[7,7,7,7],49], [[8,8,8,8],64], [[9,9,9,9],81],
+  ],
+}
+```
+
+Dieselbe Beobachtung spiegelbildlich: jede Zahlenmenge hat wieder die Form
+`[a,b,b,b]`, weil `b÷(a÷b÷b) = b³÷a` dieselbe Rolle für `÷` spielt wie
+`3b−a` für `−` – die einzige Anordnung, die unter einem einzelnen,
+nicht-kommutativen Rechenzeichen eine eindeutige Lösung erzwingt, ist die,
+die drei der vier Zahlen zu einer Klammer bündelt und die vierte davor
+stellt.
+
+Für „3 Zahlen, nur ÷" (25 eindeutige Ziele, Fehlerquote 2–3 %) lohnt sich
+keine Liste – ein Versuchslimit von etwa 150 statt 200 reicht, der Median
+liegt bei 36.
 
 **Folge für die PWA:** Der Service Worker muss nur den App-Shell (JS, CSS,
 Manifest, Icons) cachen, kein Datensatz. Offline-Spielbarkeit ist damit ein
@@ -1314,18 +1392,17 @@ Die ersten Tests, in dieser Reihenfolge:
 
 ### Vor Schritt 2b – Generierung im Gerät
 
-Nichts mehr offen für den allgemeinen Fall. `scripts/checkNextPuzzle.mjs`
-misst die Versuchsverteilung von `nextPuzzle()` über alle 45 Auswahlen
-(Ergebnis in 15.10): ein synchroner Aufruf im Hauptthread reicht, kein Web
-Worker nötig.
-
-| Fehlt | Warum es blockiert |
-|---|---|
-| **Ausnahmelisten für drei dünne `uniqueOnly`-Auswahlen** | 3 Zahlen nur `÷`, 4 Zahlen nur `−`, 4 Zahlen nur `÷` brauchen bei aktivem Eindeutigkeits-Schalter eine kleine vorab gezogene Liste geeigneter Zahlenmengen statt blinden Neuziehens (15.10) – welche genau, ist noch zu bestimmen. |
+Nichts mehr offen. `scripts/checkNextPuzzle.mjs` misst die
+Versuchsverteilung von `nextPuzzle()` über alle 45 Auswahlen (Ergebnis in
+15.10): ein synchroner Aufruf im Hauptthread reicht, kein Web Worker nötig.
+Die beiden Auswahlen, die dabei mit `uniqueOnly` zu häufig leer ausgingen –
+4 Zahlen nur `−`, 4 Zahlen nur `÷` – haben ihre erschöpfende Ausnahmeliste
+(15.11, `scripts/dumpUniqueExceptions.mjs`). „3 Zahlen, nur `÷`" bleibt ohne
+Liste, die Fehlerquote ist dort niedrig genug für ein höheres Versuchslimit.
 
 Nicht mehr offen: das Merkmal für E1 (E1 entfällt, 15.4), die Bank-Obergrenze
-(entfällt mit der Bank selbst, 15.10) und die Versuchsverteilung im
-Allgemeinen.
+(entfällt mit der Bank selbst, 15.10) und die Versuchsverteilung samt ihrer
+beiden Ausnahmefälle.
 
 ### Vor Schritt 3 – Generierung, Auswahl, Einstellungen
 

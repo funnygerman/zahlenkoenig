@@ -195,14 +195,16 @@ Worker (gegenstandslos ohne Bank) · ein selbstgebauter
 
 **Erledigt seit dieser Sitzung:** die Versuchsverteilung von `nextPuzzle()`
 ist gemessen (`scripts/checkNextPuzzle.mjs`, Konzept 15.10) – synchron auf
-dem Hauptthread reicht, bis auf drei dünne `uniqueOnly`-Auswahlen (3 Zahlen
-nur `÷`, 4 Zahlen nur `−`, 4 Zahlen nur `÷`), die eine kleine Ausnahmeliste
-statt blinden Neuziehens brauchen.
+dem Hauptthread reicht. Zwei Auswahlen (4 Zahlen nur `−`, 4 Zahlen nur `÷`)
+brauchten mit `uniqueOnly` eine Ausnahmeliste statt blinden Neuziehens;
+diese ist jetzt erschöpfend erzeugt und in Konzept 15.11 eingetragen
+(`scripts/dumpUniqueExceptions.mjs`). Eine dritte, anfangs verdächtige
+Auswahl (3 Zahlen nur `÷`) blieb ohne Liste – ihre Fehlerquote war niedrig
+genug für ein höheres Versuchslimit statt einer vorab gezogenen Liste.
 
-**Offen:** welche Zahlenmengen diese drei Ausnahmelisten bekommen; das
-konkrete Größenbudget für den Produktions-Build (Konzept 20.2); ob
-`public/crown.svg` genug Innenabstand für ein maskable Icon hat (Konzept
-19.2).
+**Offen:** das konkrete Größenbudget für den Produktions-Build (Konzept
+20.2); ob `public/crown.svg` genug Innenabstand für ein maskable Icon hat
+(Konzept 19.2).
 
 ---
 
