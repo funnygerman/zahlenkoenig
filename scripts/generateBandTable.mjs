@@ -1,9 +1,13 @@
-// Dumps the full uniqueOnly solution pool for the two selections
-// checkNextPuzzle.mjs found too thin for blind redraw: 4 numbers with only
-// '-', and 4 numbers with only '/' (concept 15.11's exception lists). Same
-// depth-1 model as checkDepth1.mjs / checkBankShapes.mjs / checkNextPuzzle.mjs.
+// Emits the 45-row band table (concept 15.8/15.10) as TS source: for every
+// (number count, operator subset) selection, total reachable puzzles,
+// how many have a unique solution, and the [lo,hi] target range of each
+// band. This is the literal BAND_TABLE constant embedded in
+// src/core/puzzles.ts — regenerate and paste in after any change to the
+// depth-1 model. Same model as checkDepth1.mjs / checkBankShapes.mjs /
+// checkNextPuzzle.mjs.
 //
-// Run with: node scripts/dumpUniqueExceptions.mjs
+// Run with: node scripts/generateBandTable.mjs
+const ALL_OPS = ['+', '-', '*', '/']
 
 function apply(a, op, b) {
   switch (op) {
@@ -39,22 +43,6 @@ function evalArrangement(perm, comp, ops) {
   const joinOps = []; let cursor = 0
   for (let i = 0; i < comp.length - 1; i++) { cursor += comp[i] - 1; joinOps.push(ops[cursor]); cursor += 1 }
   return evalFlat(operands, joinOps)
-}
-function exprString(perm, comp, ops) {
-  const n = perm.length; const parts = []; let numIdx = 0, opIdx = 0
-  for (const size of comp) {
-    if (size === 1) { parts.push(String(perm[numIdx++])) }
-    else {
-      const seg = []
-      for (let i = 0; i < size; i++) { seg.push(perm[numIdx + i]); if (i < size - 1) seg.push(ops[opIdx + i]) }
-      parts.push('(' + seg.join('') + ')')
-      numIdx += size; opIdx += size - 1
-    }
-    if (numIdx < n) opIdx++
-  }
-  const out = [parts[0]]; let cursor = 0
-  for (let i = 0; i < comp.length - 1; i++) { cursor += comp[i] - 1; out.push(ops[cursor]); out.push(parts[i + 1]); cursor += 1 }
-  return out.join('')
 }
 function canonicalFlat(tokens, ops) {
   const terms = [{ sign: '+', factors: [tokens[0]] }]
@@ -106,15 +94,21 @@ function multisets(n) {
   const rec = (start, arr) => { if (arr.length === n) { out.push(arr.slice()); return }; for (let v = start; v <= 9; v++) { arr.push(v); rec(v, arr); arr.pop() } }
   rec(1, []); return out
 }
+function opSubsets() {
+  const out = []
+  for (let mask = 1; mask < 16; mask++) out.push({ mask, ops: ALL_OPS.filter((_, i) => mask & (1 << i)) })
+  return out
+}
 
-const PERM_IDX = { 3: permIndices(3), 4: permIndices(4) }
-const COMPS = { 3: compositions(3).filter(c => c.length > 1), 4: compositions(4).filter(c => c.length > 1) }
+const PERM_IDX = { 2: permIndices(2), 3: permIndices(3), 4: permIndices(4) }
+const COMPS = { 2: compositions(2).filter(c=>c.length>1), 3: compositions(3).filter(c=>c.length>1), 4: compositions(4).filter(c=>c.length>1) }
 
-function uniquePairs(n, ops) {
+function buildSelection(n, ops) {
   const optuples = cartesian(ops, n - 1)
-  const rows = []
+  const pairs = []
+  let uniqueTotal = 0
   for (const nums of multisets(n)) {
-    const targets = new Map() // target -> [{key, perm, comp, ops}]
+    const targets = new Map()
     for (const comp of COMPS[n]) {
       for (const permI of PERM_IDX[n]) {
         const permVals = permI.map(i => nums[i])
@@ -123,45 +117,36 @@ function uniquePairs(n, ops) {
           if (!isFinite(r) || r < 1 || r > 999) continue
           const t = Math.round(r)
           if (Math.abs(r - t) > 1e-9) continue
-          const key = canonicalArrangement(permVals, comp, opTuple)
-          let e = targets.get(t)
-          if (!e) { e = new Map(); targets.set(t, e) }
-          if (!e.has(key)) e.set(key, exprString(permVals, comp, opTuple))
+          let set = targets.get(t)
+          if (!set) { set = new Set(); targets.set(t, set) }
+          set.add(canonicalArrangement(permVals, comp, opTuple))
         }
       }
     }
     for (const [t, sols] of targets) {
-      if (sols.size === 1) rows.push({ nums: nums.slice(), target: t, expr: [...sols.values()][0] })
+      pairs.push(t)
+      if (sols.size === 1) uniqueTotal++
     }
   }
-  return rows
+  pairs.sort((a, b) => a - b)
+  const total = pairs.length
+  const i1 = Math.floor(total / 3), i2 = Math.floor((2 * total) / 3)
+  const bandOf = (from, to) => [pairs[from], pairs[to - 1]]
+  return { total, unique: uniqueTotal, bands: [bandOf(0, i1), bandOf(i1, i2), bandOf(i2, total)] }
 }
 
-function band(rows, lo, hi) { return rows.filter(r => r.target >= lo && r.target <= hi) }
-
-const SELECTIONS = [
-  ['4 Zahlen, nur −', 4, ['-'], [[1,5],[5,10],[11,26]], 'EXCEPTIONS_4_MINUS'],
-  ['4 Zahlen, nur ÷', 4, ['/'], [[1,12],[12,42],[42,729]], 'EXCEPTIONS_4_DIVIDE'],
-]
-
-for (const [label, n, ops, bands] of SELECTIONS) {
-  const rows = uniquePairs(n, ops)
-  console.log(`\n=== ${label} (total unique: ${rows.length}) ===`)
-  bands.forEach(([lo,hi], i) => {
-    const b = band(rows, lo, hi)
-    console.log(`  band ${i} [${lo},${hi}]: ${b.length} entries`)
-    b.forEach(r => console.log(`    [${r.nums.join(',')}] -> ${r.target}   (${r.expr}=${r.target})`))
-  })
+const rows = []
+for (const n of [2, 3, 4]) {
+  for (const { mask, ops } of opSubsets()) {
+    const sel = buildSelection(n, ops)
+    rows.push({ n, mask, ...sel })
+  }
 }
 
-// Flat, deduplicated TS array literal (no per-band boundary duplication) —
-// this is what's embedded in src/core/puzzles.ts. Regenerate and paste in
-// after any change to the depth-1 model.
-console.log('\n--- TS literals for src/core/puzzles.ts ---')
-for (const [label, n, ops, , constName] of SELECTIONS) {
-  const rows = uniquePairs(n, ops)
-  console.log(`\n// ${label} (${rows.length} entries)`)
-  console.log(`const ${constName}: Exception[] = [`)
-  console.log(rows.map(r => `  [[${r.nums.join(', ')}], ${r.target}],`).join('\n'))
-  console.log(']')
+console.log(`// Generated by scripts/generateBandTable.mjs — do not hand-edit. ${rows.length} rows.`)
+console.log('const BAND_TABLE: Record<string, BandRow> = {')
+for (const r of rows) {
+  const b = r.bands.map(([lo, hi]) => `[${lo},${hi}]`).join(', ')
+  console.log(`  '${r.n}-${r.mask}': { total: ${r.total}, unique: ${r.unique}, bands: [${b}] },`)
 }
+console.log('}')
