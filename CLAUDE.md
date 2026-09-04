@@ -16,6 +16,7 @@ proposing anything:
 |---|---|
 | `spec/zahlenkoenig-v2-konzept.md` | **What** v2 is. Data model, block interaction, layout, design system, implementation order. |
 | `spec/zahlenkoenig-v2-entscheidungen.md` | **Why**, and **what was already rejected**. Read this before suggesting an approach — a lot of plausible ideas have been considered and turned down for stated reasons. |
+| `spec/entwurf.html` | The clickable draft. Open it in a browser: a playable board with the selection panel, plus the studies that settled bracket shape, block contrast and the block icon. It also measures the worst-case width live. |
 
 Entries marked **PO** in the decisions document were chosen by the product owner
 directly. They are instructions, not recommendations; don't revise them without
@@ -55,9 +56,12 @@ Two things to know before touching the puzzle bank:
   boundaries and bank sizes — 2.7 KB, so the selection never has to solve
   anything on the device.
 
-One layout question is open and affects step 2: the worst-case expression
-`(6+2) × (9−3)` does not fit the five-column grid. Section 12.5 has the measured
-numbers; section 17 has the two ways out.
+The worst-case expression `(6+2) × (9−3)` fits the five-column grid with about
+7px to spare, which makes three proportions in section 12.5 load-bearing —
+expression chips are smaller than tray chips, and bracket edges are absolutely
+positioned so they cost no width. Changing any of them costs 50–80px and
+overflows. `spec/entwurf.html` recomputes the slack on every render and turns
+red if it goes negative, so a later session finds out immediately.
 
 ## Conventions
 
