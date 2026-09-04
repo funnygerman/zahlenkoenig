@@ -6,6 +6,9 @@ export default defineConfig({
   plugins: [react()],
   test: {
     // core/ is pure TypeScript (CLAUDE.md), no DOM needed for its tests.
+    // ui/ hooks (useDrag.ts and friends) touch real DOM APIs — pointer
+    // capture, getBoundingClientRect — so they get jsdom instead.
     environment: 'node',
+    environmentMatchGlobs: [['src/ui/**', 'jsdom']],
   },
 })
