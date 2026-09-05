@@ -84,6 +84,15 @@ describe('Expression — tapping a placed leaf returns it (concept 6.6)', () => 
     await userEvent.click(screen.getByText('2'))
     expect(onTapLeaf).toHaveBeenCalledWith('num-1')
   })
+
+  it("doesn't also attach a plain onClick once drag is wired — otherwise a real tap fires both the native click and useDrag's own tap detection", async () => {
+    const onTapLeaf = vi.fn()
+    const dragHandlers = vi.fn(() => ({ onPointerDown: vi.fn(), onPointerMove: vi.fn(), onPointerUp: vi.fn(), onPointerCancel: vi.fn() }))
+    const expr = exprOf([num(6, 0), createOperatorLeaf('+'), num(2, 1)])
+    render(<Expression expr={expr} onTapLeaf={onTapLeaf} onDissolveGroup={noop} dragHandlers={dragHandlers} />)
+    await userEvent.click(screen.getByText('6'))
+    expect(onTapLeaf).not.toHaveBeenCalled()
+  })
 })
 
 describe('Expression — dissolving a group (concept 6.5: tap the bracket edge, content stays)', () => {

@@ -59,13 +59,18 @@ export interface TrayProps {
 }
 
 function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers'] }) {
+  // When drag is wired up, useDrag's own tap-vs-drag detection (below the
+  // 6px threshold, concept 5.1) is the only tap path — a plain onClick
+  // alongside it would double-fire, since both a native click and
+  // useDrag's onPointerUp-detected tap happen on the same gesture.
+  const hasDrag = drag && !slot.used
   return (
     <Chip
       variant="number"
       value={slot.value}
       placeholder={slot.used}
-      onClick={() => onTap(slot.id)}
-      {...(drag && !slot.used ? drag({ id: slot.id, kind: 'operand', data: { role: 'number' } }) : undefined)}
+      onClick={hasDrag ? undefined : () => onTap(slot.id)}
+      {...(hasDrag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number' } }) : undefined)}
     />
   )
 }
@@ -93,15 +98,18 @@ export function Tray({
         {numberSlots.map(slot => (
           <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} />
         ))}
-        {blockSlots.map(slot => (
-          <Chip
-            key={slot.id}
-            variant="block"
-            placeholder={slot.used}
-            onClick={() => onTapBlock(slot.id)}
-            {...(dragHandlers && !slot.used ? dragHandlers({ id: slot.id, kind: 'operand', data: { role: 'block' } }) : undefined)}
-          />
-        ))}
+        {blockSlots.map(slot => {
+          const hasDrag = dragHandlers && !slot.used
+          return (
+            <Chip
+              key={slot.id}
+              variant="block"
+              placeholder={slot.used}
+              onClick={hasDrag ? undefined : () => onTapBlock(slot.id)}
+              {...(hasDrag ? dragHandlers({ id: slot.id, kind: 'operand', data: { role: 'block' } }) : undefined)}
+            />
+          )
+        })}
       </div>
       <div className={styles.row}>
         {(['*', '/', '+', '-'] as Operator[])
@@ -111,7 +119,7 @@ export function Tray({
               key={op}
               variant="operator"
               operator={op}
-              onClick={() => onTapOperator(op)}
+              onClick={dragHandlers ? undefined : () => onTapOperator(op)}
               {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op } }) : undefined)}
             />
           ))}

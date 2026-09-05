@@ -181,4 +181,40 @@ describe('Tray — drag wiring (concept 5.1)', () => {
     expect(calledIds).toContain('b0')
     expect(calledIds).not.toContain('n0')
   })
+
+  it("doesn't also attach a plain onClick where drag is wired — a real tap would otherwise fire both the native click and useDrag's own tap detection", async () => {
+    const dragHandlers = vi.fn((_item: { id: string; kind: 'operand' | 'operator' }) => (
+      { onPointerDown: vi.fn(), onPointerMove: vi.fn(), onPointerUp: vi.fn(), onPointerCancel: vi.fn() }
+    ))
+    const onTapNumber = vi.fn(), onTapOperator = vi.fn(), onTapBlock = vi.fn()
+    render(
+      <Tray
+        numberSlots={numberSlots([6])}
+        blockSlots={[{ id: 'b0', used: false }]}
+        operators={['+']}
+        submitEnabled={false}
+        onTapNumber={onTapNumber} onTapBlock={onTapBlock} onTapOperator={onTapOperator} onSubmit={noop}
+        dragHandlers={dragHandlers}
+      />
+    )
+    for (const el of screen.getAllByRole('button')) await userEvent.click(el)
+    expect(onTapNumber).not.toHaveBeenCalled()
+    expect(onTapBlock).not.toHaveBeenCalled()
+    expect(onTapOperator).not.toHaveBeenCalled()
+  })
+
+  it('without dragHandlers, taps still work directly (tap-only usage stays supported)', async () => {
+    const onTapNumber = vi.fn()
+    render(
+      <Tray
+        numberSlots={numberSlots([6])}
+        blockSlots={[]}
+        operators={['+']}
+        submitEnabled={false}
+        onTapNumber={onTapNumber} onTapBlock={noop} onTapOperator={noop} onSubmit={noop}
+      />
+    )
+    await userEvent.click(screen.getByText('6'))
+    expect(onTapNumber).toHaveBeenCalledWith('n0')
+  })
 })

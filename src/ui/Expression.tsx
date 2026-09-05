@@ -71,6 +71,9 @@ function LeafChip({
   dragHandlers?: ExpressionProps['dragHandlers']
 }) {
   const kind = leaf.kind === 'number' ? 'operand' : 'operator'
+  // Same reasoning as Tray.tsx's chips: once drag is wired up, useDrag's
+  // own tap-vs-drag detection is the only tap path, or a real tap would
+  // fire both the native click and useDrag's onTap.
   return (
     <Chip
       variant={leaf.kind === 'number' ? 'number' : 'operator'}
@@ -79,7 +82,7 @@ function LeafChip({
       scale="field"
       inGroup={inGroup}
       className={active ? styles.activeZone : undefined}
-      onClick={() => onTapLeaf(leaf.id)}
+      onClick={dragHandlers ? undefined : () => onTapLeaf(leaf.id)}
       ref={el => registerZone?.(zoneId, kind, true, el)}
       {...(dragHandlers ? dragHandlers({ id: leaf.id, kind, data: { role: leaf.kind === 'number' ? 'number' : 'operator' } }) : undefined)}
     />
