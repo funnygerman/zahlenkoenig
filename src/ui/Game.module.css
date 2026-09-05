@@ -3,8 +3,10 @@
 .game {
   display: flex;
   flex-direction: column;
+  justify-content: center;
   gap: var(--gap);
   padding: var(--gap);
+  min-height: 100dvh;
   background: var(--zk-bg);
   font-family: var(--font-board);
 }

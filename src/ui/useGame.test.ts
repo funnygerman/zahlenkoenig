@@ -79,7 +79,7 @@ describe('useGame — tap-to-place and tap-to-return (concept 5)', () => {
 describe('useGame — blocks (concept 4/6)', () => {
   it('tapping the block chip places an empty group at the next operand surface, which then accepts numbers into its interior', () => {
     const { result } = setup([6, 2], 8)
-    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapBlock('block-0'))
     expect(result.current.blockSlots[0].used).toBe(true)
 
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
@@ -89,17 +89,27 @@ describe('useGame — blocks (concept 4/6)', () => {
     expect(result.current.result).toBe(8)
   })
 
-  it('cannot place more blocks than the budget allows', () => {
+  it('cannot place more blocks than the budget allows, and tapping a used slot dissolves it', () => {
     const { result } = setup([3, 7], 10) // budget 1
-    act(() => result.current.onTapBlock())
-    act(() => result.current.onTapBlock()) // should no-op
+    act(() => result.current.onTapBlock('block-0'))
     expect(result.current.blockSlots).toHaveLength(1)
     expect(result.current.blockSlots[0].used).toBe(true)
+
+    // 'block-1' isn't a slot Tray would ever render at this budget —
+    // defensive no-op, not reachable from a real tap.
+    act(() => result.current.onTapBlock('block-1'))
+    expect(result.current.expr.root.children).toHaveLength(1)
+
+    // Tapping the tray's own (now-used) placeholder is symmetric with a
+    // number's — it returns the block instead of trying to place another
+    // one (concept 12.3: "Platzhalter in der Ablage sind antippbar").
+    act(() => result.current.onTapBlock('block-0'))
+    expect(result.current.blockSlots[0].used).toBe(false)
   })
 
   it('dissolving a group keeps its content in place (concept 6.5)', () => {
     const { result } = setup([6, 2], 8)
-    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapBlock('block-0'))
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(idOf(result.current, 2)))
@@ -115,12 +125,12 @@ describe('useGame — blocks (concept 4/6)', () => {
   it("the full worst-case expression from concept 12.5 builds correctly via tap alone: (6+2)*(9-3) = 48", () => {
     const { result } = setup([6, 2, 9, 3], 48)
 
-    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapBlock('block-0'))
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(idOf(result.current, 2)))
     act(() => result.current.onTapOperator('*'))
-    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapBlock('block-1'))
     act(() => result.current.onTapNumber(idOf(result.current, 9)))
     act(() => result.current.onTapOperator('-'))
     act(() => result.current.onTapNumber(idOf(result.current, 3)))
@@ -238,13 +248,13 @@ describe('useGame — drag: moving and removing placed chips', () => {
   it("moving a placed number into another group's empty slot leaves a gap behind, without deleting its old neighbor operator", () => {
     const { result } = setup([1, 2, 9, 5], 999) // 4 numbers -> block budget 2 (concept 4); target is irrelevant to this structural test
     // group1 = (1+2): place block, fill both operands and the operator.
-    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapBlock('block-0'))
     act(() => result.current.onTapNumber(idOf(result.current, 1)))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(idOf(result.current, 2)))
     // root frontier is now operator-kind: "*", then a second empty group.
     act(() => result.current.onTapOperator('*'))
-    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapBlock('block-1'))
     // group2 gets one operand filled (9), leaving its other operand null.
     act(() => result.current.onTapNumber(idOf(result.current, 9)))
 

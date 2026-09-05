@@ -210,7 +210,31 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     placeOperator(op)
   }, [placeOperator])
 
-  const onTapBlock = useCallback(() => {
+  /**
+   * `id` is the tray slot's own synthetic id (`block-0`, `block-1`, …, one
+   * per unit of budget — concept 4's ⌊n/2⌋), not a real group id: a used
+   * slot doesn't otherwise remember which board group it stands for. Its
+   * index into document-order groups is enough to find it, the same way a
+   * number placeholder's real id finds its board leaf — concept 12.3's
+   * "Platzhalter in der Ablage sind antippbar" applies to a block
+   * placeholder exactly as it does to a number's.
+   */
+  const onTapBlock = useCallback((id: string) => {
+    const index = Number(id.slice('block-'.length))
+    if (index < blocksUsed) {
+      setExpr(e => {
+        let seen = 0
+        for (let i = 0; i < e.root.children.length; i++) {
+          const c = e.root.children[i]
+          if (c !== null && c.kind === 'group') {
+            if (seen === index) return withRootChildren(e, dissolveGroup(e.root.children, i))
+            seen++
+          }
+        }
+        return e
+      })
+      return
+    }
     if (blocksUsed >= blockBudget) return
     placeBlock()
   }, [blocksUsed, blockBudget, placeBlock])
