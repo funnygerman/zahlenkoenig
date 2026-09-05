@@ -17,7 +17,13 @@
   border-radius: var(--radius);
   font-variant-numeric: tabular-nums;
   user-select: none;
+  -webkit-user-select: none;
   touch-action: none; /* concept 5.1 */
+  /* Android's grey tap flash and iOS's long-press callout both fire on the
+   * press that starts a drag, and read as the app reacting to something
+   * other than the drag. */
+  -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
   border: 0;
   cursor: pointer;
   padding: 0;

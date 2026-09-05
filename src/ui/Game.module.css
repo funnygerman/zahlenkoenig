@@ -33,15 +33,25 @@
   color: hsl(2 62% 48%);
 }
 
+/* concept 5.1's ghost. Sized by the chip inside it, not by this box —
+ * a dragged tray chip and a dragged field chip are different sizes, and
+ * the ghost should look like whichever was picked up. useDrag writes the
+ * transform (the pointer's viewport position, plus the centring
+ * translate), so nothing here may set one: an inline transform wins over
+ * a stylesheet rule and the two can't be combined. */
 .ghost {
   position: fixed;
   top: 0;
   left: 0;
-  width: var(--fn);
-  height: var(--fn);
-  border-radius: calc(var(--cell) * 0.16);
-  background: var(--zk-chip);
-  opacity: 0.6;
+  place-items: center;
+  opacity: 0.85;
+  filter: drop-shadow(0 6px 12px hsl(var(--hue) 30% 18% / 0.28));
   pointer-events: none;
   z-index: 100;
+}
+
+/* the chip inside the ghost is a picture, never a target */
+.ghost * {
+  pointer-events: none;
+  cursor: inherit;
 }

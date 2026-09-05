@@ -4,16 +4,24 @@ import { useDrag, type DragItem, type DropTarget } from './useDrag'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 // A minimal stand-in for a React pointer event: the hook only ever reads
-// pointerId/clientX/clientY and calls currentTarget.setPointerCapture, so
-// that's all these fixtures provide — a real jsdom PointerEvent isn't
-// needed to exercise the hook's own logic.
-function pointerEvent(x: number, y: number, pointerId = 1): ReactPointerEvent<HTMLElement> {
+// pointerId/clientX/clientY, calls currentTarget.setPointerCapture and
+// dims currentTarget.style — so that's all these fixtures provide, a real
+// jsdom PointerEvent isn't needed to exercise the hook's own logic. The
+// `currentTarget` is a real element so `style` behaves like the browser's
+// (the source chip is dimmed for the duration of a drag).
+function pointerEvent(x: number, y: number, pointerId = 1, currentTarget = sourceElement()): ReactPointerEvent<HTMLElement> {
   return {
     pointerId,
     clientX: x,
     clientY: y,
-    currentTarget: { setPointerCapture: vi.fn() },
+    currentTarget,
   } as unknown as ReactPointerEvent<HTMLElement>
+}
+
+function sourceElement(): HTMLElement {
+  const el = document.createElement('button')
+  el.setPointerCapture = vi.fn()
+  return el
 }
 
 function zoneElement(rect: Partial<DOMRect>): HTMLElement {
@@ -142,12 +150,15 @@ describe('useDrag — ghost element (concept 5.1: transform, no re-render per mo
     ;(result.current.ghostRef as { current: HTMLDivElement | null }).current = ghost
     const handlers = result.current.dragHandlers(ITEM)
 
+    // The ghost sits at the *pointer*, centred on it — not at the distance
+    // the finger has travelled since pointerdown (a `position: fixed`
+    // ghost offset by that delta ends up in the corner of the screen).
     act(() => handlers.onPointerDown(pointerEvent(100, 100)))
     act(() => handlers.onPointerMove(pointerEvent(110, 100)))
-    expect(ghost.style.transform).toBe('translate(10px, 0px)')
+    expect(ghost.style.transform).toBe('translate(110px, 100px) translate(-50%, -50%)')
 
     act(() => handlers.onPointerMove(pointerEvent(130, 90)))
-    expect(ghost.style.transform).toBe('translate(30px, -10px)')
+    expect(ghost.style.transform).toBe('translate(130px, 90px) translate(-50%, -50%)')
   })
 
   it('clears the ghost transform when the drag ends', () => {
@@ -197,5 +208,112 @@ describe('useDrag — a second pointer is ignored mid-drag', () => {
     // the original pointer can still complete normally
     act(() => handlers.onPointerUp(pointerEvent(100, 100, 1)))
     expect(onTap).toHaveBeenCalledTimes(1)
+  })
+})
+
+describe('useDrag — the dragged item is exposed for the ghost', () => {
+  it('reports the item only while dragging, so the ghost can redraw it', () => {
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop: vi.fn() }))
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100)))
+    expect(result.current.draggingItem).toBeNull() // a press isn't a drag yet
+
+    act(() => handlers.onPointerMove(pointerEvent(120, 100)))
+    expect(result.current.draggingItem).toEqual(ITEM)
+
+    act(() => handlers.onPointerUp(pointerEvent(120, 100)))
+    expect(result.current.draggingItem).toBeNull()
+  })
+})
+
+describe('useDrag — the source chip recedes while its ghost is in the air (concept 5.1)', () => {
+  it('dims the chip on drag start and restores it on release', () => {
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop: vi.fn() }))
+    const source = sourceElement()
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100, 1, source)))
+    expect(source.style.opacity).toBe('') // still just a press
+
+    act(() => handlers.onPointerMove(pointerEvent(120, 100, 1, source)))
+    expect(source.style.opacity).toBe('0.3')
+
+    act(() => handlers.onPointerUp(pointerEvent(120, 100, 1, source)))
+    expect(source.style.opacity).toBe('')
+  })
+
+  it('restores the chip on cancel too', () => {
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop: vi.fn() }))
+    const source = sourceElement()
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100, 1, source)))
+    act(() => handlers.onPointerMove(pointerEvent(120, 100, 1, source)))
+    act(() => handlers.onPointerCancel(pointerEvent(120, 100, 1, source)))
+    expect(source.style.opacity).toBe('')
+  })
+})
+
+describe('useDrag — near misses still hit (the `tolerance` option)', () => {
+  // Why this exists: an expression-field slot is ~32px wide inside a 64px
+  // field, and the trailing frontier of a full group renders nothing at
+  // all. Strict rectangle containment made both undroppable — releasing a
+  // few px above a slot, or over the field's own padding, silently did
+  // nothing at all.
+  const ZONE = { left: 100, right: 132, top: 100, bottom: 132 }
+
+  it('a release just outside a zone still lands in it', () => {
+    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 28 }))
+    act(() => result.current.registerZone('root-0', 'operand', false, zoneElement(ZONE)))
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(116, 85))) // 15px above the zone
+    expect(result.current.activeZoneId).toBe('root-0')
+
+    act(() => handlers.onPointerUp(pointerEvent(116, 85)))
+    expect(onDrop).toHaveBeenCalledWith(ITEM, { zoneId: 'root-0', occupied: false })
+  })
+
+  it('a zero-width zone is reachable — the frontier of a full group renders nothing', () => {
+    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 28 }))
+    act(() => result.current.registerZone('group-g1-3', 'operand', false, zoneElement({ left: 200, right: 200, top: 100, bottom: 132 })))
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(210, 116)))
+    expect(result.current.activeZoneId).toBe('group-g1-3')
+  })
+
+  it('beyond the tolerance it is still a real "herausziehen" (concept 5)', () => {
+    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 28 }))
+    act(() => result.current.registerZone('root-0', 'operand', false, zoneElement(ZONE)))
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(116, 60))) // 40px above the zone
+    expect(result.current.activeZoneId).toBeNull()
+
+    act(() => handlers.onPointerUp(pointerEvent(116, 60)))
+    expect(onDrop).toHaveBeenCalledWith(ITEM, null)
+  })
+
+  it('the nearest zone wins when two are in range', () => {
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop: vi.fn(), tolerance: 28 }))
+    act(() => result.current.registerZone('root-0', 'operand', false, zoneElement({ left: 100, right: 120, top: 100, bottom: 132 })))
+    act(() => result.current.registerZone('root-2', 'operand', false, zoneElement({ left: 150, right: 170, top: 100, bottom: 132 })))
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(142, 116))) // 22px right of root-0, 8px left of root-2
+    expect(result.current.activeZoneId).toBe('root-2')
   })
 })

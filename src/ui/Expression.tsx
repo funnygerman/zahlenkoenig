@@ -14,11 +14,15 @@
 // previewing brackets.
 
 import type { ReactNode } from 'react'
-import type { Expression as ExpressionTree, Group, Leaf } from '../core/expression'
+import type { Expression as ExpressionTree, Group, Leaf, Operator } from '../core/expression'
 import { dropZones } from '../core/expression'
 import type { DragHandlers } from './useDrag'
 import { Chip } from './Chip'
 import styles from './Expression.module.css'
+
+function cx(...parts: Array<string | false | undefined>): string {
+  return parts.filter(Boolean).join(' ')
+}
 
 export function rootZoneId(index: number): string {
   return `root-${index}`
@@ -50,13 +54,13 @@ export interface ExpressionProps {
   onDissolveGroup: (groupId: string) => void
   registerZone?: (zoneId: string, kind: 'operand' | 'operator', occupied: boolean, el: HTMLElement | null) => void
   /** `data.role` tells the drop handler what kind of chip this is without guessing from the id string. */
-  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' } }) => DragHandlers
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator'; operator?: Operator; value?: number; scale?: 'tray' | 'field' } }) => DragHandlers
   /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
   activeZoneId?: string | null
 }
 
-function GhostSlot({ kind }: { kind: 'operand' | 'operator' }) {
-  return <Chip variant={kind === 'operand' ? 'number' : 'operator'} scale="field" ghost />
+function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; active?: boolean }) {
+  return <Chip variant={kind === 'operand' ? 'number' : 'operator'} scale="field" ghost className={active ? styles.activeZone : undefined} />
 }
 
 function LeafChip({
@@ -84,7 +88,16 @@ function LeafChip({
       className={active ? styles.activeZone : undefined}
       onClick={dragHandlers ? undefined : () => onTapLeaf(leaf.id)}
       ref={el => registerZone?.(zoneId, kind, true, el)}
-      {...(dragHandlers ? dragHandlers({ id: leaf.id, kind, data: { role: leaf.kind === 'number' ? 'number' : 'operator' } }) : undefined)}
+      {...(dragHandlers ? dragHandlers({
+        id: leaf.id,
+        kind,
+        data: {
+          role: leaf.kind === 'number' ? 'number' : 'operator',
+          value: leaf.kind === 'number' ? leaf.value : undefined,
+          operator: leaf.kind === 'operator' ? leaf.value : undefined,
+          scale: 'field',
+        },
+      }) : undefined)}
     />
   )
 }
@@ -159,7 +172,7 @@ function GroupView({
       })}
       <div
         ref={el => registerZone?.(frontierZoneId, zones[frontierIndex].kind, false, el)}
-        className={frontierActive ? styles.activeZone : undefined}
+        className={cx(styles.groupFrontier, frontierActive && styles.activeZone)}
       />
       <button
         type="button"
@@ -224,25 +237,36 @@ export function Expression({
   const frontierKind = zones[frontierIndex].kind
   const frontierActive = activeZoneId === frontierZoneId
 
-  const trailing: ReactNode[] = [
-    <div
-      key="frontier"
-      ref={el => registerZone?.(frontierZoneId, frontierKind, false, el)}
-      className={frontierActive ? styles.activeZone : undefined}
-    >
-      {totalScaffold > 0 && <GhostSlot kind={frontierKind} />}
-    </div>,
-  ]
+  const scaffold: ReactNode[] = []
   let nextKind: 'operand' | 'operator' = frontierKind === 'operand' ? 'operator' : 'operand'
   for (let i = 1; i < totalScaffold; i++) {
-    trailing.push(<GhostSlot key={`scaffold-${i}`} kind={nextKind} />)
+    scaffold.push(<GhostSlot key={`scaffold-${i}`} kind={nextKind} />)
     nextKind = nextKind === 'operand' ? 'operator' : 'operand'
   }
 
+  // The registered element covers the frontier ghost, every decorative
+  // scaffold slot behind it, AND the empty rest of the field (`.frontier`
+  // grows into whatever room is left). That's deliberately one big target
+  // for one zone: only the frontier is ever live — the slots behind it are
+  // decorative (concept 6.4: "keine eigenen Ablageziele") — and a release
+  // over the field's empty right-hand end can't mean anything but "at the
+  // end". Where the field is full there's no leftover room to grow into,
+  // so this costs no width (concept 12.5).
+  //
+  // The highlight stays precise: with something left to place it's on the
+  // frontier ghost, the actual slot the chip lands in. Only when there's
+  // no ghost to mark does the container itself take it.
+  const frontierGhost = totalScaffold > 0
   return (
     <div className={styles.field}>
       {rendered}
-      {trailing}
+      <div
+        ref={el => registerZone?.(frontierZoneId, frontierKind, false, el)}
+        className={cx(styles.frontier, frontierActive && !frontierGhost && styles.activeZone)}
+      >
+        {frontierGhost && <GhostSlot kind={frontierKind} active={frontierActive} />}
+        {scaffold}
+      </div>
     </div>
   )
 }

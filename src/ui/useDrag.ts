@@ -18,8 +18,14 @@
 //
 // The ghost element (concept 5.1: "ein Geisterelement folgt dem Finger über
 // transform — ohne React-Render pro Bewegung") is owned by the caller —
-// attach `ghostRef` to it — but its `transform` is written directly on
-// every pointermove, bypassing React state entirely.
+// attach `ghostRef` to it, and render the dragged chip inside it (see
+// `draggingItem`) — but its `transform` is written directly on every
+// pointermove, bypassing React state entirely. The transform is the
+// pointer's *viewport position*, so the ghost must be `position: fixed`
+// with its own `translate(-50%, -50%)` folded in by this hook, not by CSS
+// (an inline transform would overwrite a stylesheet one). The chip the
+// drag started from is dimmed for the duration, directly on its style —
+// same reason: no render per drag.
 //
 // Callers are responsible for `touch-action: none` and `user-select: none`
 // on draggable chips and zones (concept 5.1) — that's CSS, not this hook's
@@ -49,6 +55,17 @@ export interface UseDragOptions<T = unknown> {
   onDrop: (item: DragItem<T>, target: DropTarget | null) => void
   /** Pointer movement, in px, before a press counts as a drag rather than a tap (concept 5.1). */
   threshold?: number
+  /**
+   * How far outside a zone's rectangle a release still counts as hitting
+   * it, in px. Drop surfaces are chip-sized at best and zero-width at
+   * worst (the trailing frontier of a full group renders nothing), so
+   * strict rectangle containment makes half the field undroppable —
+   * releasing over the field's own padding, or a few px above a slot,
+   * would silently do nothing. Beyond this distance a release is still a
+   * real "herausziehen" (concept 5), so it stays well short of the gap
+   * between the expression field and the tray.
+   */
+  tolerance?: number
 }
 
 /** The pointer handlers for one draggable chip — spread onto its root element. */
@@ -70,6 +87,8 @@ export interface UseDragResult<T = unknown> {
   isDragging: boolean
   /** The zone currently under the pointer, or null. Changes trigger a render (for highlighting); raw pointer movement doesn't. */
   activeZoneId: string | null
+  /** The item currently being dragged, so the caller can render it inside the ghost. Null until the threshold is crossed. */
+  draggingItem: DragItem<T> | null
   /** The kind of item being dragged, so callers can dim zones of the other kind (concept 5: "beim Ziehen einer Zahl leuchten nur Operand-Flächen"). */
   draggingKind: DragKind | null
 }
@@ -87,7 +106,7 @@ interface MeasuredZone {
 }
 
 export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<T> {
-  const { onTap, onDrop, threshold = 6 } = options
+  const { onTap, onDrop, threshold = 6, tolerance = 28 } = options
 
   const zonesRef = useRef(new Map<string, ZoneEntry>())
   const measuredRef = useRef<MeasuredZone[]>([])
@@ -98,24 +117,38 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
   const draggingRef = useRef(false) // synchronous mirror of isDragging — pointermove needs it before the next render
   const activeZoneIdRef = useRef<string | null>(null)
 
+  const sourceElRef = useRef<HTMLElement | null>(null)
+
   const ghostRef = useRef<HTMLDivElement>(null)
   const [isDragging, setIsDragging] = useState(false)
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null)
-  const [draggingKind, setDraggingKind] = useState<DragKind | null>(null)
+  const [draggingItem, setDraggingItem] = useState<DragItem<T> | null>(null)
 
   const registerZone = useCallback((zoneId: string, kind: DragKind, occupied: boolean, el: HTMLElement | null) => {
     if (el) zonesRef.current.set(zoneId, { el, kind, occupied })
     else zonesRef.current.delete(zoneId)
   }, [])
 
+  // Containment first, then the nearest zone within `tolerance` — see the
+  // option's own note on why a rectangle alone isn't enough. Distance is
+  // measured to the rectangle, not to its centre, so a wide zone isn't
+  // beaten by a small one that happens to sit closer to its middle.
   const hitTest = useCallback((x: number, y: number): MeasuredZone | null => {
+    let nearest: MeasuredZone | null = null
+    let nearestDistance = Infinity
     for (const zone of measuredRef.current) {
-      if (x >= zone.rect.left && x <= zone.rect.right && y >= zone.rect.top && y <= zone.rect.bottom) {
-        return zone
+      const { left, right, top, bottom } = zone.rect
+      if (x >= left && x <= right && y >= top && y <= bottom) return zone
+      const dx = x < left ? left - x : x > right ? x - right : 0
+      const dy = y < top ? top - y : y > bottom ? y - bottom : 0
+      const distance = Math.hypot(dx, dy)
+      if (distance < nearestDistance) {
+        nearestDistance = distance
+        nearest = zone
       }
     }
-    return null
-  }, [])
+    return nearestDistance <= tolerance ? nearest : null
+  }, [tolerance])
 
   const reset = useCallback(() => {
     itemRef.current = null
@@ -126,16 +159,32 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
     measuredRef.current = []
     setIsDragging(false)
     setActiveZoneId(null)
-    setDraggingKind(null)
+    setDraggingItem(null)
+    if (sourceElRef.current) sourceElRef.current.style.opacity = ''
+    sourceElRef.current = null
     if (ghostRef.current) ghostRef.current.style.transform = ''
+  }, [])
+
+  // The ghost is centred on the pointer, in viewport coordinates — not
+  // offset by however far the finger has travelled since pointerdown, which
+  // is what the pointer *delta* would give (with `position: fixed; top: 0;
+  // left: 0` that put the ghost in the top-left corner of the screen, tens
+  // of pixels above the expression field, wherever you actually dragged).
+  const moveGhost = useCallback((x: number, y: number) => {
+    const ghost = ghostRef.current
+    if (ghost) ghost.style.transform = `translate(${x}px, ${y}px) translate(-50%, -50%)`
   }, [])
 
   const dragHandlers = useCallback((item: DragItem<T>) => ({
     onPointerDown: (e: ReactPointerEvent<HTMLElement>) => {
+      // A second finger landing mid-drag would otherwise overwrite the
+      // first one's item and leave the original chip dimmed forever.
+      if (pointerIdRef.current !== null) return
       e.currentTarget.setPointerCapture(e.pointerId)
       itemRef.current = item
       pointerIdRef.current = e.pointerId
       startRef.current = { x: e.clientX, y: e.clientY }
+      sourceElRef.current = e.currentTarget
     },
 
     onPointerMove: (e: ReactPointerEvent<HTMLElement>) => {
@@ -152,10 +201,14 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
           .filter(([, zone]) => zone.kind === item.kind)
           .map(([zoneId, zone]) => ({ zoneId, occupied: zone.occupied, rect: zone.el.getBoundingClientRect() }))
         setIsDragging(true)
-        setDraggingKind(item.kind)
+        setDraggingItem(item)
+        // The chip stays in place but recedes: what moves is the ghost
+        // (concept 5.1). Written straight onto the node, like the ghost's
+        // own transform — a render per drag start would be one too many.
+        if (sourceElRef.current) sourceElRef.current.style.opacity = '0.3'
       }
 
-      if (ghostRef.current) ghostRef.current.style.transform = `translate(${dx}px, ${dy}px)`
+      moveGhost(e.clientX, e.clientY)
 
       const hit = hitTest(e.clientX, e.clientY)
       const zoneId = hit?.zoneId ?? null
@@ -176,12 +229,13 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
       else onTap(draggedItem)
     },
 
-    onPointerCancel: () => {
+    onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => {
+      if (e.pointerId !== pointerIdRef.current) return
       // A cancelled gesture (e.g. the OS takes over for a system gesture)
       // is neither a tap nor a completed drop — just let go of it.
       reset()
     },
-  }), [threshold, hitTest, reset, onDrop, onTap])
+  }), [threshold, hitTest, moveGhost, reset, onDrop, onTap])
 
-  return { registerZone, dragHandlers, ghostRef, isDragging, activeZoneId, draggingKind }
+  return { registerZone, dragHandlers, ghostRef, isDragging, activeZoneId, draggingItem, draggingKind: draggingItem?.kind ?? null }
 }

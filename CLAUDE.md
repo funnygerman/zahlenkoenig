@@ -53,6 +53,18 @@ bank JSON; the "two things to know before touching the puzzle bank" this
 section used to warn about are gone, not just moved) — `Game.tsx` just doesn't
 call it yet.
 
+**Drag works, and was rebuilt to.** The first device test found it broken
+outright on Android and desktop alike: the ghost was positioned by the
+pointer's *travel* rather than its position (so it sat in the screen's corner),
+it was an empty grey square rather than the chip you picked up, and the only
+registered drop zone in an empty field rendered nothing at all — a 0x0 element
+no finger can hit. Decisions section 3.1 has the full account, including the
+two rules that came out of it: hit testing falls back to the nearest zone
+within 28px, and the trailing frontier is one drop target covering the scaffold
+and the empty rest of the field. Concept 6.4's scaffold is now wired up
+(`useGame`'s `scaffoldOperands`/`scaffoldOperators`), which is what gives an
+empty field anything to aim at.
+
 **Try it**: `index-v2.html`/`src/main-v2.tsx` mount `Game.tsx` standalone,
 separate from v1's `src/main.tsx`. `npm run build` emits both, so every push
 to `main` deploys the v2 preview too, at `/zahlenkoenig/index-v2.html` — open
@@ -69,7 +81,9 @@ trying the first playable board (concept section 4, decisions section 3). It
 disables once the puzzle's block budget (⌊n/2⌋) is used up.
 
 The worst-case expression `(6+2) × (9−3)` fits the five-column grid with about
-7px to spare, which makes three proportions in section 12.5 load-bearing —
+7px to spare (7.7px measured in the app at 390px wide, once the empty trailing
+frontier stopped charging the row's 4px `gap` for itself — see decisions 3.1),
+which makes three proportions in section 12.5 load-bearing —
 expression chips are smaller than tray chips, and bracket edges are absolutely
 positioned so they cost no width. Changing any of them costs 50–80px and
 overflows. `spec/entwurf.html` recomputes the slack on every render and turns

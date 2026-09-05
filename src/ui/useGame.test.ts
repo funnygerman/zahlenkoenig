@@ -161,6 +161,44 @@ describe('useGame — blocks (concept 4/6)', () => {
   })
 })
 
+describe('useGame — the trailing scaffold (concept 6.4)', () => {
+  // The field has to show how many chips are still to come — and, until it
+  // does, the trailing frontier renders nothing at all and there is no
+  // drop target with any size to aim a finger at.
+  it('an untouched 4-number puzzle scaffolds all four operands and all three operators', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    expect(result.current.scaffoldOperands).toBe(4)
+    expect(result.current.scaffoldOperators).toBe(3)
+  })
+
+  it('shrinks as chips are placed', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    expect(result.current.scaffoldOperands).toBe(3)
+    expect(result.current.scaffoldOperators).toBe(3)
+    act(() => result.current.onTapOperator('+'))
+    expect(result.current.scaffoldOperators).toBe(2)
+  })
+
+  it('is empty once everything is placed — concept 12.5 measures the worst case with no scaffold at all', () => {
+    const { result } = setup([3, 7], 10)
+    act(() => result.current.onTapNumber(idOf(result.current, 3)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 7)))
+    expect(result.current.scaffoldOperands).toBe(0)
+    expect(result.current.scaffoldOperators).toBe(0)
+  })
+
+  it("does not count a block's own open slots twice — those are already drawn inside the brackets (concept 6.3)", () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapBlock()) // an empty group: [null, null, null]
+    // two of the four operands and one of the three operators are now on
+    // screen as the group's own slots
+    expect(result.current.scaffoldOperands).toBe(2)
+    expect(result.current.scaffoldOperators).toBe(2)
+  })
+})
+
 describe('useGame — submit (concept 9.1)', () => {
   it('does nothing while incomplete', () => {
     const { result } = setup([3, 7], 10)
@@ -232,6 +270,26 @@ describe('useGame — drag: placing from the tray (concept 5.1)', () => {
     const group = result.current.expr.root.children[0] as { kind: string; children: unknown[] }
     expect(group.kind).toBe('group')
     expect(group.children).toEqual([null, null, null])
+  })
+
+  it('a number dropped on a slot that already holds one replaces it, and the displaced number returns to the tray', () => {
+    const { result } = setup([3, 7], 10)
+    const id3 = idOf(result.current, 3), id7 = idOf(result.current, 7)
+    act(() => result.current.onDrop({ id: id3, kind: 'operand', data: { role: 'number' } }, { zoneId: 'root-0', occupied: false }))
+    act(() => result.current.onDrop({ id: id7, kind: 'operand', data: { role: 'number' } }, { zoneId: 'root-0', occupied: true }))
+    expect(result.current.trayNumbers.find(n => n.id === id7)!.used).toBe(true)
+    expect(result.current.trayNumbers.find(n => n.id === id3)!.used).toBe(false) // back in the tray, not lost
+    expect(result.current.expr.root.children).toHaveLength(1)
+  })
+
+  it('an operator dropped on a slot that already holds one replaces it', () => {
+    const { result } = setup([3, 7], 10)
+    act(() => result.current.onDrop({ id: idOf(result.current, 3), kind: 'operand', data: { role: 'number' } }, { zoneId: 'root-0', occupied: false }))
+    act(() => result.current.onDrop({ id: 'tray-op-+', kind: 'operator', data: { role: 'operator', operator: '+' } }, { zoneId: 'root-1', occupied: false }))
+    act(() => result.current.onDrop({ id: idOf(result.current, 7), kind: 'operand', data: { role: 'number' } }, { zoneId: 'root-2', occupied: false }))
+    expect(result.current.result).toBe(10)
+    act(() => result.current.onDrop({ id: 'tray-op-*', kind: 'operator', data: { role: 'operator', operator: '*' } }, { zoneId: 'root-1', occupied: true }))
+    expect(result.current.result).toBe(21)
   })
 
   it('dragging a block in cannot exceed the budget either — same cap the tray chip disables itself for', () => {
