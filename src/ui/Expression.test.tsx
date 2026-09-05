@@ -108,15 +108,49 @@ describe('Expression — dissolving a group (concept 6.5: tap the bracket edge, 
 })
 
 describe('Expression — drop zone registration (concept 3.1)', () => {
-  it('registers a zone per position, including the trailing frontier, with correct kind/occupied', () => {
+  it('registers a zone per position, including the trailing scaffold, with correct kind/occupied', () => {
     const registerZone = vi.fn()
     const expr = exprOf([num(3, 0), createOperatorLeaf('+')])
-    render(<Expression expr={expr} onTapLeaf={noop} onDissolveGroup={noop} registerZone={registerZone} />)
+    render(<Expression expr={expr} scaffoldOperands={1} onTapLeaf={noop} onDissolveGroup={noop} registerZone={registerZone} />)
 
     const calls = new Map(registerZone.mock.calls.map(([zoneId, kind, occupied]) => [zoneId, { kind, occupied }]))
     expect(calls.get(rootZoneId(0))).toEqual({ kind: 'operand', occupied: true })
     expect(calls.get(rootZoneId(1))).toEqual({ kind: 'operator', occupied: true })
-    expect(calls.get(rootZoneId(2))).toEqual({ kind: 'operand', occupied: false }) // trailing frontier
+    expect(calls.get(rootZoneId(2))).toEqual({ kind: 'operand', occupied: false }) // the one scaffold slot
+  })
+
+  it('registers every scaffold slot, not just the first, at the root index it stands for', () => {
+    // What makes dragging worth more than tapping: a chip can go into the
+    // *third* free slot, not only the next one.
+    const registerZone = vi.fn()
+    render(
+      <Expression
+        expr={exprOf([])}
+        scaffoldOperands={3}
+        scaffoldOperators={2}
+        onTapLeaf={noop}
+        onDissolveGroup={noop}
+        registerZone={registerZone}
+      />
+    )
+    const calls = new Map(registerZone.mock.calls.map(([zoneId, kind, occupied]) => [zoneId, { kind, occupied }]))
+    expect(calls.get(rootZoneId(0))).toEqual({ kind: 'operand', occupied: false })
+    expect(calls.get(rootZoneId(1))).toEqual({ kind: 'operator', occupied: false })
+    expect(calls.get(rootZoneId(2))).toEqual({ kind: 'operand', occupied: false })
+    expect(calls.get(rootZoneId(3))).toEqual({ kind: 'operator', occupied: false })
+    expect(calls.get(rootZoneId(4))).toEqual({ kind: 'operand', occupied: false })
+  })
+
+  it('registers nothing beyond what it draws — a full expression has no phantom trailing zone', () => {
+    // The original drag bug in one line: the only zone in an empty field
+    // was a frontier that rendered nothing, so it measured 0x0 and no
+    // pointer could ever hit it. A position is a target exactly when the
+    // player can see it.
+    const registerZone = vi.fn()
+    const expr = exprOf([num(3, 0), createOperatorLeaf('+'), num(7, 1)])
+    render(<Expression expr={expr} onTapLeaf={noop} onDissolveGroup={noop} registerZone={registerZone} />)
+    const ids = registerZone.mock.calls.filter(([, , , el]) => el !== null).map(([zoneId]) => zoneId)
+    expect(ids).not.toContain(rootZoneId(3))
   })
 
   it('registers zones inside a group under group-<id>-<index>', () => {
@@ -141,7 +175,7 @@ describe('Expression — drop zone registration (concept 3.1)', () => {
 describe('Expression — active zone highlighting (concept 3.1)', () => {
   it('marks the currently hit zone, and only that one', () => {
     const expr = exprOf([num(3, 0), createOperatorLeaf('+')])
-    render(<Expression expr={expr} onTapLeaf={noop} onDissolveGroup={noop} activeZoneId={rootZoneId(2)} />)
+    render(<Expression expr={expr} scaffoldOperands={1} onTapLeaf={noop} onDissolveGroup={noop} activeZoneId={rootZoneId(2)} />)
     expect(document.querySelectorAll('[class*="activeZone"]')).toHaveLength(1)
   })
 })

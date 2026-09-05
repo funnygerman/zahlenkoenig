@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
-  insertOperand, fillGap, swapSlots, removeOperand, removeOperator,
+  insertOperand, placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   wrapGroup, dissolveGroup, dropZones, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
@@ -219,6 +219,62 @@ describe('isExpressionComplete', () => {
 
 // ---------------------------------------------------------------- drop zones
 
+describe('placeAt: an open position can be anywhere, including past the end', () => {
+  it('fills a gap inside the sequence without changing its length', () => {
+    expect(placeAt([1, null, 3], 1, 2)).toEqual([1, 2, 3])
+  })
+
+  it('appends at the frontier', () => {
+    expect(placeAt([1, 2], 2, 3)).toEqual([1, 2, 3])
+  })
+
+  it('opens every position in between when the target is past the end', () => {
+    // The player dropped into the third scaffold slot of an empty field.
+    // The two positions before it are now real, open gaps — not skipped,
+    // and not silently collapsed to the front.
+    expect(placeAt([], 4, 'x')).toEqual([null, null, null, null, 'x'])
+  })
+
+  it('displaces nothing — the node ends up at exactly the index asked for', () => {
+    const out = placeAt([1, 2, 3], 6, 9)
+    expect(out[6]).toBe(9)
+    expect(out.slice(0, 3)).toEqual([1, 2, 3])
+    expect(out).toHaveLength(7)
+  })
+
+  it('leaves the input untouched', () => {
+    const input = [1, null, 3]
+    placeAt(input, 5, 9)
+    expect(input).toEqual([1, null, 3])
+  })
+})
+
+describe('trimTrailingGaps', () => {
+  it('drops open positions at the end', () => {
+    expect(trimTrailingGaps([1, 2, 3, null, null])).toEqual([1, 2, 3])
+  })
+
+  it('keeps gaps that still have content behind them', () => {
+    expect(trimTrailingGaps([1, null, 3])).toEqual([1, null, 3])
+  })
+
+  it('leaves a sequence with no trailing gap alone', () => {
+    expect(trimTrailingGaps([1, 2, 3])).toEqual([1, 2, 3])
+  })
+
+  it('collapses an all-gap sequence to empty', () => {
+    expect(trimTrailingGaps([null, null])).toEqual([])
+  })
+
+  it('is what keeps a finished expression from looking unfinished', () => {
+    // `3 + 7 ⬚` has an even length, so isFilledAndOdd says incomplete and
+    // `=` would stay disabled on an expression that is in fact done.
+    const children = [num(3, 0), createOperatorLeaf('+'), num(7, 1), null]
+    expect(isExpressionComplete({ root: { id: 'root', kind: 'group', children } })).toBe(false)
+    expect(isExpressionComplete({ root: { id: 'root', kind: 'group', children: trimTrailingGaps(children) } })).toBe(true)
+  })
+})
+
 describe('dropZones (concept 3.1)', () => {
   it('alternates operand/operator by position, plus one trailing frontier zone', () => {
     const children: Slot[] = [num(3, 0), createOperatorLeaf('+'), num(7, 1)]
@@ -243,8 +299,18 @@ describe('nextOpenSurface (concept 3.1: document order, group interiors first)',
     expect(nextOpenSurface(createExpression(), 'operand')).toEqual({ groupId: null, index: 0, kind: 'operand' })
   })
 
-  it('an empty root has no open operator surface yet — nothing precedes it', () => {
-    expect(nextOpenSurface(createExpression(), 'operator')).toBeNull()
+  it('an empty root: the first operator surface is index 1, with the operand before it left open', () => {
+    // Structural, not a judgement about whether starting with an operator
+    // is sensible: index 1 IS where an operator goes. `placeAt` opens
+    // index 0, and the field draws it as the gap it is.
+    expect(nextOpenSurface(createExpression(), 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
+  })
+
+  it('after one number, a second number goes at index 2 — the operator between them stays open', () => {
+    // The rule that makes tapping two numbers in a row work at all.
+    const expr = createExpression()
+    expr.root.children = [num(3, 0)]
+    expect(nextOpenSurface(expr, 'operand')).toEqual({ groupId: null, index: 2, kind: 'operand' })
   })
 
   it('after one number, the next operator surface is the trailing frontier', () => {
@@ -273,13 +339,13 @@ describe('nextOpenSurface (concept 3.1: document order, group interiors first)',
     expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
   })
 
-  it('returns null for the kind that has no open surface, even on a complete tree', () => {
-    // [3, +, 7] is already complete — no stored operand gap exists anywhere,
-    // and the trailing frontier itself is operator-kind (odd index), so
-    // there is no operand surface at all.
+  it('names a position past the end even on a complete tree — the budget is the caller\'s job, not this function\'s', () => {
+    // [3, +, 7] is complete and has no stored gap, but index 4 is still
+    // where a fourth operand would structurally go. `useGame` is what
+    // knows a 2-number puzzle has no fourth operand to put there.
     const expr = createExpression()
     expr.root.children = [num(3, 0), createOperatorLeaf('+'), num(7, 1)]
-    expect(nextOpenSurface(expr, 'operand')).toBeNull()
+    expect(nextOpenSurface(expr, 'operand')).toEqual({ groupId: null, index: 4, kind: 'operand' })
   })
 
   it("is purely structural — the trailing frontier is 'open' regardless of whether the puzzle actually has another chip of that kind left; gating that is the caller's job", () => {
@@ -305,16 +371,17 @@ describe('nextOpenRootSurface (a block only ever targets a root position)', () =
     expect(nextOpenRootSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
   })
 
-  it("returns null rather than the group's own interior once the frontier past it is operator-kind", () => {
-    // [g] is length 1 — the root frontier right after it is an *operator*
-    // position (concept 2.1's parity), not an operand one, so there's
-    // genuinely no root-level operand surface yet: an operator has to go
-    // between two operands first. The point is what it must NOT do —
-    // wander into g's own still-open interior the way nextOpenSurface would.
+  it("steps past a still-open group to the operand position beyond it, never into its interior", () => {
+    // [g] is length 1, so the position right after it is an *operator* one
+    // (concept 2.1's parity) and the next operand is index 2 — a second
+    // block goes beside the first, with an open operator between them.
+    // The point is what it must NOT do: wander into g's own still-open
+    // interior the way nextOpenSurface would, and overwrite g.
     const expr = createExpression()
     const g: Group = { id: 'g1', kind: 'group', children: [null, null, null] } // freshly placed, nothing filled yet
     expr.root.children = [g]
-    expect(nextOpenRootSurface(expr, 'operand')).toBeNull()
+    expect(nextOpenSurface(expr, 'operand')).toEqual({ groupId: 'g1', index: 0, kind: 'operand' })
+    expect(nextOpenRootSurface(expr, 'operand')).toEqual({ groupId: null, index: 2, kind: 'operand' })
   })
 
   it('a second block goes after the first once an operator separates them', () => {
@@ -330,10 +397,10 @@ describe('nextOpenRootSurface (a block only ever targets a root position)', () =
     expect(nextOpenRootSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
   })
 
-  it('returns null for the kind that has no open root surface', () => {
+  it('names a position past the end, same as nextOpenSurface — the budget gate is the caller\'s', () => {
     const expr = createExpression()
     expr.root.children = [num(3, 0), createOperatorLeaf('+'), num(7, 1)]
-    expect(nextOpenRootSurface(expr, 'operand')).toBeNull()
+    expect(nextOpenRootSurface(expr, 'operand')).toEqual({ groupId: null, index: 4, kind: 'operand' })
   })
 })
 

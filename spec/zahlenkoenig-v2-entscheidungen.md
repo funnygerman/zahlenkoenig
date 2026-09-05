@@ -108,6 +108,55 @@ eine Mindestbreite geben (kostet genau die Breite, die 12.5 nicht hat).
 aus) · Zonen während des Ziehens neu vermessen · das Geisterelement über
 React-State bewegen · dekorative Gerüstflächen zu eigenen Ablagezielen machen.
 
+
+### 3.2 Jede Fläche ist ein Ziel (zweiter Gerätetest)
+
+Mit reparierter Zeigerschicht war die erste Rückmeldung: „Ich kann nur auf den
+ersten freien Platzhalter ablegen. **Damit ergibt Ziehen wenig Sinn, ich könnte
+genauso gut tippen.**" Das trifft den Kern – 6.4 hatte die Gerüstflächen
+absichtlich als Deko geführt, und genau das nahm dem Ziehen seinen Zweck. **PO:
+jede freie Fläche ist ein Ablageziel**, Zahl in jede Zahl-Fläche, Operator in
+jede Operator-Fläche. 6.4 ist entsprechend geändert.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Ablegen jenseits des bisherigen Endes füllt die übersprungenen Positionen als offene Lücken** (`placeAt`) | Wer auf die dritte Zahl-Fläche ablegt, meint die dritte. Der Baum reicht dort noch nicht hin, also wächst er – mit `null` an allen Stellen dazwischen, was genau das ist, was das Feld ohnehin schon zeichnet. Nichts wird verschoben: `children[index]` ist vorher und nachher dieselbe Position. |
+| **Nachlaufende Lücken werden nie gespeichert** (`trimTrailingGaps`) | Das Gerüst leitet sie ohnehin aus der Ablage her; gespeichert stünden sie doppelt. Vor allem aber lässt eine gespeicherte Schlusslücke einen **fertigen** Ausdruck unfertig aussehen: `3 + 7 ⬚` hat gerade Länge, `isExpressionComplete` sagt nein, und `=` bliebe grau. |
+| **Getippte Zahl → nächste freie Zahl-Position, getippter Operator → nächste freie Operator-Position** (PO) | Vorher ließ sich keine zweite Zahl hintereinander tippen: die Suche gab für „Operand" nichts zurück, sobald die nächste Position eine Operator-Position war. `entwurf.html`s `nextOpenOperand` hat seit jeher das `+ 1`, das darüber hinweggeht – der Entwurf konnte es, die App nicht. |
+| **Auch der erste Chip darf ein Operator sein** | Über den Entwurf hinaus (dort ist es ein No-op). Sobald jede Fläche ein Ziel ist, wäre Tippen sonst strenger als Ziehen, und die Regel „nächste freie Fläche dieser Art" hätte eine Ausnahme, die man dem Feld nicht ansieht. Rückgängig zu machen ist eine Zeile, falls der PO die Entwurfsfassung will. |
+| **Das Budget prüft `useGame`, nicht der Baum** | `nextOpenSurface` kennt jetzt immer eine Position – die Folge kann ja immer wachsen. Dass ein 4-Zahlen-Rätsel genau drei Operatoren hat, weiß die Spielschicht; sie lehnt den vierten Tipp ab, statt den Ausdruck wachsen zu lassen. Derselbe Deckel, den der Block-Chip durch Deaktivieren zieht. |
+| **Zwei getippte Blöcke stehen nebeneinander statt einer davon ins Leere zu laufen** | Fällt als Nebenwirkung derselben Regel an, und ist besser als das vorherige No-op: zweimal tippen legt direkt die Form aus 12.5 hin, `(⬚○⬚) ○ (⬚○⬚)`. Was weiterhin nicht passieren darf – der zweite Tipp findet die *Innenfläche* des ersten Blocks und überschreibt ihn – verhindert `nextOpenRootSurface` wie bisher. |
+
+Zwei Regeln der Zeigerschicht mussten dafür schärfer werden:
+
+- **Eine Fläche der anderen Art ist eine Absage, kein Beinahe-Treffer.** Wer
+  einen Operator mitten auf einer leeren *Zahl*-Fläche loslässt, greift sonst
+  über sie hinweg zum Operator 20px daneben und ersetzt den – man zielt auf
+  eine Fläche und trifft die Nachbarin. Getroffen wird jetzt: Rechteck der
+  passenden Art → Rechteck der anderen Art (dann: nichts) → nächstgelegene
+  passende innerhalb der Toleranz.
+- **Toleranz von 28px auf 8px.** Jede Wurzelposition ist jetzt so hoch wie ihre
+  Zeile (offene *und* belegte), also muss die Toleranz nicht mehr senkrecht zu
+  einer Fläche *hinaufreichen*, sondern nur die waagerechten Nähte schließen:
+  4px Flex-Abstand, 5px Feldrand, der 0px breite Rand einer Gruppe. Das ist
+  auch nötig: die Ablage beginnt 11px unter den Flächen, und mit 28px landete
+  ein Loslassen am oberen Rand eines Ablage-Chips noch im Feld – „herausziehen"
+  wurde unzuverlässig. Die letzte Fläche nimmt sich den freien Rest der
+  Feldbreite (`flex-grow`), damit der leere rechte Teil des Feldes zu ihr
+  gehört statt zu nichts; wachsen kann sie nur in Platz, den das Feld übrig
+  hat, und im schlimmsten Fall aus 12.5 hat es keinen.
+
+**Zur Frage, ob der Entwurf Drag-and-Drop hatte: nein.** `spec/entwurf.html`
+hört ausschließlich auf `click`; seine `.ghost`-Klasse ist die blasse
+Gerüstfläche aus 6.4, nicht ein Geisterelement am Finger. Er war nie ein
+Beleg dafür, dass Ziehen funktioniert – nur dafür, wie Tippen sich anfühlt.
+
+**Verworfen:** die Gerüstflächen als Deko belassen (nimmt dem Ziehen den Zweck
+– der Befund, der diese Runde ausgelöst hat) · eine einzige große Ablagefläche
+über das ganze Gerüst (macht aus sieben sichtbaren Zielen wieder eines) ·
+nachlaufende Lücken speichern (siehe oben) · die Toleranz senkrecht großzügig
+lassen (frisst den Abstand zur Ablage).
+
 ---
 
 ## 4. Fortschritt und Rückmeldung

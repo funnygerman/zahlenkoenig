@@ -127,6 +127,40 @@ export function insertOperand<T>(children: readonly (T | null)[], index: number,
   return next
 }
 
+/**
+ * Places a node at `index`, growing the sequence with open gaps if that
+ * position doesn't exist yet. The three cases are one operation seen at
+ * different distances: inside the sequence it fills a gap, exactly at the
+ * end it appends, and beyond the end it opens every position in between
+ * first. That last case is what lets a player drop a chip into the *third*
+ * scaffold slot of an empty field and leave the first two open — the
+ * scaffold (concept 6.4) shows those positions, so dropping into one has
+ * to mean the position it shows, not "wherever there's room".
+ *
+ * Not `insertOperand`: nothing is displaced. `children[index]` is that
+ * position, before and after.
+ */
+export function placeAt<T>(children: readonly (T | null)[], index: number, node: T): (T | null)[] {
+  const next = children.slice()
+  while (next.length < index) next.push(null)
+  if (index === next.length) next.push(node)
+  else next[index] = node
+  return next
+}
+
+/**
+ * Drops open positions from the end. They aren't content — the scaffold
+ * re-derives exactly as many as the puzzle still needs (concept 6.4), so
+ * storing them too would show them twice; and a stored trailing gap makes
+ * a finished expression look unfinished (`3 + 7 ⬚` has an even length, so
+ * `isExpressionComplete` says no and `=` stays disabled).
+ */
+export function trimTrailingGaps<T>(children: readonly (T | null)[]): (T | null)[] {
+  let end = children.length
+  while (end > 0 && children[end - 1] === null) end -= 1
+  return children.slice(0, end)
+}
+
 /** `children[i] = node` — fills an already-open gap without changing length. */
 export function fillGap<T>(children: readonly (T | null)[], index: number, node: T): (T | null)[] {
   const next = children.slice()
@@ -234,15 +268,30 @@ export interface Surface {
 }
 
 /**
- * The next open surface of the given kind, walking the tree in document
- * order, or null if there isn't one. Purely structural: the trailing
- * frontier always counts as "open" for whichever kind matches its parity,
- * even once a puzzle's own chip budget is exhausted (e.g. the frontier
- * after a complete 2-number expression is technically an open operator
- * surface). Whether there's actually another chip of that kind left to put
- * there is the caller's concern, not this function's.
+ * The first position of this kind entirely past the content: `end` itself
+ * when the parity matches, the one after it otherwise.
+ *
+ * The "otherwise" is what lets a player tap two numbers in a row. After
+ * `6` the content ends at index 1, an operator position; the next *number*
+ * belongs at index 2, and the operator position it steps over simply stays
+ * open (`placeAt` opens it). Returning nothing there instead — which is
+ * what this used to do — meant a tapped number was silently ignored unless
+ * an operator had been tapped immediately before it. `entwurf.html`'s own
+ * `nextOpenOperand` has had the same `+ 1` from the start.
  */
-export function nextOpenSurface(expr: Expression, kind: DropZoneKind): Surface | null {
+function positionPastEnd(end: number, kind: DropZoneKind): number {
+  const parity = kind === 'operand' ? 0 : 1
+  return end % 2 === parity ? end : end + 1
+}
+
+/**
+ * The next open surface of the given kind, walking the tree in document
+ * order. Purely structural, and never null — the sequence can always grow,
+ * so a position of either kind always exists. Whether the puzzle has
+ * another chip of that kind left to put there is the caller's concern:
+ * `useGame` gates numbers by the tray and operators by n − 1.
+ */
+export function nextOpenSurface(expr: Expression, kind: DropZoneKind): Surface {
   const { children } = expr.root
   for (let i = 0; i < children.length; i++) {
     const slot = children[i]
@@ -258,8 +307,7 @@ export function nextOpenSurface(expr: Expression, kind: DropZoneKind): Surface |
     const zoneKind: DropZoneKind = i % 2 === 0 ? 'operand' : 'operator'
     if (slot === null && zoneKind === kind) return { groupId: null, index: i, kind }
   }
-  const frontierKind: DropZoneKind = children.length % 2 === 0 ? 'operand' : 'operator'
-  return frontierKind === kind ? { groupId: null, index: children.length, kind } : null
+  return { groupId: null, index: positionPastEnd(children.length, kind), kind }
 }
 
 /**
@@ -271,7 +319,7 @@ export function nextOpenSurface(expr: Expression, kind: DropZoneKind): Surface |
  * finds a group's own open interior slot and overwrites the group sitting
  * there instead of adding a second one alongside it).
  */
-export function nextOpenRootSurface(expr: Expression, kind: DropZoneKind): Surface | null {
+export function nextOpenRootSurface(expr: Expression, kind: DropZoneKind): Surface {
   const { children } = expr.root
   for (let i = 0; i < children.length; i++) {
     const slot = children[i]
@@ -279,8 +327,7 @@ export function nextOpenRootSurface(expr: Expression, kind: DropZoneKind): Surfa
     const zoneKind: DropZoneKind = i % 2 === 0 ? 'operand' : 'operator'
     if (slot === null && zoneKind === kind) return { groupId: null, index: i, kind }
   }
-  const frontierKind: DropZoneKind = children.length % 2 === 0 ? 'operand' : 'operator'
-  return frontierKind === kind ? { groupId: null, index: children.length, kind } : null
+  return { groupId: null, index: positionPastEnd(children.length, kind), kind }
 }
 
 // ------------------------------------------------------- block drop targeting

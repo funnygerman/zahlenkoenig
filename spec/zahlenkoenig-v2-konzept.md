@@ -298,8 +298,24 @@ Drei Folgen:
   Endbreite, Chips landen an ihrem Platz statt alles zur Seite zu schieben.
 
 Platzhalter werden in **voller Chipbreite** gezeichnet, aber sehr blass:
-Layoutstabilität wiegt schwerer als der erste Eindruck. Sie sind **keine
-eigenen Ablageziele** – die gültigen Ziele bleiben die aus 6.1.
+Layoutstabilität wiegt schwerer als der erste Eindruck.
+
+**Jeder Platzhalter ist ein eigenes Ablageziel** (PO, Revision nach dem zweiten
+Gerätetest). Ursprünglich stand hier das Gegenteil – „keine eigenen Ablageziele",
+gültig bleiben die Ziele aus 6.1 –, mit dem Gedanken, dass ohnehin immer nur
+eine Einfügestelle lebendig ist. Am Gerät stellte sich heraus, dass damit **das
+Ziehen selbst überflüssig wird**: wenn ein Chip nur an der nächsten freien
+Stelle landen kann, sagt Ziehen nichts, was Tippen nicht schon sagt. Eine Zahl
+darf also in *jede* freie Zahl-Fläche, ein Operator in *jede* freie
+Operator-Fläche, auch quer über noch leere Positionen hinweg. Die übersprungenen
+Positionen bleiben als offene Lücken stehen – die Anzahl stimmt weiterhin, nur
+die Reihenfolge des Füllens ist jetzt frei.
+
+Dieselbe Freiheit gilt beim **Tippen**: eine getippte Zahl geht an die nächste
+freie *Zahl*-Position, ein getippter Operator an die nächste freie
+*Operator*-Position. Nach `6` ist das für eine zweite Zahl Position 2, nicht
+Position 1; der Operator dazwischen bleibt offen. Zwei Zahlen hintereinander zu
+tippen muss gehen, ohne dass man vorher einen Operator setzt.
 
 ### 6.5 Ein Block wird getippt, nicht zerlegt
 
