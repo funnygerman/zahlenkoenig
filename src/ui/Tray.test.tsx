@@ -161,7 +161,13 @@ describe('Tray — submit (concept 9.1: dimmed until the expression is complete)
 })
 
 describe('Tray — drag wiring (concept 5.1)', () => {
-  it('wires dragHandlers onto unused number and block chips, not placeholders', () => {
+  it('wires dragHandlers onto every number and block chip, used placeholders included', () => {
+    // Not conditioned on `used`: a tap's pointerup already re-renders with
+    // the flipped `used` value before the browser's trailing native click
+    // for that same gesture fires, so a `used`-conditioned wiring would
+    // undo the tap it just made (see Tray.tsx's own note on this). onTap
+    // itself already handles both directions, so drag stays wired
+    // regardless of `used`.
     const dragHandlers = vi.fn((_item: { id: string; kind: 'operand' | 'operator' }) => (
       { onPointerDown: vi.fn(), onPointerMove: vi.fn(), onPointerUp: vi.fn(), onPointerCancel: vi.fn() }
     ))
@@ -175,11 +181,10 @@ describe('Tray — drag wiring (concept 5.1)', () => {
         dragHandlers={dragHandlers}
       />
     )
-    // called for: n1 (unused number), b0 (unused block), and the '+' operator chip — not n0 (used)
     const calledIds = dragHandlers.mock.calls.map(([item]) => item.id)
+    expect(calledIds).toContain('n0')
     expect(calledIds).toContain('n1')
     expect(calledIds).toContain('b0')
-    expect(calledIds).not.toContain('n0')
   })
 
   it("doesn't also attach a plain onClick where drag is wired — a real tap would otherwise fire both the native click and useDrag's own tap detection", async () => {

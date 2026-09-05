@@ -63,14 +63,23 @@ function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: s
   // 6px threshold, concept 5.1) is the only tap path — a plain onClick
   // alongside it would double-fire, since both a native click and
   // useDrag's onPointerUp-detected tap happen on the same gesture.
-  const hasDrag = drag && !slot.used
+  //
+  // This must not depend on `slot.used`: a tap's own pointerup already
+  // calls onTap and (synchronously, in React) re-renders with the new
+  // `used` value *before* the browser fires the trailing native `click`
+  // for that same physical gesture — so a `used`-conditioned `hasDrag`
+  // flips mid-gesture and the now-defined onClick fires too, undoing the
+  // tap it just made. onTap itself already handles both directions
+  // (onTapNumber checks placedIds), so drag stays the only path
+  // regardless of `used`.
+  const hasDrag = Boolean(drag)
   return (
     <Chip
       variant="number"
       value={slot.value}
       placeholder={slot.used}
       onClick={hasDrag ? undefined : () => onTap(slot.id)}
-      {...(hasDrag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number' } }) : undefined)}
+      {...(drag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number' } }) : undefined)}
     />
   )
 }
@@ -99,14 +108,15 @@ export function Tray({
           <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} />
         ))}
         {blockSlots.map(slot => {
-          const hasDrag = dragHandlers && !slot.used
+          // Same reasoning as NumberCell's hasDrag above — not conditioned on `slot.used`.
+          const hasDrag = Boolean(dragHandlers)
           return (
             <Chip
               key={slot.id}
               variant="block"
               placeholder={slot.used}
               onClick={hasDrag ? undefined : () => onTapBlock(slot.id)}
-              {...(hasDrag ? dragHandlers({ id: slot.id, kind: 'operand', data: { role: 'block' } }) : undefined)}
+              {...(dragHandlers ? dragHandlers({ id: slot.id, kind: 'operand', data: { role: 'block' } }) : undefined)}
             />
           )
         })}

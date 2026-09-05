@@ -1,0 +1,45 @@
+/* Not concept 12.1's final 5-column grid — see Game.tsx's own note on why. */
+
+.game {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+  padding: var(--gap);
+  background: var(--zk-bg);
+  font-family: var(--font-board);
+}
+
+.fieldRow {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+}
+
+.fieldRow > :first-child {
+  flex: 1; /* the Expression field grows; the target chip beside it stays fixed */
+}
+
+.readout {
+  min-height: 1.5em;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--zk-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.wrong {
+  color: hsl(2 62% 48%);
+}
+
+.ghost {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: var(--fn);
+  height: var(--fn);
+  border-radius: calc(var(--cell) * 0.16);
+  background: var(--zk-chip);
+  opacity: 0.6;
+  pointer-events: none;
+  z-index: 100;
+}
