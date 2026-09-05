@@ -8,9 +8,9 @@ Deployed to GitHub Pages from `main` via Actions.
 
 ## Read this before working on v2
 
-v2 is a re-architecture of the input, planned in detail and **not yet
-implemented**. Two documents carry it, and both are worth reading before
-proposing anything:
+v2 is a re-architecture of the input. Planning is done and implementation is
+under way (see "Where v2 stands" below). Two documents carry the plan, and
+both are worth reading before proposing anything:
 
 | File | What it is |
 |---|---|
@@ -26,42 +26,56 @@ The v1 documents (`zahlenkoenig-anforderungen.md`, `zahlenkoenig-spezifikation.m
 describe the app as it currently stands. Where they disagree with the v2 concept,
 the v2 concept wins for anything being built now.
 
+## Next v2 step
+
+**Step 3** (concept section 16, "vollständige Spielschleife"): wire
+`puzzles.ts`'s `nextPuzzle()` into `Game.tsx` in place of its current
+hardcoded `(6+2)×(9−3)=48`, build the selection/settings UI (concept section
+15), and give the notation line real precedence-aware notation instead of
+just the evaluated result. `onSubmit`'s `=` check already exists in
+`useGame.ts`. Concept section 18 lists what else this step needs first.
+
+**If asked to "implement next step" with nothing more specific, this is the
+step.** Before ending your turn: if concept section 16's stated result for
+this step is actually true, update this section — in the same PR — to name
+the *following* step instead, so the next session can start from the same
+bare instruction. If the step isn't fully done, leave this section as it is;
+don't advance the pointer on a partial result.
+
 ## Where v2 stands
 
-Planning is complete; no application code has been written. Section 16 of the
-concept document lists the implementation steps, section 18 what is still
-missing before each one.
+Steps 0–2 of concept section 16 are done and merged to `main`: vitest is set
+up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`) is
+written and tested, and `src/ui/` has a playable board (`Game.tsx`, wiring
+`useGame.ts` + `useDrag.ts` + `Chip`/`Tray`/`Expression`). Puzzle generation is
+already on-device (step 2b, `puzzles.ts`'s `nextPuzzle()` — no bank, no
+bank JSON; the "two things to know before touching the puzzle bank" this
+section used to warn about are gone, not just moved) — `Game.tsx` just doesn't
+call it yet.
 
-Start at step 0: **add vitest** (`*.test.ts` beside the sources, `npm test`),
-then write `src/core/` — `expression.ts`, `evaluate.ts`, `solver.ts` — pure
-TypeScript with no React imports. First property to test: `wrap` and `dissolve`
-are exact inverses.
+**Try it**: `index-v2.html`/`src/main-v2.tsx` mount `Game.tsx` standalone,
+separate from v1's `src/main.tsx`. `npm run build` emits both, so every push
+to `main` deploys the v2 preview too, at `/zahlenkoenig/index-v2.html` — open
+it on a real device rather than guessing from the code.
 
 **There are no levels any more.** A1–F3 and E1 are gone; the player sets three
 things directly — how many numbers, which operators, how big the target — and the
 target range is *derived* from that selection rather than fixed, so no
-combination can be empty. Concept section 15 is the whole story;
-`models/Level.ts` and `LEVELS` disappear with it.
+combination can be empty. Concept section 15 is the whole story.
 
-Two things to know before touching the puzzle bank:
-
-- **The v1 generator does not implement v2's rule.** It counts brackets; v2
-  counts nesting. At `maxBracketDepth: 1` it never emits two sibling groups
-  `(1+1)×(1+2)` or a three-number group `(1+1+1)×3` — the two shapes v2's whole
-  block interaction is built on. `node scripts/checkBankShapes.mjs` shows it.
-  So the banks get regenerated (concept section 15), and `generatePuzzles.mjs`
-  gets rewritten on the model in `checkDepth1.mjs`, which the solver shares.
-- **The bank gains two things:** a 15-bit operator vector per puzzle (only 61
-  distinct values exist, so one byte), and a 45-row lookup table of band
-  boundaries and bank sizes — 2.7 KB, so the selection never has to solve
-  anything on the device.
+**The block chip in the tray is a single, permanent chip** (like an
+operator's), not one placeholder per unit of budget — a revision made after
+trying the first playable board (concept section 4, decisions section 3). It
+disables once the puzzle's block budget (⌊n/2⌋) is used up.
 
 The worst-case expression `(6+2) × (9−3)` fits the five-column grid with about
 7px to spare, which makes three proportions in section 12.5 load-bearing —
 expression chips are smaller than tray chips, and bracket edges are absolutely
 positioned so they cost no width. Changing any of them costs 50–80px and
 overflows. `spec/entwurf.html` recomputes the slack on every render and turns
-red if it goes negative, so a later session finds out immediately.
+red if it goes negative, so a later session finds out immediately. `Game.tsx`
+doesn't build the 5-column grid yet — that needs `Header.tsx` and the
+selection panel, which come with step 3.
 
 ## Conventions
 
