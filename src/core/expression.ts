@@ -220,3 +220,86 @@ export function dropZones<T>(children: readonly (T | null)[]): DropZone[] {
   }
   return zones
 }
+
+// ----------------------------------------------------------- next open surface
+// concept 3.1: "nächste offene Fläche" for tapping a tray chip into place —
+// strictly document order, and a group's own interior comes before the
+// surface behind the group.
+
+export interface Surface {
+  /** `null` for a root-level surface, the enclosing group's id otherwise. */
+  groupId: string | null
+  index: number
+  kind: DropZoneKind
+}
+
+/**
+ * The next open surface of the given kind, walking the tree in document
+ * order, or null if there isn't one. Purely structural: the trailing
+ * frontier always counts as "open" for whichever kind matches its parity,
+ * even once a puzzle's own chip budget is exhausted (e.g. the frontier
+ * after a complete 2-number expression is technically an open operator
+ * surface). Whether there's actually another chip of that kind left to put
+ * there is the caller's concern, not this function's.
+ */
+export function nextOpenSurface(expr: Expression, kind: DropZoneKind): Surface | null {
+  const { children } = expr.root
+  for (let i = 0; i < children.length; i++) {
+    const slot = children[i]
+    if (slot !== null && slot.kind === 'group') {
+      for (let j = 0; j < slot.children.length; j++) {
+        const zoneKind: DropZoneKind = j % 2 === 0 ? 'operand' : 'operator'
+        if (slot.children[j] === null && zoneKind === kind) {
+          return { groupId: slot.id, index: j, kind }
+        }
+      }
+      continue
+    }
+    const zoneKind: DropZoneKind = i % 2 === 0 ? 'operand' : 'operator'
+    if (slot === null && zoneKind === kind) return { groupId: null, index: i, kind }
+  }
+  const frontierKind: DropZoneKind = children.length % 2 === 0 ? 'operand' : 'operator'
+  return frontierKind === kind ? { groupId: null, index: children.length, kind } : null
+}
+
+// ------------------------------------------------------- block drop targeting
+// concept 6.1: what dropping the block chip onto existing content encloses.
+// Only resolves operand-position targets for now — 6.1 also lets an
+// operator position work identically to the operand-pair it belongs to
+// (the "nützliche Überschneidung"), but wiring that up needs the drag layer
+// to treat a dragged block as matching both zone kinds, which useDrag.ts
+// doesn't support yet (TODO, noted where the block chip's drag is wired).
+
+export type BlockDropResult =
+  | { kind: 'empty' } // an empty operand slot: place a bare, still-empty group there (concept 6.1's first row)
+  | { kind: 'wrap'; span: 1 | 3; start: number } // existing content: enclose it (concept 6.1/6.2)
+
+function isPlainLeaf(children: RootChildren, index: number): boolean {
+  const slot = children[index]
+  return slot !== null && slot !== undefined && slot.kind !== 'group'
+}
+
+/**
+ * Resolves what dropping a block chip at root `index` (an operand
+ * position) would enclose. Right-before-left (concept 6.1: "weil eine
+ * angetippte Zahl sich wie 'hier beginnt die Klammer' liest — in
+ * Leserichtung"): prefers the pair to the right, falls back to the pair on
+ * the left, and finally encloses the lone number if neither pair is
+ * available. Never reaches into or across an existing group — a group
+ * can't contain another group (concept section 4), so `isPlainLeaf`
+ * treats a neighboring group the same as a missing neighbor.
+ */
+export function resolveBlockDrop(children: RootChildren, index: number): BlockDropResult | null {
+  if (index % 2 !== 0) return null // operator position — not resolved in this pass, see the note above
+  const slot = children[index]
+  if (slot === null) return { kind: 'empty' }
+  if (slot.kind === 'group') return null // already a group — not a valid block target
+
+  if (isPlainLeaf(children, index + 1) && isPlainLeaf(children, index + 2)) {
+    return { kind: 'wrap', span: 3, start: index }
+  }
+  if (isPlainLeaf(children, index - 1) && isPlainLeaf(children, index - 2)) {
+    return { kind: 'wrap', span: 3, start: index - 2 }
+  }
+  return { kind: 'wrap', span: 1, start: index }
+}

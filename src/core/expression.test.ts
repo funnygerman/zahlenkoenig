@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, fillGap, swapSlots, removeOperand, removeOperator,
-  wrapGroup, dissolveGroup, dropZones,
+  wrapGroup, dissolveGroup, dropZones, nextOpenSurface, resolveBlockDrop,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
 } from './expression'
@@ -233,5 +233,104 @@ describe('dropZones (concept 3.1)', () => {
     expect(zones[0].occupied).toBe(true)
     expect(zones[1].occupied).toBe(false) // the null gap itself
     expect(zones[2].occupied).toBe(false) // the trailing frontier
+  })
+})
+
+// ---------------------------------------------------------- next open surface
+
+describe('nextOpenSurface (concept 3.1: document order, group interiors first)', () => {
+  it('an empty root: the first operand surface is index 0', () => {
+    expect(nextOpenSurface(createExpression(), 'operand')).toEqual({ groupId: null, index: 0, kind: 'operand' })
+  })
+
+  it('an empty root has no open operator surface yet — nothing precedes it', () => {
+    expect(nextOpenSurface(createExpression(), 'operator')).toBeNull()
+  })
+
+  it('after one number, the next operator surface is the trailing frontier', () => {
+    const expr = createExpression()
+    expr.root.children = [num(3, 0)]
+    expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
+  })
+
+  it('a stored gap (from a mid-sequence insert or a removed operator) counts before the trailing frontier', () => {
+    const expr = createExpression()
+    expr.root.children = [num(3, 0), null, num(7, 1)] // e.g. after removeOperator
+    expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
+  })
+
+  it("a group's own interior comes before the surface behind the group (concept 3.1's own wording)", () => {
+    const expr = createExpression()
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), null, num(2, 1)] }
+    expr.root.children = [g] // root's own trailing frontier (index 1) would also be an operator surface
+    expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: 'g1', index: 1, kind: 'operator' })
+  })
+
+  it('falls through to the root frontier once every group is complete', () => {
+    const expr = createExpression()
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expr.root.children = [g]
+    expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
+  })
+
+  it('returns null for the kind that has no open surface, even on a complete tree', () => {
+    // [3, +, 7] is already complete — no stored operand gap exists anywhere,
+    // and the trailing frontier itself is operator-kind (odd index), so
+    // there is no operand surface at all.
+    const expr = createExpression()
+    expr.root.children = [num(3, 0), createOperatorLeaf('+'), num(7, 1)]
+    expect(nextOpenSurface(expr, 'operand')).toBeNull()
+  })
+
+  it("is purely structural — the trailing frontier is 'open' regardless of whether the puzzle actually has another chip of that kind left; gating that is the caller's job", () => {
+    const expr = createExpression()
+    expr.root.children = [num(3, 0), createOperatorLeaf('+'), num(7, 1)] // already complete for a 2-number puzzle
+    expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: null, index: 3, kind: 'operator' })
+  })
+})
+
+// --------------------------------------------------------- block drop targeting
+
+describe('resolveBlockDrop (concept 6.1)', () => {
+  it('an empty operand slot: places a bare empty group', () => {
+    const children: Slot[] = [null]
+    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'empty' })
+  })
+
+  it('an operator position is never resolved in this pass', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
+    expect(resolveBlockDrop(children, 1)).toBeNull()
+  })
+
+  it('an existing group is not itself a valid target', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expect(resolveBlockDrop([g], 0)).toBeNull()
+  })
+
+  it('right-before-left: "6 + 2 × 9", targeting 6 wraps (6+2) — the pair to the right', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
+    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'wrap', span: 3, start: 0 })
+  })
+
+  it('targeting the middle number (2) also prefers the pair to its right: (2×9)', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
+    expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 3, start: 2 })
+  })
+
+  it('the last number has no pair to its right, so it falls back to the pair on its left', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
+    expect(resolveBlockDrop(children, 4)).toEqual({ kind: 'wrap', span: 3, start: 2 })
+  })
+
+  it('a lone number with neither pair available wraps itself alone', () => {
+    const children: Slot[] = [num(5, 0)]
+    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'wrap', span: 1, start: 0 })
+  })
+
+  it('never reaches across an existing group — a neighboring group is treated as absent, not as a pairable leaf', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(1, 0), createOperatorLeaf('+'), num(1, 1)] }
+    // g, *, 9  — targeting 9: no leaf to its right, and its left neighbor (*) pairs with a group, not a leaf
+    const children: Slot[] = [g, createOperatorLeaf('*'), num(9, 2)]
+    expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 1, start: 2 })
   })
 })
