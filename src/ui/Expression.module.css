@@ -1,0 +1,65 @@
+/* Mirrors spec/entwurf.html's `.zk-field` / `.zk-group` — see Chip.module.css's
+ * note on why proportions are copied rather than re-derived. */
+
+.field {
+  height: var(--cell);
+  border: 1.5px solid var(--zk-line);
+  border-radius: var(--radius);
+  background: var(--zk-surface);
+  display: flex;
+  align-items: center;
+  gap: var(--fg);
+  padding: 0 var(--gp);
+  overflow: hidden; /* concept 12.5: the field never wraps or scrolls */
+}
+
+/* concept 12.4: the group recedes (tinted background), its content comes
+ * forward (Chip's own `inGroup` prop handles the chip side of that). */
+.group {
+  position: relative;
+  flex: none;
+  display: flex;
+  align-items: center;
+  gap: var(--fg);
+  padding: calc(var(--cell) * .05) calc(var(--cell) * .14);
+  background: var(--zk-group-bg);
+}
+
+/* concept 12.5: absolutely positioned so the bracket edges cost NO width —
+ * the single most load-bearing rule in the whole layout (12.5's warning:
+ * making these real flex children instead overflows by 50-80px). concept
+ * 6.6: each edge gets a ~22px hit strip, well past the 2px visible stroke,
+ * because a thin bracket is a hard target and thumbs aren't precise. */
+.bracketEdge {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--cell) * .18); /* ~22px hit strip at --cell: 88px+ (concept 6.6) */
+  border: 0;
+  padding: 0;
+  background: transparent;
+  cursor: pointer;
+}
+
+.bracketLeft {
+  left: 0;
+  border-left: var(--stroke) solid var(--zk-accent);
+  border-top: var(--stroke) solid var(--zk-accent);
+  border-bottom: var(--stroke) solid var(--zk-accent);
+  border-radius: 3px 0 0 3px;
+}
+
+.bracketRight {
+  right: 0;
+  border-right: var(--stroke) solid var(--zk-accent);
+  border-top: var(--stroke) solid var(--zk-accent);
+  border-bottom: var(--stroke) solid var(--zk-accent);
+  border-radius: 0 3px 3px 0;
+}
+
+/* concept 3.1: "gestrichelte Fläche in Akzentfarbe", only visible during a drag. */
+.activeZone {
+  outline: 1.5px dashed var(--zk-accent);
+  outline-offset: 2px;
+  border-radius: calc(var(--cell) * .16);
+}

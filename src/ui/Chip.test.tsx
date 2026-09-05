@@ -61,6 +61,20 @@ describe('Chip — placeholder (concept 6.6)', () => {
   })
 })
 
+describe('Chip — ghost scaffold slots (concept 6.4: not a placeholder, not a drop target)', () => {
+  it('renders as an inert element, not a button — concept 6.4: "keine eigenen Ablageziele"', () => {
+    render(<Chip variant="number" ghost />)
+    expect(screen.queryByRole('button')).toBeNull()
+  })
+
+  it('ignores onClick — a ghost cannot be tapped', async () => {
+    const onClick = vi.fn()
+    const { container } = render(<Chip variant="number" ghost onClick={onClick} />)
+    await userEvent.click(container.firstChild as Element)
+    expect(onClick).not.toHaveBeenCalled()
+  })
+})
+
 describe('Chip — shape (concept 12.2: numbers/target/submit/block square, operators round)', () => {
   it('operator gets the circle class, everything else gets square', () => {
     const opRender = render(<Chip variant="operator" operator="+" />)

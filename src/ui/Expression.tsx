@@ -1,0 +1,230 @@
+// The expression field (concept 14: "Ausdrucksfeld + Flächen"): renders
+// the tree from core/expression.ts and registers its drop zones with the
+// shared drag layer (useDrag.ts). Reports taps and dissolves; doesn't
+// mutate the tree itself — that's the caller's job (concept 5/6.5), same
+// split as Chip.tsx and Tray.tsx.
+//
+// Not yet implemented, deliberately: concept 6.1's block-wrap preview (the
+// dashed bracket that shows exactly what a hovered block chip would
+// enclose before drop) needs the same right-before-left targeting rule
+// that decides what a *completed* drop actually wraps — building the
+// preview without the drop-time logic risks the two disagreeing.
+// Game.tsx, which will own that decision, doesn't exist yet, so this file
+// only highlights the currently-hit zone (`activeZoneId`) plainly, without
+// previewing brackets.
+
+import type { ReactNode } from 'react'
+import type { Expression as ExpressionTree, Group, Leaf } from '../core/expression'
+import { dropZones } from '../core/expression'
+import type { DragHandlers } from './useDrag'
+import { Chip } from './Chip'
+import styles from './Expression.module.css'
+
+export function rootZoneId(index: number): string {
+  return `root-${index}`
+}
+
+export function groupZoneId(groupId: string, index: number): string {
+  return `group-${groupId}-${index}`
+}
+
+/** Parses a zone id produced above; returns null for anything else (e.g. a tray zone). */
+export function parseZoneId(zoneId: string): { groupId: string | null; index: number } | null {
+  if (zoneId.startsWith('root-')) {
+    const index = Number(zoneId.slice('root-'.length))
+    return Number.isInteger(index) ? { groupId: null, index } : null
+  }
+  const match = /^group-(.+)-(\d+)$/.exec(zoneId)
+  if (!match) return null
+  return { groupId: match[1], index: Number(match[2]) }
+}
+
+export interface ExpressionProps {
+  expr: ExpressionTree
+  /** trailing scaffold slots beyond the real content — however many more operands/operators this puzzle still needs (concept 6.4), computed by the caller from what's left in the tray. A group never needs this: its own missing slots are already stored as real `null`s (concept 6.3). */
+  scaffoldOperands?: number
+  scaffoldOperators?: number
+  /** tapping a placed number or operator returns it to the tray — the exact inverse of placing it (concept 6.6). */
+  onTapLeaf: (id: string) => void
+  /** tapping a bracket edge dissolves that group; its content stays put (concept 6.5). */
+  onDissolveGroup: (groupId: string) => void
+  registerZone?: (zoneId: string, kind: 'operand' | 'operator', occupied: boolean, el: HTMLElement | null) => void
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator' }) => DragHandlers
+  /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
+  activeZoneId?: string | null
+}
+
+function GhostSlot({ kind }: { kind: 'operand' | 'operator' }) {
+  return <Chip variant={kind === 'operand' ? 'number' : 'operator'} scale="field" ghost />
+}
+
+function LeafChip({
+  leaf, inGroup, zoneId, active, onTapLeaf, registerZone, dragHandlers,
+}: {
+  leaf: Leaf
+  inGroup: boolean
+  zoneId: string
+  active: boolean
+  onTapLeaf: (id: string) => void
+  registerZone?: ExpressionProps['registerZone']
+  dragHandlers?: ExpressionProps['dragHandlers']
+}) {
+  const kind = leaf.kind === 'number' ? 'operand' : 'operator'
+  return (
+    <Chip
+      variant={leaf.kind === 'number' ? 'number' : 'operator'}
+      value={leaf.kind === 'number' ? leaf.value : undefined}
+      operator={leaf.kind === 'operator' ? leaf.value : undefined}
+      scale="field"
+      inGroup={inGroup}
+      className={active ? styles.activeZone : undefined}
+      onClick={() => onTapLeaf(leaf.id)}
+      ref={el => registerZone?.(zoneId, kind, true, el)}
+      {...(dragHandlers ? dragHandlers({ id: leaf.id, kind }) : undefined)}
+    />
+  )
+}
+
+function EmptySlot({
+  kind, zoneId, active, registerZone,
+}: {
+  kind: 'operand' | 'operator'
+  zoneId: string
+  active: boolean
+  registerZone?: ExpressionProps['registerZone']
+}) {
+  // An open gap is both a rendered ghost AND a live drop zone — concept
+  // 6.4's scaffold ghosts and concept 3.1's "jede null-Position ist eine
+  // offene Fläche" are the same slot, seen from two angles. Chip's `ghost`
+  // mode renders inert (no ref, no button), so the registerable element is
+  // a thin wrapper around it instead.
+  return (
+    <div ref={el => registerZone?.(zoneId, kind, false, el)} className={active ? styles.activeZone : undefined}>
+      <GhostSlot kind={kind} />
+    </div>
+  )
+}
+
+function GroupView({
+  group, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId,
+}: {
+  group: Group
+  onTapLeaf: (id: string) => void
+  onDissolveGroup: (groupId: string) => void
+  registerZone?: ExpressionProps['registerZone']
+  dragHandlers?: ExpressionProps['dragHandlers']
+  activeZoneId?: string | null
+}) {
+  const zones = dropZones(group.children)
+  return (
+    <div className={styles.group}>
+      <button
+        type="button"
+        className={styles.bracketEdge + ' ' + styles.bracketLeft}
+        onClick={() => onDissolveGroup(group.id)}
+        aria-label="Klammer auflösen"
+      />
+      {group.children.map((child, i) => {
+        const zoneId = groupZoneId(group.id, i)
+        const active = activeZoneId === zoneId
+        if (child === null) {
+          return <EmptySlot key={i} kind={zones[i].kind} zoneId={zoneId} active={active} registerZone={registerZone} />
+        }
+        return (
+          <LeafChip
+            key={child.id}
+            leaf={child}
+            inGroup
+            zoneId={zoneId}
+            active={active}
+            onTapLeaf={onTapLeaf}
+            registerZone={registerZone}
+            dragHandlers={dragHandlers}
+          />
+        )
+      })}
+      <button
+        type="button"
+        className={styles.bracketEdge + ' ' + styles.bracketRight}
+        onClick={() => onDissolveGroup(group.id)}
+        aria-label="Klammer auflösen"
+      />
+    </div>
+  )
+}
+
+export function Expression({
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId,
+}: ExpressionProps) {
+  const { children } = expr.root
+  const zones = dropZones(children)
+
+  const rendered = children.map((slot, i) => {
+    const zoneId = rootZoneId(i)
+    const active = activeZoneId === zoneId
+    if (slot === null) {
+      return <EmptySlot key={i} kind={zones[i].kind} zoneId={zoneId} active={active} registerZone={registerZone} />
+    }
+    if (slot.kind === 'group') {
+      return (
+        <GroupView
+          key={slot.id}
+          group={slot}
+          onTapLeaf={onTapLeaf}
+          onDissolveGroup={onDissolveGroup}
+          registerZone={registerZone}
+          dragHandlers={dragHandlers}
+          activeZoneId={activeZoneId}
+        />
+      )
+    }
+    return (
+      <LeafChip
+        key={slot.id}
+        leaf={slot}
+        inGroup={false}
+        zoneId={zoneId}
+        active={active}
+        onTapLeaf={onTapLeaf}
+        registerZone={registerZone}
+        dragHandlers={dragHandlers}
+      />
+    )
+  })
+
+  // The trailing frontier (dropZones' last entry, index === children.length)
+  // is always a live drop zone regardless of whether anything is left to
+  // place there — register it unconditionally. Whether it *shows* a ghost
+  // depends on the caller's scaffold count (concept 6.4: derived from what's
+  // left in the tray, which this component doesn't know on its own). Any
+  // scaffold slots beyond that first one are decorative only — concept 6.4:
+  // "keine eigenen Ablageziele" — since only one splice position is ever
+  // live at a time; placing into the frontier moves it forward by one.
+  const totalScaffold = scaffoldOperands + scaffoldOperators
+  const frontierIndex = children.length
+  const frontierZoneId = rootZoneId(frontierIndex)
+  const frontierKind = zones[frontierIndex].kind
+  const frontierActive = activeZoneId === frontierZoneId
+
+  const trailing: ReactNode[] = [
+    <div
+      key="frontier"
+      ref={el => registerZone?.(frontierZoneId, frontierKind, false, el)}
+      className={frontierActive ? styles.activeZone : undefined}
+    >
+      {totalScaffold > 0 && <GhostSlot kind={frontierKind} />}
+    </div>,
+  ]
+  let nextKind: 'operand' | 'operator' = frontierKind === 'operand' ? 'operator' : 'operand'
+  for (let i = 1; i < totalScaffold; i++) {
+    trailing.push(<GhostSlot key={`scaffold-${i}`} kind={nextKind} />)
+    nextKind = nextKind === 'operand' ? 'operator' : 'operand'
+  }
+
+  return (
+    <div className={styles.field}>
+      {rendered}
+      {trailing}
+    </div>
+  )
+}

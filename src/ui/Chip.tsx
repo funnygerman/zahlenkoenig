@@ -36,13 +36,21 @@ export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>,
   /** inside a group, a chip comes forward instead of staying tray-gray (concept 12.4). */
   inGroup?: boolean
   /**
-   * A dashed outline standing in for a chip that's placed elsewhere right
-   * now — in the tray for a number/block already in the expression, or in
-   * the expression for an unfilled gap (concept 6.6). Tapping it returns
-   * whatever left it; that's the caller's onClick, not this component's
-   * concern.
+   * A dashed, empty outline standing in for a chip placed elsewhere right
+   * now — in the tray, for a number or block already in the expression
+   * (concept 6.6). Tapping it returns whatever left it; that's the
+   * caller's onClick, not this component's concern.
    */
   placeholder?: boolean
+  /**
+   * A pale, filled outline in the *expression* field marking a slot the
+   * puzzle will need but nothing has been dropped into yet (concept 6.4:
+   * "Ein Gerüst ist damit in der Anzahl immer richtig"). Unlike
+   * `placeholder`, this isn't a real gap you can tap or drop onto — concept
+   * 6.4: "Sie sind keine eigenen Ablageziele" — so it renders inert, not as
+   * a button.
+   */
+  ghost?: boolean
   /** highlighted for the hint's first press (concept 10.3). */
   pulsing?: boolean
   children?: ReactNode
@@ -53,7 +61,7 @@ function cx(...parts: Array<string | false | undefined>): string {
 }
 
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
-  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, pulsing = false, className, children, disabled, ...rest },
+  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, pulsing = false, className, children, disabled, ...rest },
   ref
 ) {
   // Only the operator chip is round; the block is a normal square chip
@@ -68,9 +76,16 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
     scale === 'field' && styles.field,
     inGroup && styles.inGroup,
     placeholder && styles.placeholder,
+    ghost && styles.ghostSlot,
     pulsing && styles.pulsing,
     className
   )
+
+  if (ghost) {
+    // Not a drop target and not tappable (concept 6.4) — a plain div, not
+    // a button, and no ref: nothing ever needs to measure a ghost's rect.
+    return <div className={classNames} aria-hidden="true" />
+  }
 
   return (
     <button ref={ref} type="button" className={classNames} disabled={disabled} {...rest}>

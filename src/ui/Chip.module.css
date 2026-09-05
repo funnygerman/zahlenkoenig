@@ -107,6 +107,22 @@
   border-radius: 50%;
 }
 
+/* ---------------------------------------------------------------- ghostSlot
+ * concept 6.4: a pale, filled scaffold slot in the expression field for a
+ * chip the puzzle still needs but nothing has been dropped into yet —
+ * visually distinct from .placeholder (dashed, in the tray, a real target). */
+
+.ghostSlot {
+  background: var(--zk-chip);
+  opacity: .5;
+}
+
+.ghostSlot.circle {
+  background: transparent;
+  border: 1.5px solid var(--zk-line);
+  opacity: .55;
+}
+
 /* ------------------------------------------------------------------ pulsing
  * concept 10.3: the hint's first press pulses the two operands it names. */
 
