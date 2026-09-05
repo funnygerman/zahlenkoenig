@@ -53,6 +53,22 @@ bank JSON; the "two things to know before touching the puzzle bank" this
 section used to warn about are gone, not just moved) — `Game.tsx` just doesn't
 call it yet.
 
+**Every open position is a drop target, and tapping fills the next free one
+of its kind.** Concept 6.4 originally made the scaffold slots decorative; the
+product owner overruled that on the second device test, because a chip that can
+only land in the next free slot makes dragging pointless next to tapping. So a
+number goes into any free number slot and an operator into any free operator
+slot, skipping over positions that stay open behind it (`placeAt`), and a
+trailing gap is never stored (`trimTrailingGaps` — a stored one makes a finished
+expression look unfinished and greys out `=`). Tapping follows the same rule,
+which is what `entwurf.html` always did and the app didn't: two numbers in a row
+now work. Decisions 3.2 has the whole round, including the one place this goes
+beyond the draft (an operator may be the first chip).
+
+**`spec/entwurf.html` has no drag at all** — only `click` handlers. Its
+`.ghost` class is 6.4's pale scaffold slot, not a ghost following a finger. It
+tells you how tapping should feel, never whether dragging works.
+
 **Drag works, and was rebuilt to.** The first device test found it broken
 outright on Android and desktop alike: the ghost was positioned by the
 pointer's *travel* rather than its position (so it sat in the screen's corner),
@@ -63,7 +79,11 @@ two rules that came out of it: hit testing falls back to the nearest zone
 within 28px, and the trailing frontier is one drop target covering the scaffold
 and the empty rest of the field. Concept 6.4's scaffold is now wired up
 (`useGame`'s `scaffoldOperands`/`scaffoldOperators`), which is what gives an
-empty field anything to aim at.
+empty field anything to aim at. Two rules from that round were tightened in the
+next one: a release inside a slot of the *other* kind is a refusal rather than a
+near miss, and the tolerance is 8px, not 28 — every root position is registered
+at its row's full height now, so tolerance only bridges the horizontal seams,
+and 28px reached into the tray and broke "drag it out to remove it".
 
 **Try it**: `index-v2.html`/`src/main-v2.tsx` mount `Game.tsx` standalone,
 separate from v1's `src/main.tsx`. `npm run build` emits both, so every push

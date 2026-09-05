@@ -78,7 +78,13 @@ function LeafChip({
   // Same reasoning as Tray.tsx's chips: once drag is wired up, useDrag's
   // own tap-vs-drag detection is the only tap path, or a real tap would
   // fire both the native click and useDrag's onTap.
+  //
+  // The drop zone is the wrapper, not the chip: an occupied slot is a
+  // target too (dropping on it swaps), and it should be as easy to hit as
+  // an empty one. Same `.slot` wrapper, same row height, so every position
+  // in a row is one full-height column and the whole row is covered.
   return (
+    <div ref={el => registerZone?.(zoneId, kind, true, el)} className={styles.slot}>
     <Chip
       variant={leaf.kind === 'number' ? 'number' : 'operator'}
       value={leaf.kind === 'number' ? leaf.value : undefined}
@@ -87,7 +93,6 @@ function LeafChip({
       inGroup={inGroup}
       className={active ? styles.activeZone : undefined}
       onClick={dragHandlers ? undefined : () => onTapLeaf(leaf.id)}
-      ref={el => registerZone?.(zoneId, kind, true, el)}
       {...(dragHandlers ? dragHandlers({
         id: leaf.id,
         kind,
@@ -99,6 +104,7 @@ function LeafChip({
         },
       }) : undefined)}
     />
+    </div>
   )
 }
 
@@ -114,10 +120,13 @@ function EmptySlot({
   // 6.4's scaffold ghosts and concept 3.1's "jede null-Position ist eine
   // offene Fläche" are the same slot, seen from two angles. Chip's `ghost`
   // mode renders inert (no ref, no button), so the registerable element is
-  // a thin wrapper around it instead.
+  // a thin wrapper around it instead. The wrapper is the full height of
+  // its row while the ghost inside stays chip-sized: a slot is ~32px in a
+  // 64px field, and the 32px of dead space above and below it is exactly
+  // where a thumb aiming at the slot actually lands.
   return (
-    <div ref={el => registerZone?.(zoneId, kind, false, el)} className={active ? styles.activeZone : undefined}>
-      <GhostSlot kind={kind} />
+    <div ref={el => registerZone?.(zoneId, kind, false, el)} className={styles.slot}>
+      <GhostSlot kind={kind} active={active} />
     </div>
   )
 }
@@ -231,42 +240,37 @@ export function Expression({
   // scaffold slots beyond that first one are decorative only — concept 6.4:
   // "keine eigenen Ablageziele" — since only one splice position is ever
   // live at a time; placing into the frontier moves it forward by one.
+  // Every trailing scaffold slot is a drop target of its own, at the root
+  // index it stands for — not just the first one. Concept 6.4 originally
+  // made them decorative ("keine eigenen Ablageziele"); the product owner
+  // overruled that after playing the fixed drag: if a chip can only ever
+  // land in the next free slot, dragging says nothing tapping doesn't
+  // already say. Dropping into the third slot means the third slot, and
+  // `placeAt` opens the positions in between.
+  //
+  // They are the same component as an interior gap, deliberately: at this
+  // point "a null the tree already holds" and "a position the puzzle still
+  // needs" are one thing to a player, and were only ever two to the code.
   const totalScaffold = scaffoldOperands + scaffoldOperators
-  const frontierIndex = children.length
-  const frontierZoneId = rootZoneId(frontierIndex)
-  const frontierKind = zones[frontierIndex].kind
-  const frontierActive = activeZoneId === frontierZoneId
-
   const scaffold: ReactNode[] = []
-  let nextKind: 'operand' | 'operator' = frontierKind === 'operand' ? 'operator' : 'operand'
-  for (let i = 1; i < totalScaffold; i++) {
-    scaffold.push(<GhostSlot key={`scaffold-${i}`} kind={nextKind} />)
-    nextKind = nextKind === 'operand' ? 'operator' : 'operand'
+  for (let i = 0; i < totalScaffold; i++) {
+    const index = children.length + i
+    const zoneId = rootZoneId(index)
+    scaffold.push(
+      <EmptySlot
+        key={zoneId}
+        kind={index % 2 === 0 ? 'operand' : 'operator'}
+        zoneId={zoneId}
+        active={activeZoneId === zoneId}
+        registerZone={registerZone}
+      />
+    )
   }
 
-  // The registered element covers the frontier ghost, every decorative
-  // scaffold slot behind it, AND the empty rest of the field (`.frontier`
-  // grows into whatever room is left). That's deliberately one big target
-  // for one zone: only the frontier is ever live — the slots behind it are
-  // decorative (concept 6.4: "keine eigenen Ablageziele") — and a release
-  // over the field's empty right-hand end can't mean anything but "at the
-  // end". Where the field is full there's no leftover room to grow into,
-  // so this costs no width (concept 12.5).
-  //
-  // The highlight stays precise: with something left to place it's on the
-  // frontier ghost, the actual slot the chip lands in. Only when there's
-  // no ghost to mark does the container itself take it.
-  const frontierGhost = totalScaffold > 0
   return (
     <div className={styles.field}>
       {rendered}
-      <div
-        ref={el => registerZone?.(frontierZoneId, frontierKind, false, el)}
-        className={cx(styles.frontier, frontierActive && !frontierGhost && styles.activeZone)}
-      >
-        {frontierGhost && <GhostSlot kind={frontierKind} active={frontierActive} />}
-        {scaffold}
-      </div>
+      {scaffold}
     </div>
   )
 }

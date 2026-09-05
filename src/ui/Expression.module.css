@@ -57,34 +57,40 @@
   border-radius: 0 3px 3px 0;
 }
 
-/* The trailing frontier and everything behind it — see Expression.tsx on
- * why they're one drop target. `flex: 1` only ever absorbs room the field
- * already has spare, so a full field (concept 12.5's worst case) gives it
- * nothing and the layout is unchanged. */
-.frontier {
-  flex: 1 1 0;
-  min-width: 0;
+/* One position in the row, open or filled: chip-sized content, row-height
+ * target. The extra height costs nothing (the row is already this tall)
+ * and is where most of a thumb's aim lands — see Expression.tsx's note.
+ * Width comes from the chip inside, so concept 12.5's measurements are
+ * untouched. */
+.slot {
   align-self: stretch;
+  flex: none;
   display: flex;
   align-items: center;
-  gap: var(--fg);
+}
+
+/* The last position takes the field's leftover width, so the empty right-
+ * hand end of the field belongs to the slot nearest it instead of to
+ * nothing. Grow only, never shrink: it can absorb space the field already
+ * has spare, and a full field (concept 12.5's worst case) has none to
+ * give. The highlight sits on the chip inside, so a wide target still
+ * marks a chip-sized slot. */
+.slot:last-child {
+  flex: 1 0 auto;
 }
 
 /* A group's own trailing frontier (concept 6.2). Carries no content, so
  * it costs no width — but it is stretched to the group's full height, so
- * the drop layer has a line to aim at rather than a single point. */
+ * the drop layer has a line to aim at rather than a single point. An empty
+ * flex item is still charged the row's `gap`, and concept 12.5's worst
+ * case has only ~7px to spare, so that gap is cancelled rather than paid
+ * for. */
 .groupFrontier {
   align-self: stretch;
   width: 0;
   flex: none;
 }
 
-/* An empty frontier is still a flex item, and the row's `gap` is charged
- * for it either way — 4px that concept 12.5's worst-case expression, which
- * fits with about 7px to spare, does not have going spare. There is
- * nothing on this side of the gap to separate from anything, so it's
- * cancelled rather than paid for. */
-.frontier:empty,
 .groupFrontier:empty {
   margin-left: calc(var(--fg) * -1);
 }

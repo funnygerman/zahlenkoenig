@@ -11,7 +11,7 @@
 import { useCallback, useMemo, useState } from 'react'
 import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
-  insertOperand, fillGap, swapSlots, removeOperand, removeOperator,
+  placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   wrapGroup, dissolveGroup, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop, isExpressionComplete,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
@@ -133,31 +133,35 @@ function groupAt(children: readonly Slot[], groupId: string): Group | null {
 // themselves don't).
 
 function withRootChildren(expr: ExpressionTree, children: Slot[]): ExpressionTree {
-  return { root: { ...expr.root, children } }
+  // Trailing gaps are never stored — see `trimTrailingGaps`. Doing it here,
+  // once, covers every edit rather than asking each of them to remember.
+  // A *group's* trailing slots are different and stay: its minimum shape is
+  // part of what a block means (concept 6.3).
+  return { root: { ...expr.root, children: trimTrailingGaps(children) } }
 }
 
 function withGroupChildren(expr: ExpressionTree, groupId: string, groupChildren: (Leaf | null)[]): ExpressionTree {
   return withRootChildren(expr, expr.root.children.map(c => (c !== null && c.kind === 'group' && c.id === groupId ? { ...c, children: groupChildren } : c)))
 }
 
-/** Places a leaf at an already-located open surface (concept 3.1) — insert at the frontier, fillGap anywhere else (an existing null). Tap never grows a group (concept 6.2's growth is drag-only), so a group target is always a fillGap. */
+/**
+ * Places a leaf at an already-located open surface (concept 3.1).
+ * `placeAt` covers all three positions a surface can be in — an existing
+ * gap, the frontier, or a scaffold position past it that the field draws
+ * but the tree hasn't reached yet.
+ */
 function placeLeafAt(expr: ExpressionTree, surface: Surface, leaf: Leaf): ExpressionTree {
   if (surface.groupId === null) {
-    const children = expr.root.children
-    const next = surface.index === children.length ? insertOperand(children, surface.index, leaf) : fillGap(children, surface.index, leaf)
-    return withRootChildren(expr, next)
+    return withRootChildren(expr, placeAt(expr.root.children, surface.index, leaf))
   }
   const group = groupAt(expr.root.children, surface.groupId)
   if (!group) return expr
-  const next = surface.index === group.children.length ? insertOperand(group.children, surface.index, leaf) : fillGap(group.children, surface.index, leaf)
-  return withGroupChildren(expr, surface.groupId, next)
+  return withGroupChildren(expr, surface.groupId, placeAt(group.children, surface.index, leaf))
 }
 
 /** A block only ever targets a root-level operand surface — a group can't contain another group (concept section 4). */
 function placeGroupAt(expr: ExpressionTree, surface: Surface, group: Group): ExpressionTree {
-  const children = expr.root.children
-  const next = surface.index === children.length ? insertOperand(children, surface.index, group) : fillGap(children, surface.index, group)
-  return withRootChildren(expr, next)
+  return withRootChildren(expr, placeAt(expr.root.children, surface.index, group))
 }
 
 /** Removes the leaf with this id from wherever it is — a number takes its adjacent operator with it, an operator just leaves a gap (concept 3). */
@@ -203,7 +207,11 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // This is also what makes the field droppable at all: with no scaffold
   // the trailing frontier renders nothing, and a zero-width element can't
   // be hit by a finger (useDrag's `tolerance` covers the rest).
-  const scaffoldOperands = Math.max(0, (numbers.length - placedIds.size) - countOpenSlots(expr.root.children, 'operand'))
+  // `trayNumbers`, not `placedIds`: the latter holds every placed id,
+  // operators included, so subtracting its size from the number count made
+  // the field lose an operand slot for each operator placed.
+  const numbersLeft = trayNumbers.filter(n => !n.used).length
+  const scaffoldOperands = Math.max(0, numbersLeft - countOpenSlots(expr.root.children, 'operand'))
   const scaffoldOperators = Math.max(
     0,
     (numbers.length - 1) - countPlacedOperators(expr.root.children) - countOpenSlots(expr.root.children, 'operator')
@@ -212,18 +220,20 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // ------------------------------------------------------------- placing
 
   const placeNumber = useCallback((leaf: Leaf) => {
-    setExpr(e => {
-      const surface = nextOpenSurface(e, 'operand')
-      return surface ? placeLeafAt(e, surface, leaf) : e
-    })
+    setExpr(e => placeLeafAt(e, nextOpenSurface(e, 'operand'), leaf))
   }, [])
 
+  // `nextOpenSurface` is purely structural and always names a position,
+  // including one past the end — the puzzle's own budget is this layer's
+  // job. n numbers take exactly n − 1 operators, and a tap past that does
+  // nothing rather than growing the expression, the same cap the block
+  // chip enforces by disabling itself.
   const placeOperator = useCallback((op: Operator) => {
     setExpr(e => {
-      const surface = nextOpenSurface(e, 'operator')
-      return surface ? placeLeafAt(e, surface, createOperatorLeaf(op)) : e
+      if (countPlacedOperators(e.root.children) >= numbers.length - 1) return e
+      return placeLeafAt(e, nextOpenSurface(e, 'operator'), createOperatorLeaf(op))
     })
-  }, [])
+  }, [numbers.length])
 
   const placeBlock = useCallback(() => {
     setExpr(e => {
@@ -234,8 +244,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       // it. Tap always resolves to a bare empty group — concept 6.1's
       // wrap-existing-content behavior needs an *occupied* target, which
       // nextOpenRootSurface (by definition) never returns.
-      const surface = nextOpenRootSurface(e, 'operand')
-      return surface ? placeGroupAt(e, surface, createEmptyGroup()) : e
+      return placeGroupAt(e, nextOpenRootSurface(e, 'operand'), createEmptyGroup())
     })
   }, [])
 

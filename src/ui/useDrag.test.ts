@@ -317,3 +317,37 @@ describe('useDrag — near misses still hit (the `tolerance` option)', () => {
     expect(result.current.activeZoneId).toBe('root-2')
   })
 })
+
+describe('useDrag — a slot of the other kind refuses, it does not defer to its neighbour', () => {
+  it('a pointer inside a wrong-kind zone hits nothing, even with a matching zone in tolerance range', () => {
+    // Letting go on the middle of an empty number slot while dragging an
+    // operator used to reach past it to the operator 20px away and replace
+    // that one — aiming at a slot and hitting its neighbour. Tolerance is
+    // for the space between slots, not for crossing one.
+    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 22 }))
+    act(() => result.current.registerZone('root-3', 'operator', true, zoneElement({ left: 100, right: 124, top: 100, bottom: 164 })))
+    act(() => result.current.registerZone('root-4', 'operand', false, zoneElement({ left: 128, right: 160, top: 100, bottom: 164 })))
+    const handlers = result.current.dragHandlers({ id: 'tray-op-*', kind: 'operator' })
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(144, 132))) // dead centre of the operand slot
+    expect(result.current.activeZoneId).toBeNull()
+
+    act(() => handlers.onPointerUp(pointerEvent(144, 132)))
+    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, null)
+  })
+
+  it('the gap between two slots still resolves to the nearer one', () => {
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop: vi.fn(), tolerance: 22 }))
+    act(() => result.current.registerZone('root-3', 'operator', true, zoneElement({ left: 100, right: 124, top: 100, bottom: 164 })))
+    act(() => result.current.registerZone('root-4', 'operand', false, zoneElement({ left: 128, right: 160, top: 100, bottom: 164 })))
+    const handlers = result.current.dragHandlers({ id: 'tray-op-*', kind: 'operator' })
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(126, 132))) // in the 4px between them, touching neither
+    expect(result.current.activeZoneId).toBe('root-3')
+  })
+})

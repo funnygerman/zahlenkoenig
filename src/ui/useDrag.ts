@@ -57,13 +57,13 @@ export interface UseDragOptions<T = unknown> {
   threshold?: number
   /**
    * How far outside a zone's rectangle a release still counts as hitting
-   * it, in px. Drop surfaces are chip-sized at best and zero-width at
-   * worst (the trailing frontier of a full group renders nothing), so
-   * strict rectangle containment makes half the field undroppable —
-   * releasing over the field's own padding, or a few px above a slot,
-   * would silently do nothing. Beyond this distance a release is still a
-   * real "herausziehen" (concept 5), so it stays well short of the gap
-   * between the expression field and the tray.
+   * it, in px. Every root position is registered at its row's full height
+   * (Expression's `.slot`), so this isn't about reaching *up* to a slot —
+   * it only bridges the horizontal seams between them: the 4px flex gap,
+   * the field's 5px padding, a group's zero-width frontier. Keeping it
+   * small is what makes "herausziehen" (concept 5) reliable — the tray
+   * starts 11px below the field's slots, so letting go over the tray
+   * always means the tray, never the slot above it.
    */
   tolerance?: number
 }
@@ -105,11 +105,17 @@ interface MeasuredZone {
   rect: DOMRect
 }
 
+/** Whether the pointer is inside a rectangle. */
+function contains(rect: DOMRect, x: number, y: number): boolean {
+  return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
+}
+
 export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<T> {
-  const { onTap, onDrop, threshold = 6, tolerance = 28 } = options
+  const { onTap, onDrop, threshold = 6, tolerance = 8 } = options
 
   const zonesRef = useRef(new Map<string, ZoneEntry>())
   const measuredRef = useRef<MeasuredZone[]>([])
+  const otherKindRef = useRef<DOMRect[]>([]) // zones of the kind NOT being dragged — see hitTest
 
   const itemRef = useRef<DragItem<T> | null>(null)
   const pointerIdRef = useRef<number | null>(null)
@@ -133,12 +139,19 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
   // option's own note on why a rectangle alone isn't enough. Distance is
   // measured to the rectangle, not to its centre, so a wide zone isn't
   // beaten by a small one that happens to sit closer to its middle.
+  //
+  // Between the two: a pointer squarely inside a zone of the *other* kind
+  // is a refusal, not a near miss. Without that, letting go on the middle
+  // of an empty number slot while dragging an operator reached past it to
+  // the operator 20px away and replaced that one instead — aiming at a
+  // slot and hitting its neighbour. Tolerance is for the space between
+  // slots, never for crossing one.
   const hitTest = useCallback((x: number, y: number): MeasuredZone | null => {
     let nearest: MeasuredZone | null = null
     let nearestDistance = Infinity
     for (const zone of measuredRef.current) {
+      if (contains(zone.rect, x, y)) return zone
       const { left, right, top, bottom } = zone.rect
-      if (x >= left && x <= right && y >= top && y <= bottom) return zone
       const dx = x < left ? left - x : x > right ? x - right : 0
       const dy = y < top ? top - y : y > bottom ? y - bottom : 0
       const distance = Math.hypot(dx, dy)
@@ -147,6 +160,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
         nearest = zone
       }
     }
+    if (otherKindRef.current.some(rect => contains(rect, x, y))) return null
     return nearestDistance <= tolerance ? nearest : null
   }, [tolerance])
 
@@ -157,6 +171,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
     draggingRef.current = false
     activeZoneIdRef.current = null
     measuredRef.current = []
+    otherKindRef.current = []
     setIsDragging(false)
     setActiveZoneId(null)
     setDraggingItem(null)
@@ -195,11 +210,17 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
       if (!draggingRef.current) {
         if (Math.hypot(dx, dy) < threshold) return
         draggingRef.current = true
-        // Measure now, once, and only zones of the matching kind (concept
-        // 3.1/5): a dragged number never lights up an operator slot.
-        measuredRef.current = [...zonesRef.current.entries()]
-          .filter(([, zone]) => zone.kind === item.kind)
-          .map(([zoneId, zone]) => ({ zoneId, occupied: zone.occupied, rect: zone.el.getBoundingClientRect() }))
+        // Measure now, once. Only zones of the matching kind can be hit
+        // (concept 3.1/5: a dragged number never lights up an operator
+        // slot) — the rest are kept anyway, as the areas where hitTest
+        // refuses rather than reaching past.
+        measuredRef.current = []
+        otherKindRef.current = []
+        for (const [zoneId, zone] of zonesRef.current) {
+          const rect = zone.el.getBoundingClientRect()
+          if (zone.kind === item.kind) measuredRef.current.push({ zoneId, occupied: zone.occupied, rect })
+          else otherKindRef.current.push(rect)
+        }
         setIsDragging(true)
         setDraggingItem(item)
         // The chip stays in place but recedes: what moves is the ghost
