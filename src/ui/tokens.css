@@ -1,0 +1,46 @@
+/* Design tokens (concept 13.1) — one hue drives every color, including the
+ * block's fill. Values mirror spec/entwurf.html's `.zk` block exactly; that
+ * file is the validated reference (it measures the worst-case expression
+ * width live), so these numbers are copied from it, not re-derived.
+ *
+ * Concept 13.1 scopes these to the board itself (`.zk`), not `:root` — but
+ * Game.tsx, the component that would carry that class, doesn't exist yet
+ * (v2 step 2). Scoped to `:root` for now so Chip/Tray/their tests can
+ * render standalone; move this block onto `.zk` once Game.tsx exists, no
+ * value changes needed.
+ */
+:root {
+  --hue: 214;
+  --zk-bg: hsl(var(--hue) 20% 98.5%);
+  --zk-surface: hsl(var(--hue) 24% 100%);
+  --zk-chip: hsl(var(--hue) 26% 95%);
+  --zk-line: hsl(var(--hue) 22% 85%);
+  --zk-ink: hsl(var(--hue) 30% 18%);
+  --zk-muted: hsl(var(--hue) 14% 58%);
+  --zk-accent: hsl(var(--hue) 62% 42%);
+  --zk-amber: hsl(38 78% 46%);
+  --zk-group-bg: hsl(var(--hue) 48% 42% / .17);
+  --zk-group-chip: hsl(var(--hue) 30% 100%);
+
+  /* concept 12.5's formula — 88px/104px are provisional, "am Gerät zu
+   * bestätigen" (concept 17/18, not yet confirmed). entwurf.html fixes
+   * --cell at a flat 64px instead, since it's a static side-by-side
+   * comparison tool, not the responsive app. */
+  --cell: min(16vw, 13dvh, 88px);
+  --gap: 10px;
+  --radius: 12px;
+  --fn: calc(var(--cell) * .52); /* number chip inside the expression field (concept 12.5) */
+  --fo: calc(var(--cell) * .39); /* operator chip inside the expression field (concept 12.5) */
+  --fg: calc(var(--cell) * .065);
+  --gp: calc(var(--cell) * .08);
+  --stroke: 2px;
+
+  --font-board: system-ui, -apple-system, "Segoe UI", sans-serif; /* concept 13.2: system-ui, nothing else */
+}
+
+@media (min-aspect-ratio: 1 / 1) {
+  /* concept 12.6: one switch, on aspect ratio, not a width breakpoint */
+  :root {
+    --cell: min(16vw, 15dvh, 104px);
+  }
+}

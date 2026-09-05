@@ -1,12 +1,17 @@
 # Zahlenkönig / Number King – v2 Konzept
 
-**Version:** 2.3
+**Version:** 2.4
 **Stand:** September 2026
 **Status:** Abgestimmt – bereit zur Umsetzung
 
 Dieses Dokument beschreibt die Neukonzeption von Eingabe und Gestaltung für v2.
 Es ersetzt die Abschnitte 2.4–2.6 sowie Kapitel 4 der Anforderungen v1.5.
 Die Sprachumschaltung bleibt unverändert.
+
+**Neu in 2.4:** Die Bank entfällt zugunsten Generierung im Gerät (Abschnitt
+15.10), PWA-Anforderungen sind konkretisiert (Abschnitt 19), der
+Produktions-Build bekommt ein Größenbudget statt einer zweiten Fassung
+(Abschnitt 20).
 
 **Neu in 2.2:** Tipps sind neu gedacht (Abschnitt 10), Bank und Generator werden
 ersetzt statt übernommen (Abschnitt 15).
@@ -118,10 +123,16 @@ füllt.
   aber nicht eigens verboten.
 - **Keine Verschachtelung.** Eine Gruppe enthält nie eine weitere Gruppe.
   Stattdessen dürfen **mehrere Blöcke nebeneinander** stehen.
-- Das Kontingent folgt aus der Zahl der Operanden, nicht mehr aus einem Level:
-  **⌊n/2⌋ Block-Chips** – bei zwei oder drei Zahlen einer, bei vier zwei. Mehr
-  wären nicht unterzubringen, denn ein Block braucht mindestens zwei Operanden.
-  Das Kontingent ist sichtbar statt eine Regel, die man sich merken muss.
+- **In der Ablage gibt es genau einen Block-Chip**, dauerhaft und wiederholt
+  antippbar wie ein Operator – kein Platzhalter pro Kontingent-Einheit, der
+  beim Setzen verschwindet. Wie viele Blöcke im Ausdruck gleichzeitig stehen
+  dürfen, folgt weiterhin aus der Zahl der Operanden statt aus einem Level:
+  **⌊n/2⌋** – bei zwei oder drei Zahlen einer, bei vier zwei. Mehr wären nicht
+  unterzubringen, denn ein Block braucht mindestens zwei Operanden. Ist das
+  Kontingent ausgeschöpft, **deaktiviert sich der Chip**, statt zu
+  verschwinden – dieselbe Regel wie beim `=`-Knopf vor einem unvollständigen
+  Ausdruck. (Revision nach Rückmeldung zum ersten spielbaren Brett: ursprünglich
+  ein Platzhalter pro Kontingent-Einheit, siehe Entscheidungen Abschnitt 3.)
 - Ein gesetzter Block wird **nie zerlegt**: Antippen oder Herausziehen entfernt
   nur die Klammern, der Inhalt bleibt stehen. Abschnitt 6 beschreibt das
   vollständig.
@@ -297,8 +308,9 @@ eigenen Ablageziele** – die gültigen Ziele bleiben die aus 6.1.
 ```
 
 Die Klammern verschwinden. Die 6, das `+` und die 2 bleiben, in derselben
-Reihenfolge, an derselben Stelle. Der Block-Chip kehrt in die Ablage zurück.
-**Es fällt nichts heraus.**
+Reihenfolge, an derselben Stelle. Das Kontingent hat wieder einen Block frei –
+war der Chip in der Ablage deaktiviert, wird er wieder aktiv. **Es fällt
+nichts heraus.**
 
 Denn wer einen Block entfernt, will fast immer *andere* Klammern, nicht weniger
 Zahlen. `(6+2)×9` → `6+(2×9)` kostet so zwei Gesten: tippen, dann den Block auf
@@ -310,10 +322,9 @@ in die Ablage und zurück.
 | Rand tippen | Klammern gehen heim, Inhalt bleibt |
 | auf einen anderen Operanden ziehen | die beiden tauschen, Inhalt reist mit |
 | aus dem Feld ziehen und loslassen | Klammern gehen heim, Inhalt bleibt |
-| Platzhalter in der Ablage tippen | Klammern gehen heim, Inhalt bleibt |
 
-Vier Einträge, drei mit demselben Ergebnis – das ist der Punkt: **alle scheinbar
-zerstörerischen Gesten laufen auf die harmlose hinaus.**
+Drei Einträge, zwei mit demselben Ergebnis – das ist der Punkt: **alle
+scheinbar zerstörerischen Gesten laufen auf die harmlose hinaus.**
 
 **Bewegen ist keine neue Regel.** Ein Block ist ein Operand, und für einen
 Operanden auf einer belegten Operandenfläche gilt bereits: tauschen.
@@ -324,22 +335,20 @@ eines), nicht die Regel.
 
 ### 6.6 Treffflächen
 
-Der sichtbare Rand ist dünn, und Daumen sind es nicht. Deshalb hat das Auflösen
-**zwei Wege**:
+Der sichtbare Rand ist dünn, und Daumen sind es nicht. Deshalb ist die
+Trefffläche größer als der sichtbare Steg: die beiden Klammerstege sowie das
+Band über und unter den Chips. Jeder Steg bekommt eine unsichtbare Trefffläche
+von etwa 22 px Breite über die volle Blockhöhe, nach außen in den Feldabstand
+und nach innen über die Polsterung, ohne je einen Chip zu überlappen. Ein hoher
+schmaler Streifen ist deutlich leichter zu treffen als ein kleines Quadrat.
 
-- **Der Rand selbst** – die beiden Klammerstege sowie das Band über und unter den
-  Chips. Jeder Steg bekommt eine unsichtbare Trefffläche von etwa 22 px Breite
-  über die volle Blockhöhe, nach außen in den Feldabstand und nach innen über die
-  Polsterung, ohne je einen Chip zu überlappen. Ein hoher schmaler Streifen ist
-  deutlich leichter zu treffen als ein kleines Quadrat.
-- **Der Platzhalter in der Ablage** – eine volle Zelle von 64 px, dort wo der
-  Daumen ohnehin ist.
-
-Verallgemeinert, statt als Sonderfall: **ein gestrichelter Platzhalter in der
-Ablage ist antippbar und holt zurück, was ihn verlassen hat.** Das gilt für
-Zahlen genauso wie für den Block, ist eine Regel statt zweier, und gibt jedem
-Element eine große Rückholfläche. Der genaue Weg bleibt für alle, die ihn
-mögen; niemand ist darauf angewiesen.
+**Ein gestrichelter Platzhalter in der Ablage ist antippbar und holt zurück,
+was ihn verlassen hat** (Abschnitt 5) – aber das gilt nur für Zahlen. Der Block
+hat in der Ablage keinen Platzhalter mehr, der für ein bestimmtes gesetztes
+Vorkommen steht: der Chip dort ist einzeln und dauerhaft, wie ein Operator
+(Abschnitt 4, Revision), und tippt immer *neu*. Auflösen eines gesetzten
+Blocks bleibt deshalb allein Sache des Randes – der einzige Grund, warum
+dessen Trefffläche oben eigens vergrößert wird.
 
 ### 6.7 Die Animation trägt die Bedeutung
 
@@ -675,6 +684,12 @@ Die ersten beiden dürfen nicht gleich aussehen: sonst lässt sich ein
 3-Zahlen-Rätsel nicht von einem 4-Zahlen-Rätsel unterscheiden, bei dem schon eine
 Zahl gesetzt ist.
 
+Der Block-Chip trägt keine dieser drei: er ist einzeln und dauerhaft (Abschnitt
+4, Revision) und kennt stattdessen nur **aktiv** und **deaktiviert** – dieselbe
+Unterscheidung wie beim `=`-Knopf. Wie sich „deaktiviert" von den drei
+Markierungen hier abhebt, ist noch offen (visuelle Feinarbeit, kein
+Verhaltensthema).
+
 ### 12.4 Kontrast des Blocks
 
 Zwei Stufen Trennung, je eine in beide Richtungen: die Gruppe **weicht zurück**
@@ -853,7 +868,7 @@ src/
 │   ├── evaluate.ts            Baum → Zahl (Präzedenz, kein eval)
 │   ├── solver.ts              „ist das Ziel noch erreichbar?" + kanonische Fortsetzung
 │   ├── hints.ts               Tippschritte über die kanonische Fortsetzung
-│   ├── puzzles.ts             Bank + 45-Zeilen-Tabelle, Bänder, ziehen
+│   ├── puzzles.ts             Generierung + 45-Zeilen-Tabelle, ziehen (15.10)
 │   └── settings.ts            LocalStorage
 ├── ui/
 │   ├── useDrag.ts             Pointer-Events-Ziehschicht
@@ -1075,7 +1090,21 @@ Schalter ab.
 nicht: die kanonische Fortsetzung (10.2) wählt deterministisch. Eindeutigkeit ist
 Geschmack, keine technische Notwendigkeit.
 
-### 15.8 Was die Bank speichern muss
+### 15.8 Superseded – Bank entfällt (siehe 15.10)
+
+Dieser Abschnitt beschrieb ursprünglich, was eine Bank-Datei speichern muss.
+Runde 5 ersetzt die Bank durch Generierung im Gerät (15.10); die
+Puzzle-Struktur unten ist nur noch als Zwischenergebnis der Generierung
+gültig, nicht mehr als Dateiformat.
+
+```ts
+interface Puzzle {
+  numbers: number[]
+  target:  number
+  ops:     number   // 15 Bit: unter welchen Rechenzeichen-Auswahlen lösbar
+  rank:    number   // Suchschwierigkeit innerhalb des Bandes
+}
+```
 
 ```ts
 interface Puzzle {
@@ -1127,6 +1156,189 @@ Zusätzlich für die Auswahl (15.4–15.8):
 Bänke bleiben in der Git-Historie; `solutions` wieder mitzuschreiben wäre ein
 Schalter im Generator, keine Rückabwicklung.
 
+Dieser Abschnitt (15.9) beschreibt die Absicherung einer *gebauten* Bank und
+ist damit ebenfalls historisch – 15.10 ersetzt das Bauen durch Generieren zur
+Laufzeit, die Absicherung verschiebt sich entsprechend auf den Generator
+selbst (siehe dort).
+
+### 15.10 Runde 5: die Bank entfällt zugunsten Generierung im Gerät
+
+**PO-Entscheidung, widerruft Runde 4** (Entscheidungen, Abschnitt 6: „Bank
+bleibt, mit Filterspalten"). Zwei Gründe waren ausschlaggebend:
+
+- Eine PWA muss nicht alle Rätsel einer Auswahl auf Vorrat laden, wenn zu
+  jedem Zeitpunkt nur eines gebraucht wird.
+- Ein einzelnes Rätsel zu erzeugen ist **schnell genug für den Spielzug**:
+  `checkDepth1.mjs` prüft eine Zahlenmenge (bis zu 4! Permutationen ×
+  Kompositionen × 4^(n−1) Operatorbelegungen) in deutlich unter 10 ms; die
+  „5 Sekunden für alle 495 Vierermengen" aus 15.3 sind die Summe über *alle*
+  Mengen, nicht die Kosten eines einzelnen Rätsels.
+
+**Was bleibt:** die 45-Zeilen-Tabelle aus 15.8 (Bandgrenzen, Anzahl,
+verfügbare Eindeutigkeit) – sie wird weiterhin einmalig vorab berechnet und
+als Konstante ausgeliefert, denn sie beantwortet Fragen über den *gesamten*
+Suchraum einer Auswahl (wie viele Rätsel gibt es, ist Eindeutigkeit
+verfügbar), die ein einzelner Zug nicht beantworten kann. Ebenso bleibt der
+15-Bit-Operator-Vektor als Idee erhalten, nur wird er nicht mehr gespeichert,
+sondern bei Bedarf berechnet.
+
+**Was entfällt:** jede Puzzle-JSON-Datei. `core/puzzles.ts` lädt nichts mehr,
+es rechnet.
+
+**Der Ablauf pro Rätsel** (`nextPuzzle(settings)` in `core/puzzles.ts`,
+dasselbe Modell wie `checkDepth1.mjs` und `solver.ts` – Abschnitt 15.3 gilt
+unverändert: **ein Modell für Generator und Löser**):
+
+1. `numbers.length` Zufallszahlen 1–9 ziehen (mit Wiederholung).
+2. Mit dem Löser **alle** unter `settings.ops` erreichbaren Ziele dieser
+   Zahlenmenge aufzählen (ist ohnehin `solver.ts`s Grundoperation).
+3. Gegen das Band aus der 45-Zeilen-Tabelle filtern; bei `uniqueOnly` zugleich
+   auf genau eine kanonische Lösung filtern (15.7 gilt unverändert).
+4. Bleibt nichts übrig, **zurück zu Schritt 1** – nicht jede Zahlenmenge
+   deckt jedes Band ab, auch wenn kein Band über den ganzen Suchraum leer ist
+   (15.5). Ein Zähler begrenzt die Versuche.
+5. Sonst eine der verbliebenen Zielzahlen ziehen (gewichtet nach `rank`, wie
+   die Bänder es in 15.6 taten) → `{ numbers, target }`.
+
+**Verifiziert, nicht geschätzt** (Vorlage: `checkBankShapes.mjs`):
+`scripts/checkNextPuzzle.mjs` zieht für jede der 45 Auswahlen 1500 Runden
+dieses Ablaufs (3 Bänder × mit/ohne `uniqueOnly`, je bis zu 200 Versuche) und
+protokolliert die Verteilung. Ergebnis:
+
+- **Fast überall einstellig, meist Versuch 1.** Ohne `uniqueOnly` liegt der
+  Median bei 1–3 Versuchen, das Maximum über alle 45×3 Bänder bei niedrigen
+  zweistelligen Werten. Ein synchroner Aufruf im Hauptthread ist dafür
+  unbedenklich.
+- **Drei Auswahlen brechen mit `uniqueOnly` ein:** 3 Zahlen nur `÷`, 4 Zahlen
+  nur `−`, 4 Zahlen nur `÷`. Dort ist die Eindeutigkeits-Bank zwar nicht leer
+  (25–65 eindeutige Ziele bei 177–2222 erreichbaren insgesamt), aber dünn
+  genug, dass blindes Neuziehen bis zu 200 Versuche braucht und in einem
+  spürbaren Teil der Läufe **gar nicht** trifft (bis zu 74 % Fehlerquote bei
+  „4 Zahlen, nur ÷, Band klein"). Genau der Fall, den 15.10 vorausgesehen
+  hatte. Bei „3 Zahlen, nur ÷" bleibt die Fehlerquote niedrig (2–3 %, Median
+  36 Versuche) – ein höheres Versuchslimit genügt dort, eine Liste lohnt sich
+  nicht. Die beiden 4-Zahlen-Auswahlen brechen deutlich häufiger (bis 74 %)
+  und bekommen die Ausnahmeliste unten.
+- **Ein Nebenbefund beim Bau des Skripts:** die „Gruppe um den ganzen
+  Ausdruck" (Abschnitt 17) duplizierte anfangs jede Lösung um eine
+  bedeutungslose Klammer-Variante und drückte die gemessene Eindeutigkeit auf
+  0 bei allen 2-Zahlen-Auswahlen. Sie hat nie einen äußeren Operator, gegen
+  den die Klammer schützen müsste, ist also wertgleich zur flachen Variante
+  und wurde aus der Eindeutigkeits-Zählung ausgeschlossen – ändert nichts an
+  den erreichbaren Werten, nur an der Zählung distinkter Lösungen.
+
+Diese Prüfung war eine Voraussetzung vor Schritt 2b (Abschnitt 18) und ist
+jetzt erledigt.
+
+### 15.11 Die beiden Ausnahmelisten
+
+Für „4 Zahlen, nur `−`" und „4 Zahlen, nur `÷`" ist die vollständige
+`uniqueOnly`-Lösungsmenge selbst schon klein genug, um sie **erschöpfend**
+statt kuratiert auszuliefern – kein Ziehen mehr nötig, `nextPuzzle()` wählt
+bei diesen zwei Auswahlen mit `uniqueOnly` direkt aus der Liste. Erzeugt
+durch denselben Löser wie 15.10 und reproduzierbar über
+`node scripts/dumpUniqueExceptions.mjs`. Randziele wie `5` bei „nur `−`"
+tauchen in zwei Nachbarbändern auf; das ist dieselbe Einschluss-Konvention
+wie beim 45-Zeilen-Beispiel in 15.8 (`26` als „bis" von Band 1 und „von" von
+Band 2), keine doppelte Zählung im Datensatz.
+
+**4 Zahlen, nur `−` (65 eindeutige Ziele):**
+
+```ts
+const exceptions_4_minus = {
+  klein: [ // [1,5]
+    [[1,1,1,1],2], [[1,2,2,2],5], [[2,2,2,2],4], [[2,2,2,3],3], [[2,2,2,5],1],
+    [[3,3,3,4],5], [[3,3,3,5],4], [[3,3,3,7],2], [[3,3,3,8],1], [[4,4,4,7],5],
+    [[4,4,4,9],3],
+  ],
+  mittel: [ // [5,10]
+    [[1,2,2,2],5], [[1,3,3,3],8], [[2,3,3,3],7], [[2,4,4,4],10], [[3,3,3,3],6],
+    [[3,3,3,4],5], [[3,4,4,4],9], [[4,4,4,4],8], [[4,4,4,5],7], [[4,4,4,6],6],
+    [[4,4,4,7],5], [[5,5,5,5],10], [[5,5,5,6],9], [[5,5,5,7],8], [[5,5,5,8],7],
+    [[5,5,5,9],6], [[6,6,6,8],10], [[6,6,6,9],9],
+  ],
+  groß: [ // [11,26]
+    [[1,4,4,4],11], [[1,5,5,5],14], [[1,6,6,6],17], [[1,7,7,7],20], [[1,8,8,8],23],
+    [[1,9,9,9],26], [[2,5,5,5],13], [[2,6,6,6],16], [[2,7,7,7],19], [[2,8,8,8],22],
+    [[2,9,9,9],25], [[3,5,5,5],12], [[3,6,6,6],15], [[3,7,7,7],18], [[3,8,8,8],21],
+    [[3,9,9,9],24], [[4,5,5,5],11], [[4,6,6,6],14], [[4,7,7,7],17], [[4,8,8,8],20],
+    [[4,9,9,9],23], [[5,6,6,6],13], [[5,7,7,7],16], [[5,8,8,8],19], [[5,9,9,9],22],
+    [[6,6,6,6],12], [[6,6,6,7],11], [[6,7,7,7],15], [[6,8,8,8],18], [[6,9,9,9],21],
+    [[7,7,7,7],14], [[7,7,7,8],13], [[7,7,7,9],12], [[7,8,8,8],17], [[7,9,9,9],20],
+    [[8,8,8,8],16], [[8,8,8,9],15], [[8,9,9,9],19], [[9,9,9,9],18],
+  ],
+}
+```
+
+Auffällig: jede Zahlenmenge hat die Form `[a,b,b,b]` – drei gleiche Zahlen und
+eine andere (der Sonderfall `a=b`, also `[b,b,b,b]`, eingeschlossen). Folgt
+aus der Rechnung selbst: `b−(a−b−b) = 3b−a`, und das ist über alle 65
+Einträge die einzige Form, die bei reinem `−` je eine eindeutige Lösung
+ergibt. Nichts davon ist kuratiert, es ist die vollständige Menge – mehr
+eindeutige Ziele gibt es für diese Auswahl nicht.
+
+**4 Zahlen, nur `÷` (26 eindeutige Ziele):**
+
+```ts
+const exceptions_4_divide = {
+  klein: [ // [1,12]
+    [[1,2,2,2],8], [[2,2,2,2],4], [[3,3,3,3],9], [[4,4,4,8],8],
+  ],
+  mittel: [ // [12,42]
+    [[1,3,3,3],27], [[2,4,4,4],32], [[4,4,4,4],16], [[5,5,5,5],25],
+    [[6,6,6,6],36], [[6,6,6,8],27], [[6,6,6,9],24],
+  ],
+  groß: [ // [42,729]
+    [[1,4,4,4],64], [[1,5,5,5],125], [[1,6,6,6],216], [[1,7,7,7],343],
+    [[1,8,8,8],512], [[1,9,9,9],729], [[2,6,6,6],108], [[2,8,8,8],256],
+    [[3,6,6,6],72], [[3,9,9,9],243], [[4,6,6,6],54], [[4,8,8,8],128],
+    [[7,7,7,7],49], [[8,8,8,8],64], [[9,9,9,9],81],
+  ],
+}
+```
+
+Dieselbe Beobachtung spiegelbildlich: jede Zahlenmenge hat wieder die Form
+`[a,b,b,b]`, weil `b÷(a÷b÷b) = b³÷a` dieselbe Rolle für `÷` spielt wie
+`3b−a` für `−` – die einzige Anordnung, die unter einem einzelnen,
+nicht-kommutativen Rechenzeichen eine eindeutige Lösung erzwingt, ist die,
+die drei der vier Zahlen zu einer Klammer bündelt und die vierte davor
+stellt.
+
+Für „3 Zahlen, nur ÷" (25 eindeutige Ziele, Fehlerquote 2–3 % bei 200
+Versuchen) lohnt sich keine Liste – aber **150 war eine falsche erste
+Schätzung, nicht gemessen**: 150 liegt *unter* 200 und wäre damit schlechter,
+nicht besser. Nachgemessen (20 000 Läufe je Deckel, `core/puzzles.ts` selbst,
+nicht nur die Modellkopie im Skript):
+
+| Deckel | Fehlerquote (von 20 000 Läufen) |
+|---|---|
+| 200 | 303 (1,52 %) |
+| 300 | 49 (0,25 %) |
+| 500 | 1 (0,005 %) |
+
+`core/puzzles.ts` verwendet **500**, nicht 300 – bei 300 lag die Fehlerquote
+nachweisbar über null. 500 ist empirisch klein, nicht bewiesen null; ein
+Rest-Risiko bleibt (die Verteilung hat einen langen Schwanz: 1 von 20 000
+schlug selbst bei 500 fehl), aber um den Faktor 300 kleiner als beim
+ursprünglich angenommenen Wert von 300. Der Fehler kam daher, dass diese
+Sitzung den Deckel im Code aufschrieb, ohne ihn nachzumessen –
+`checkNextPuzzle.mjs` hatte bei seinem eigenen Deckel von 200 die Fehlerquote
+bereits korrekt gezeigt (48 von 1500 bei Band *klein*), das wurde beim
+Übertragen in den echten Code nur nicht zu Ende gedacht.
+
+**Folge für die PWA:** Der Service Worker muss nur den App-Shell (JS, CSS,
+Manifest, Icons) cachen, kein Datensatz. Offline-Spielbarkeit ist damit ein
+Abfallprodukt, nicht ein eigenes Cachingproblem – `core/` hat ohnehin keine
+Netzwerkabhängigkeit.
+
+**Folge für Abschnitt 14 (Dateistruktur):** `puzzles.ts` „Bank + 45-Zeilen-
+Tabelle, Bänder, ziehen" wird zu „Generierung + 45-Zeilen-Tabelle, ziehen" –
+kein Laden mehr, nur Rechnen.
+
+**Verworfen:** Bank als JSON-Datei · Vorabladen aller Rätsel einer Auswahl ·
+Deckel „1500 Rätsel je Zahlenanzahl" (Abschnitt 18) – gegenstandslos, es gibt
+nichts mehr zu deckeln.
+
 ---
 
 ## 16. Umsetzung in Schritten
@@ -1136,11 +1348,11 @@ Schalter im Generator, keine Rückabwicklung.
 | 0 | vitest einrichten | `npm test` läuft |
 | 1 | `core/` schreiben: Baum, Auswertung, Löser | im Terminal prüfbar, ohne UI |
 | 2 | Ziehschicht + `Chip`, `Tray`, `Expression`, Blockgesten (Abschnitt 6) | ein fest verdrahtetes Rätsel ist spielbar |
-| 2b | Generator umschreiben, Bänke neu erzeugen (Abschnitt 15) | Bank passt zum Spielmodell |
-| 3 | Bank, Auswahl (Abschnitt 15), Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
+| 2b | Generator umschreiben zu `nextPuzzle()` (Abschnitt 15.10), 45-Zeilen-Tabelle berechnen, Versuchsverteilung verifizieren | Rätsel werden im Gerät erzeugt, kein Bank-JSON |
+| 3 | Generierung, Auswahl (Abschnitt 15), Einstellungen, `=`-Prüfung, Notationszeile | vollständige Spielschleife |
 | 4 | Tipps und Sackgassen-Anzeige | ein Tippknopf steht |
 | 5 | Streaks entfernen, Emoji durch SVG ersetzen, Texte anpassen | v1-Reste sind weg |
-| 6 | Animationen, Querformat, PWA | Feinschliff |
+| 6 | Animationen, Querformat, PWA (Abschnitt 19) | Feinschliff |
 
 Nach Schritt 3 ist die App erstmals durchgehend spielbar; die Schritte 1 und 2
 tragen das gesamte Risiko. **Abschnitt 18 nennt, was vor dem jeweiligen Schritt
@@ -1206,15 +1418,21 @@ Die ersten Tests, in dieser Reihenfolge:
 3. `[6, 6, 9]`: zwei gleiche Zahlen bleiben über `source` unterscheidbar, auch
    nach Tauschen und Auflösen
 
-### Vor Schritt 2b – Generator und Bank
+### Vor Schritt 2b – Generierung im Gerät
 
-| Fehlt | Warum es blockiert |
-|---|---|
-| **Obergrenze je Bank** | Erschöpfend sind es bis zu 31 379 Vierer-Rätsel; als JSON ist das mehr, als eine PWA laden sollte. Zu entscheiden: Deckel (Vorschlag: 1500 je Zahlenanzahl, gleichmäßig über die drei Bänder gezogen) und kompakte Schreibweise (Vorschlag: `[[1,2,3,4],50,7,2]` statt benannter Felder). Erst beim Erzeugen festzulegen, nicht danach. |
+Nichts mehr offen. `scripts/checkNextPuzzle.mjs` misst die
+Versuchsverteilung von `nextPuzzle()` über alle 45 Auswahlen (Ergebnis in
+15.10): ein synchroner Aufruf im Hauptthread reicht, kein Web Worker nötig.
+Die beiden Auswahlen, die dabei mit `uniqueOnly` zu häufig leer ausgingen –
+4 Zahlen nur `−`, 4 Zahlen nur `÷` – haben ihre erschöpfende Ausnahmeliste
+(15.11, `scripts/dumpUniqueExceptions.mjs`). „3 Zahlen, nur `÷`" bleibt ohne
+Liste, die Fehlerquote ist dort niedrig genug für ein höheres Versuchslimit.
 
-Nicht mehr offen: das Merkmal für E1. E1 entfällt (15.4).
+Nicht mehr offen: das Merkmal für E1 (E1 entfällt, 15.4), die Bank-Obergrenze
+(entfällt mit der Bank selbst, 15.10) und die Versuchsverteilung samt ihrer
+beiden Ausnahmefälle.
 
-### Vor Schritt 3 – Bank, Auswahl, Einstellungen
+### Vor Schritt 3 – Generierung, Auswahl, Einstellungen
 
 Nichts mehr offen. Zur Erinnerung, was jetzt festliegt: Verzögerung 1200 ms nach
 richtiger Antwort (12.8), `=` bleibt nach falscher Antwort aktiv (9.1), die
@@ -1231,3 +1449,124 @@ an `solver.ts` aus Schritt 1 und an keiner Level-Eigenschaft mehr.
 | Fehlt | Warum es blockiert |
 |---|---|
 | **Die beiden Konstanten in `--cell`** | Die Formel steht in 12.5, ihre zwei Konstanten sind am Gerät zu bestätigen – am schlimmsten Fall aus vier Zahlen, drei Operatoren und zwei Blöcken. |
+| **App-Icons in allen Größen** | Abschnitt 19.2 nennt die Größen; erzeugt werden sie aus `public/crown.svg` (13.2), das bislang keine gefüllte, für kleine Icon-Größen taugliche Fassung hat. |
+
+---
+
+## 19. PWA
+
+Die Anforderungen (Abschnitt 1) legen den App-Typ bereits als PWA fest; dieser
+Abschnitt macht daraus konkrete, prüfbare Punkte für Schritt 6.
+
+### 19.1 Web App Manifest
+
+`public/manifest.webmanifest`, verlinkt aus `index.html`:
+
+```json
+{
+  "name": "Zahlenkönig",
+  "short_name": "Zahlenkönig",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "hsl(214 20% 98.5%)",
+  "theme_color": "hsl(214 62% 42%)",
+  "orientation": "any",
+  "icons": [ /* siehe 19.2 */ ]
+}
+```
+
+`background_color`/`theme_color` sind `--zk-bg`/`--zk-accent` aus 13.1 als
+feste Werte – das Manifest kann keine CSS-Variable lesen. Ändert sich `--hue`,
+müssen beide Stellen von Hand synchron bleiben; ein Kommentar im CSS verweist
+auf das Manifest.
+
+`orientation: any`, nicht `portrait`: 12.6 unterstützt Quer- und Hochformat
+gleichwertig, das Manifest darf das nicht einschränken.
+
+### 19.2 Icons
+
+Aus `public/crown.svg` (13.2) erzeugt, als PNG in `192×192` und `512×512`
+sowie einer `512×512`-Variante mit `"purpose": "maskable"` (sicherer
+Innenabstand, damit Android-Launcher nicht beschneiden). Die Krone braucht
+dafür einen ausreichenden Rand im SVG – zu prüfen, nicht anzunehmen (18,
+„App-Icons in allen Größen").
+
+### 19.3 Service Worker
+
+Ein Cache-first App-Shell-Worker (HTML, JS, CSS, Manifest, Icons), kein
+Runtime-Caching von Daten – denn es gibt seit 15.10 keine Daten mehr zu
+cachen, `core/` erzeugt Rätsel offline aus reinem JS. Registrierung:
+
+```ts
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('/sw.js')
+```
+
+**Update-Strategie:** `skipWaiting` + `clients.claim`, mit einem knappen
+Hinweis in der Kopfzeile („Aktualisieren", 12.7-Menü) statt eines
+Popup-Dialogs – konsistent mit Abschnitt 11: die App drängt sich nicht auf.
+Vite bietet dafür `vite-plugin-pwa` an, das Manifest, Service Worker und
+Precache-Liste aus dem Build ableitet, statt beides von Hand zu pflegen; die
+Alternative ist ein von Hand geschriebener, ca. 20-zeiliger Worker. Beides ist
+mit „keine Bibliothek für den Kern" (Entscheidungen, Abschnitt 1) vereinbar,
+weil es Build-Tooling ist, keine Laufzeitabhängigkeit im Spielcode.
+
+### 19.4 Installierbarkeit
+
+Folgt aus 19.1–19.3 ohne weiteren Code: HTTPS (GitHub Pages liefert das),
+Manifest mit den Pflichtfeldern, ein registrierter Service Worker. Kein
+eigener „Installieren"-Knopf in v2.0 – der Browser bietet den eigenen
+Installationsdialog (`beforeinstallprompt`) an; ein selbstgebauter Knopf ist
+ein Ausbauschritt, keine Voraussetzung.
+
+### 19.5 Offline-Verhalten
+
+Weil Rätsel im Gerät erzeugt werden (15.10) und `core/` keine
+Netzwerkabhängigkeit hat, ist Offline-Spielbarkeit nach dem ersten Laden
+vollständig: der Service Worker liefert den App-Shell aus dem Cache, der Rest
+läuft ohnehin lokal. Nichts davon ist eine neue Anforderung an `core/` –
+Abschnitt 1 der Entscheidungen verlangte das bereits, hier wird nur sichtbar,
+dass es sich auszahlt.
+
+---
+
+## 20. Produktions-Build: klein statt eine zweite Fassung
+
+Auf die Frage nach einer „minimierten Version zum Einbetten von der Website"
+gibt es **keine zweite Fassung** – gemeint war der normale Produktions-Build,
+nur bewusst klein gehalten, nicht ein eingebetteter Widget-Modus (der wäre
+eine eigene Funktionsanforderung, siehe 20.3).
+
+### 20.1 Was bereits dafür sorgt
+
+`npm run build` läuft über Vite/esbuild und minifiziert, tree-shaked und
+hasht die Dateinamen ohnehin. Die Entscheidungen, die die Bundle-Größe klein
+halten, stehen bereits fest, nur nicht unter diesem Namen:
+
+- **keine Drag-Bibliothek** (Entscheidungen, Abschnitt 1) – ~150 Zeilen statt
+  einer Abhängigkeit mit eigenem Modell,
+- **`system-ui`, keine Webschrift** (13.2) – kein Font-Download,
+- **Inline-SVG statt Emoji-Bibliothek** (13.2),
+- **keine Bank-JSON mehr** (15.10) – der bisher größte einzelne Netzwerk-
+  Request entfällt vollständig, nicht nur verkleinert sich,
+- zwei Laufzeitabhängigkeiten insgesamt: `react`, `react-dom`.
+
+### 20.2 Was noch fehlt
+
+Keine Vorgabe existiert bisher für ein **Budget** und seine **Prüfung**:
+
+| Zu ergänzen | Vorschlag |
+|---|---|
+| Größenbudget | z. B. **< 60 KB** JS gzip für den kritischen Pfad (App-Shell ohne Icons) – am Gerät zu bestätigen wie die `--cell`-Konstanten (17), nicht zu raten |
+| Prüfung im Build | `vite-bundle-visualizer` oder ein einfaches `ls -la dist/assets | gzip -c | wc -c`-Skript, das bei Überschreitung fehlschlägt – dasselbe Prinzip wie `checkBankShapes.mjs`: eine Behauptung, die sich selbst nachrechnet |
+| `React.StrictMode`/Dev-Only-Code | sicherstellen, dass `import.meta.env.DEV`-Zweige aus dem Produktions-Build fallen (Vite tut das automatisch, aber unverifiziert) |
+
+Dieser Punkt gehört vor Schritt 6 (Feinschliff, Abschnitt 18) – erst dort
+existiert ein vollständiger Build, den man messen kann.
+
+### 20.3 Falls doch ein Embed-Modus gemeint war
+
+Offen gelassen, falls sich die Anforderung später doch als eigener
+Einbettungsmodus (z. B. ein `<iframe>` mit einem einzelnen Rätsel ohne
+Kopfzeile) herausstellt: das wäre kein Bundle-Größen-Thema mehr, sondern eine
+eigene Route mit eigenem Layout, und bräuchte eine eigene PO-Entscheidung.
+Nicht Teil dieser Runde.

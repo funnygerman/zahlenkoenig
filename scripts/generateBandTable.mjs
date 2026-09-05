@@ -1,0 +1,152 @@
+// Emits the 45-row band table (concept 15.8/15.10) as TS source: for every
+// (number count, operator subset) selection, total reachable puzzles,
+// how many have a unique solution, and the [lo,hi] target range of each
+// band. This is the literal BAND_TABLE constant embedded in
+// src/core/puzzles.ts — regenerate and paste in after any change to the
+// depth-1 model. Same model as checkDepth1.mjs / checkBankShapes.mjs /
+// checkNextPuzzle.mjs.
+//
+// Run with: node scripts/generateBandTable.mjs
+const ALL_OPS = ['+', '-', '*', '/']
+
+function apply(a, op, b) {
+  switch (op) {
+    case '+': return a + b
+    case '-': return a - b
+    case '*': return a * b
+    case '/': return b === 0 ? NaN : a / b
+  }
+}
+function evalFlat(nums, ops) {
+  const n = [nums[0]]; const o = []
+  for (let i = 0; i < ops.length; i++) {
+    if (ops[i] === '*' || ops[i] === '/') {
+      n[n.length - 1] = apply(n[n.length - 1], ops[i], nums[i + 1])
+      if (!isFinite(n[n.length - 1])) return NaN
+    } else { o.push(ops[i]); n.push(nums[i + 1]) }
+  }
+  let acc = n[0]
+  for (let i = 0; i < o.length; i++) acc = apply(acc, o[i], n[i + 1])
+  return acc
+}
+function evalArrangement(perm, comp, ops) {
+  const n = perm.length; const operands = []; let numIdx = 0, opIdx = 0
+  for (const size of comp) {
+    if (size === 1) { operands.push(perm[numIdx++]) }
+    else {
+      const v = evalFlat(perm.slice(numIdx, numIdx + size), ops.slice(opIdx, opIdx + size - 1))
+      if (!isFinite(v)) return NaN
+      operands.push(v); numIdx += size; opIdx += size - 1
+    }
+    if (numIdx < n) opIdx++
+  }
+  const joinOps = []; let cursor = 0
+  for (let i = 0; i < comp.length - 1; i++) { cursor += comp[i] - 1; joinOps.push(ops[cursor]); cursor += 1 }
+  return evalFlat(operands, joinOps)
+}
+function canonicalFlat(tokens, ops) {
+  const terms = [{ sign: '+', factors: [tokens[0]] }]
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i], tok = tokens[i + 1]
+    if (op === '+' || op === '-') terms.push({ sign: op, factors: [tok] })
+    else if (op === '*') terms[terms.length - 1].factors.push(tok)
+    else terms[terms.length - 1].factors.push('÷' + tok)
+  }
+  return terms.map(t => t.sign + [...t.factors].sort().join('·')).sort().join('')
+}
+function canonicalArrangement(perm, comp, ops) {
+  const n = perm.length; const topTokens = []; let numIdx = 0, opIdx = 0
+  for (const size of comp) {
+    if (size === 1) { topTokens.push(String(perm[numIdx++])) }
+    else {
+      const gTokens = perm.slice(numIdx, numIdx + size).map(String)
+      const gOps = ops.slice(opIdx, opIdx + size - 1)
+      topTokens.push('(' + canonicalFlat(gTokens, gOps) + ')')
+      numIdx += size; opIdx += size - 1
+    }
+    if (numIdx < n) opIdx++
+  }
+  const joinOps = []; let cursor = 0
+  for (let i = 0; i < comp.length - 1; i++) { cursor += comp[i] - 1; joinOps.push(ops[cursor]); cursor += 1 }
+  return canonicalFlat(topTokens, joinOps)
+}
+function compositions(n) {
+  if (n === 0) return [[]]
+  const out = []
+  for (let first = 1; first <= n; first++) for (const rest of compositions(n - first)) out.push([first, ...rest])
+  return out
+}
+function permIndices(n) {
+  const out = []; const arr = Array.from({ length: n }, (_, i) => i)
+  const rec = k => {
+    if (k === n) { out.push(arr.slice()); return }
+    for (let i = k; i < n; i++) { [arr[k], arr[i]] = [arr[i], arr[k]]; rec(k + 1); [arr[k], arr[i]] = [arr[i], arr[k]] }
+  }
+  rec(0); return out
+}
+function cartesian(items, k) {
+  let result = [[]]
+  for (let i = 0; i < k; i++) { const next = []; for (const c of result) for (const it of items) next.push([...c, it]); result = next }
+  return result
+}
+function multisets(n) {
+  const out = []
+  const rec = (start, arr) => { if (arr.length === n) { out.push(arr.slice()); return }; for (let v = start; v <= 9; v++) { arr.push(v); rec(v, arr); arr.pop() } }
+  rec(1, []); return out
+}
+function opSubsets() {
+  const out = []
+  for (let mask = 1; mask < 16; mask++) out.push({ mask, ops: ALL_OPS.filter((_, i) => mask & (1 << i)) })
+  return out
+}
+
+const PERM_IDX = { 2: permIndices(2), 3: permIndices(3), 4: permIndices(4) }
+const COMPS = { 2: compositions(2).filter(c=>c.length>1), 3: compositions(3).filter(c=>c.length>1), 4: compositions(4).filter(c=>c.length>1) }
+
+function buildSelection(n, ops) {
+  const optuples = cartesian(ops, n - 1)
+  const pairs = []
+  let uniqueTotal = 0
+  for (const nums of multisets(n)) {
+    const targets = new Map()
+    for (const comp of COMPS[n]) {
+      for (const permI of PERM_IDX[n]) {
+        const permVals = permI.map(i => nums[i])
+        for (const opTuple of optuples) {
+          const r = evalArrangement(permVals, comp, opTuple)
+          if (!isFinite(r) || r < 1 || r > 999) continue
+          const t = Math.round(r)
+          if (Math.abs(r - t) > 1e-9) continue
+          let set = targets.get(t)
+          if (!set) { set = new Set(); targets.set(t, set) }
+          set.add(canonicalArrangement(permVals, comp, opTuple))
+        }
+      }
+    }
+    for (const [t, sols] of targets) {
+      pairs.push(t)
+      if (sols.size === 1) uniqueTotal++
+    }
+  }
+  pairs.sort((a, b) => a - b)
+  const total = pairs.length
+  const i1 = Math.floor(total / 3), i2 = Math.floor((2 * total) / 3)
+  const bandOf = (from, to) => [pairs[from], pairs[to - 1]]
+  return { total, unique: uniqueTotal, bands: [bandOf(0, i1), bandOf(i1, i2), bandOf(i2, total)] }
+}
+
+const rows = []
+for (const n of [2, 3, 4]) {
+  for (const { mask, ops } of opSubsets()) {
+    const sel = buildSelection(n, ops)
+    rows.push({ n, mask, ...sel })
+  }
+}
+
+console.log(`// Generated by scripts/generateBandTable.mjs — do not hand-edit. ${rows.length} rows.`)
+console.log('const BAND_TABLE: Record<string, BandRow> = {')
+for (const r of rows) {
+  const b = r.bands.map(([lo, hi]) => `[${lo},${hi}]`).join(', ')
+  console.log(`  '${r.n}-${r.mask}': { total: ${r.total}, unique: ${r.unique}, bands: [${b}] },`)
+}
+console.log('}')

@@ -54,13 +54,15 @@ Fehlermeldungen beim Bauen.
 | **Kein Löschen-Knopf** (PO) | Tippen auf einen platzierten Chip ist die exakte Umkehrung des Platzierens. |
 | **Kein Alles-löschen** (PO) | Nach einer falschen Antwort will man fast immer *eine* Sache ändern, nicht neu anfangen. |
 | **Block: antippen löst auf** | Wer einen Block entfernt, will andere Klammern, nicht weniger Zahlen. Zwei Gesten statt acht. |
-| **Platzhalter in der Ablage sind antippbar** | Der Klammerrand ist schmal, Daumen sind es nicht. Große Zweitfläche für dieselbe Aufgabe – als allgemeine Regel, nicht als Sonderfall für den Block. |
+| **Platzhalter in der Ablage sind antippbar – für Zahlen** | Der Klammerrand ist schmal, Daumen sind es nicht. Große Zweitfläche für dieselbe Aufgabe. Galt ursprünglich auch für den Block; entfällt dort mit der Revision unten, weil der Block keinen Platzhalter mehr hat, der für ein bestimmtes Vorkommen steht. |
+| **Block-Chip ist einzeln und dauerhaft, wie ein Operator** (Revision, nach Rückmeldung zum ersten spielbaren Brett) | Ursprünglich ein Platzhalter pro Kontingent-Einheit (⌊n/2⌋ Chips, jeder verschwindet beim Setzen wie bei einer Zahl) – bei vier Zahlen liefen zwei davon im Layout aus dem Raster, das Abschnitt 12.1 ohnehin nur für einen einzigen `[Block]` vorsieht. Ein einzelner Chip behebt beides zugleich: er passt in die eine reservierte Spalte, und „wie viele Blöcke passen noch" wird eine einzige Ja/Nein-Frage statt eines Zählens über mehrere Chips. Deaktiviert sich, sobald ⌊n/2⌋ erreicht ist – dieselbe Behandlung wie beim `=`-Knopf, kein Sonderfall. |
 | **Kein Undo** | Keine Geste verliert mehr als einen Chip. Die Anforderung entfällt, statt erfüllt zu werden. |
 
 **Verworfen:** nur Drag-and-Drop · Löschen-/Clear-Knopf · langes Drücken
 (Modalität, die es sonst nirgends gibt und die nichts ankündigt) · „Block erst
 leeren, dann entfernen" · einen vollen Block aus dem Feld ziehen und den Inhalt
-in die Ablage schütten.
+in die Ablage schütten · ein Platzhalter pro Block-Kontingent-Einheit (siehe
+Revision oben).
 
 ---
 
@@ -174,7 +176,41 @@ Rechenzeichen.
 
 ---
 
-## 9. Arbeitsweise
+## 9. PWA, Bank und Build (Runde 5)
+
+Drei Anstöße kamen diesmal vom PO in einer Sitzung, nicht aus dem Review eines
+Entwurfs: die PWA-Anforderung explizit machen, eine „minimierte Version zum
+Einbetten von der Website" und ein erneuter Zweifel an der Bank-Entscheidung
+aus Runde 4.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Bank entfällt, Rätsel werden im Gerät erzeugt** (PO, widerruft Runde 4) | Der PO nannte zwei Gründe: man muss nicht alle Rätsel einer Auswahl laden, wenn nur eines gebraucht wird; und die Generierung eines einzelnen Rätsels ist schnell genug, um sie bei Bedarf statt im Voraus zu rechnen. Beides stimmt – `checkDepth1.mjs` prüft eine einzelne Zahlenmenge in unter 10 ms, die „5 Sekunden" aus 15.3 sind die Summe über alle 495 Vierermengen, nicht die Kosten eines Zugs. Die 45-Zeilen-Tabelle (Bandgrenzen, Anzahl, Eindeutigkeits-Verfügbarkeit) bleibt, weil sie über den *gesamten* Suchraum einer Auswahl Auskunft gibt – das kann ein einzelner generierter Versuch nicht. Details in Konzept 15.10. |
+| **„Minimierte Version" ist der normale Produktions-Build, keine zweite Fassung** | Nachgefragt: gemeint war eine kleine, minifizierte Datei „wie `zahlenkoenig.min.js`, aber mit der ganzen Funktionalität" – nicht ein eigener Embed-Modus mit reduziertem Funktionsumfang. Das leistet `vite build` bereits (Minifizierung, Tree-Shaking, Hashing); neu ist nur ein Größenbudget und dessen Prüfung im Build, siehe Konzept 20. |
+| **PWA-Anforderungen konkretisiert statt nur benannt** | Die v1-Spezifikation nennt „PWA" bereits als App-Typ, ohne Manifest, Icons oder Service-Worker-Strategie festzulegen. Konzept 19 macht das für v2 konkret: Manifest mit festen Farbwerten (CSS-Variablen kann ein Manifest nicht lesen), zwei Icon-Großen plus maskable-Variante aus der Krone, ein App-Shell-Service-Worker ohne Daten-Caching – Letzteres eine direkte Folge der Bank-Entscheidung: es gibt nichts mehr zu cachen außer dem Shell selbst. |
+
+**Verworfen:** Bank als vorab erzeugte JSON-Datei (Runde 4, jetzt widerrufen) ·
+ein eigener `/embed`-Build oder Iframe-Modus (nicht angefragt; siehe Konzept
+20.3, falls später doch gewollt) · Runtime-Caching von Rätseldaten im Service
+Worker (gegenstandslos ohne Bank) · ein selbstgebauter
+„Installieren"-Knopf für v2.0 (der native Browser-Dialog genügt zunächst).
+
+**Erledigt seit dieser Sitzung:** die Versuchsverteilung von `nextPuzzle()`
+ist gemessen (`scripts/checkNextPuzzle.mjs`, Konzept 15.10) – synchron auf
+dem Hauptthread reicht. Zwei Auswahlen (4 Zahlen nur `−`, 4 Zahlen nur `÷`)
+brauchten mit `uniqueOnly` eine Ausnahmeliste statt blinden Neuziehens;
+diese ist jetzt erschöpfend erzeugt und in Konzept 15.11 eingetragen
+(`scripts/dumpUniqueExceptions.mjs`). Eine dritte, anfangs verdächtige
+Auswahl (3 Zahlen nur `÷`) blieb ohne Liste – ihre Fehlerquote war niedrig
+genug für ein höheres Versuchslimit statt einer vorab gezogenen Liste.
+
+**Offen:** das konkrete Größenbudget für den Produktions-Build (Konzept
+20.2); ob `public/crown.svg` genug Innenabstand für ein maskable Icon hat
+(Konzept 19.2).
+
+---
+
+## 10. Arbeitsweise
 
 - **Erst besprechen, dann bauen.** Die gesamte Planung lief über Diskussion und
   klickbare Entwürfe, nicht über Code.
@@ -200,10 +236,11 @@ Rechenzeichen.
 - **Spezifikationen auf Deutsch**, passend zu den beiden v1-Dokumenten.
 - **Branch:** `claude/zahlenkoenig-v2-planning-jcsi4d`, PR #1.
   Runde 3: `claude/v2-docs-missing-requirements-2pybh9`.
+  Runde 5: `claude/v2-pwa-requirements-qs1xi7`.
 
 ---
 
-## 10. Nebenbefunde aus v1
+## 11. Nebenbefunde aus v1
 
 Nicht von v2 verursacht, aber beim Lesen aufgefallen. Alle drei sind in Runde 3
 erledigt – zwei davon anders als zunächst gedacht:
