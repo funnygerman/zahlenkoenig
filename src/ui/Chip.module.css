@@ -1,0 +1,180 @@
+/* Mirrors spec/entwurf.html's `.chip` family. entwurf styles field-scale
+ * chips via an ancestor selector (`.zk-field .chip`); CSS Modules can't
+ * reach across component boundaries like that, so the `.field` class here
+ * is applied directly by Chip.tsx's `scale` prop instead — same rule,
+ * same numbers, just written to work with component boundaries. */
+
+.chip {
+  width: var(--cell);
+  height: var(--cell);
+  flex: none;
+  display: grid;
+  place-items: center;
+  font-size: 1.3rem;
+  font-family: var(--font-board);
+  color: var(--zk-ink);
+  background: var(--zk-chip);
+  border-radius: var(--radius);
+  font-variant-numeric: tabular-nums;
+  user-select: none;
+  touch-action: none; /* concept 5.1 */
+  border: 0;
+  cursor: pointer;
+  padding: 0;
+}
+
+.chip:disabled {
+  cursor: default;
+}
+
+.square {
+  border-radius: var(--radius);
+}
+
+.circle {
+  border-radius: 50%;
+}
+
+/* ---------------------------------------------------------------- variants */
+
+.operator {
+  /* the glyph itself is the only signal needed (concept 5: "keine starke
+   * Formkodierung" beyond square/round) */
+}
+
+.block {
+  background: var(--zk-chip);
+}
+
+.target,
+.submit {
+  background: var(--zk-accent);
+  color: #fff;
+}
+
+.submit {
+  font-size: 1.35rem;
+}
+
+.submit:disabled {
+  background: var(--zk-chip);
+  color: var(--zk-muted);
+}
+
+/* -------------------------------------------------------------- field scale
+ * concept 12.5: expression-field chips are smaller than tray chips — one
+ * of the three load-bearing proportions the worst-case width depends on. */
+
+.field.square {
+  width: var(--fn);
+  height: var(--fn);
+  font-size: .95rem;
+  border-radius: calc(var(--cell) * .16);
+}
+
+.field.circle {
+  width: var(--fo);
+  height: var(--fo);
+  font-size: .85rem;
+  background: transparent;
+  border: 1.5px solid var(--zk-line);
+}
+
+/* ------------------------------------------------------------------ inGroup
+ * concept 12.4: the group recedes, its content comes forward — a chip
+ * inside a block looks different from the same chip outside one. */
+
+.inGroup {
+  background: var(--zk-group-chip);
+}
+
+.inGroup.field.circle {
+  background: var(--zk-group-chip);
+  border-color: var(--zk-line);
+}
+
+/* --------------------------------------------------------------- placeholder
+ * concept 6.6: a dashed stand-in for a chip placed elsewhere; tapping it
+ * returns whatever left it (the caller wires that, not this component). */
+
+.placeholder {
+  background: transparent;
+  border: 1.5px dashed var(--zk-line);
+  cursor: pointer;
+}
+
+.placeholder.circle {
+  border-radius: 50%;
+}
+
+/* ------------------------------------------------------------------ pulsing
+ * concept 10.3: the hint's first press pulses the two operands it names. */
+
+.pulsing {
+  box-shadow: 0 0 0 3px hsl(var(--hue) 62% 42% / .3);
+  animation: chip-pulse 1s ease-in-out infinite;
+}
+
+@keyframes chip-pulse {
+  0%, 100% { box-shadow: 0 0 0 2px hsl(var(--hue) 62% 42% / .22); }
+  50% { box-shadow: 0 0 0 7px hsl(var(--hue) 62% 42% / .05); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pulsing {
+    animation: none;
+  }
+}
+
+/* -------------------------------------------------------------- target label */
+
+.targetInner {
+  display: flex;
+  align-items: baseline;
+  gap: 3px;
+}
+
+.eq {
+  font-size: .78rem;
+  opacity: .62;
+}
+
+.val {
+  font-size: 1.3rem;
+  font-weight: 500;
+}
+
+.valWide {
+  font-size: 1.02rem; /* concept 12.1: three digits step down a size, the chip's edge doesn't change */
+}
+
+/* ------------------------------------------------------------------ block icon
+ * concept 12.2's chosen symbol (Variante D): filled square, open circle,
+ * filled square — truthful to what a block holds without reading as a face. */
+
+.blockIcon {
+  display: flex;
+  align-items: center;
+  gap: calc(var(--cell) * .038);
+}
+
+.blockSquare {
+  display: block;
+  flex: none;
+  width: calc(var(--cell) * .13);
+  height: calc(var(--cell) * .13);
+  border-radius: 2.5px;
+  background: var(--zk-accent);
+  opacity: .42;
+}
+
+.blockRing {
+  display: block;
+  flex: none;
+  width: calc(var(--cell) * .12);
+  height: calc(var(--cell) * .12);
+  border-radius: 50%;
+  background: transparent;
+  border: 1.5px solid var(--zk-accent);
+  opacity: .55;
+}

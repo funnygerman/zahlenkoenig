@@ -51,16 +51,19 @@ export interface UseDragOptions<T = unknown> {
   threshold?: number
 }
 
+/** The pointer handlers for one draggable chip — spread onto its root element. */
+export interface DragHandlers {
+  onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void
+  onPointerMove: (e: ReactPointerEvent<HTMLElement>) => void
+  onPointerUp: (e: ReactPointerEvent<HTMLElement>) => void
+  onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => void
+}
+
 export interface UseDragResult<T = unknown> {
   /** Call from a zone's ref callback: `ref={el => registerZone('root-2', 'operand', false, el)}`. Pass `el = null` to deregister (e.g. on unmount). */
   registerZone: (zoneId: string, kind: DragKind, occupied: boolean, el: HTMLElement | null) => void
   /** Spread onto a chip: `<div {...dragHandlers({ id, kind })}>`. */
-  dragHandlers: (item: DragItem<T>) => {
-    onPointerDown: (e: ReactPointerEvent<HTMLElement>) => void
-    onPointerMove: (e: ReactPointerEvent<HTMLElement>) => void
-    onPointerUp: (e: ReactPointerEvent<HTMLElement>) => void
-    onPointerCancel: (e: ReactPointerEvent<HTMLElement>) => void
-  }
+  dragHandlers: (item: DragItem<T>) => DragHandlers
   /** Attach to the ghost element the caller renders while `isDragging`. */
   ghostRef: RefObject<HTMLDivElement>
   /** True once the threshold has been crossed — nothing before this is a drag yet. */

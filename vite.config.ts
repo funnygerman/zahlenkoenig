@@ -10,5 +10,6 @@ export default defineConfig({
     // capture, getBoundingClientRect — so they get jsdom instead.
     environment: 'node',
     environmentMatchGlobs: [['src/ui/**', 'jsdom']],
+    setupFiles: ['src/ui/vitest.setup.ts'],
   },
 })

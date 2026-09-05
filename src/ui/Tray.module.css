@@ -1,0 +1,20 @@
+.tray {
+  display: flex;
+  flex-direction: column;
+  gap: var(--gap);
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: var(--gap);
+}
+
+/* concept 12.3: an empty cell for a number this puzzle doesn't have is
+ * "nichts" — no border, no dashes — distinct from a placeholder (a number
+ * that IS part of this puzzle but is currently placed in the expression). */
+.emptyCell {
+  width: var(--cell);
+  height: var(--cell);
+  flex: none;
+}
