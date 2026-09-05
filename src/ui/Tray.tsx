@@ -10,11 +10,14 @@
 // each row here may need to become grid items instead; the chip contents
 // and interaction wiring below don't change either way.
 //
-// How many block chips to show is still an open question this component
-// doesn't resolve: concept section 4 gives a *count* (floor(n/2) — one for
-// 2-3 numbers, two for four) but the layout table in 12.1 only reserves a
-// single column for "[Block]". `blockSlots` accepts however many the
-// caller decides on; they wrap without assuming there's ever just one.
+// The block chip is a single, permanent chip, like an operator's — not one
+// placeholder per unit of budget (concept section 4's floor(n/2)). It's
+// disabled once the budget is used up rather than hidden or turned into a
+// placeholder: unlike a number, an already-placed block's tray "instance"
+// doesn't stand for any specific group on the board (nothing here remembers
+// *which* group a tap would return), so there's nothing for a placeholder
+// to tap back — removing a block is bracket-edge-only (concept 6: "Block:
+// antippen löst auf").
 
 import { Chip } from './Chip'
 import type { DragHandlers } from './useDrag'
@@ -28,23 +31,18 @@ export interface TrayNumberSlot {
   used: boolean
 }
 
-export interface TrayBlockSlot {
-  id: string
-  /** this block chip's group is currently placed in the expression. */
-  used: boolean
-}
-
 export interface TrayProps {
   /** right-aligned; length matches the puzzle's number count (2-4, concept 15.4). */
   numberSlots: TrayNumberSlot[]
   /** how many number columns to pad to on the left with empty ("nichts") cells — concept 12.1's grid is 4 wide. */
   numberColumns?: number
-  blockSlots: TrayBlockSlot[]
+  /** the block budget (concept 4: floor(n/2)) is used up — the chip disables rather than disappearing. */
+  blockDisabled: boolean
   /** always shown in ×÷+− order (concept 12.1), whichever the puzzle's settings enabled. */
   operators: Operator[]
   submitEnabled: boolean
   onTapNumber: (id: string) => void
-  onTapBlock: (id: string) => void
+  onTapBlock: () => void
   onTapOperator: (op: Operator) => void
   onSubmit: () => void
   /**
@@ -87,7 +85,7 @@ function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: s
 export function Tray({
   numberSlots,
   numberColumns = 4,
-  blockSlots,
+  blockDisabled,
   operators,
   submitEnabled,
   onTapNumber,
@@ -107,19 +105,12 @@ export function Tray({
         {numberSlots.map(slot => (
           <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} />
         ))}
-        {blockSlots.map(slot => {
-          // Same reasoning as NumberCell's hasDrag above — not conditioned on `slot.used`.
-          const hasDrag = Boolean(dragHandlers)
-          return (
-            <Chip
-              key={slot.id}
-              variant="block"
-              placeholder={slot.used}
-              onClick={hasDrag ? undefined : () => onTapBlock(slot.id)}
-              {...(dragHandlers ? dragHandlers({ id: slot.id, kind: 'operand', data: { role: 'block' } }) : undefined)}
-            />
-          )
-        })}
+        <Chip
+          variant="block"
+          disabled={blockDisabled}
+          onClick={dragHandlers ? undefined : onTapBlock}
+          {...(dragHandlers ? dragHandlers({ id: 'tray-block', kind: 'operand', data: { role: 'block' } }) : undefined)}
+        />
       </div>
       <div className={styles.row}>
         {(['*', '/', '+', '-'] as Operator[])

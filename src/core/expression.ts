@@ -262,6 +262,27 @@ export function nextOpenSurface(expr: Expression, kind: DropZoneKind): Surface |
   return frontierKind === kind ? { groupId: null, index: children.length, kind } : null
 }
 
+/**
+ * Like `nextOpenSurface`, but never descends into a group's interior — for
+ * placing a *new* block, which only ever targets a root-level position
+ * (concept section 4: a group can't contain another group, so a block
+ * dropped inside one isn't a valid target — `resolveBlockDrop` already
+ * enforces this for drag; a tapped block needs the same restriction, or it
+ * finds a group's own open interior slot and overwrites the group sitting
+ * there instead of adding a second one alongside it).
+ */
+export function nextOpenRootSurface(expr: Expression, kind: DropZoneKind): Surface | null {
+  const { children } = expr.root
+  for (let i = 0; i < children.length; i++) {
+    const slot = children[i]
+    if (slot !== null && slot.kind === 'group') continue
+    const zoneKind: DropZoneKind = i % 2 === 0 ? 'operand' : 'operator'
+    if (slot === null && zoneKind === kind) return { groupId: null, index: i, kind }
+  }
+  const frontierKind: DropZoneKind = children.length % 2 === 0 ? 'operand' : 'operator'
+  return frontierKind === kind ? { groupId: null, index: children.length, kind } : null
+}
+
 // ------------------------------------------------------- block drop targeting
 // concept 6.1: what dropping the block chip onto existing content encloses.
 // Only resolves operand-position targets for now — 6.1 also lets an

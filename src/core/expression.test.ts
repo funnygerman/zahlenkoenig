@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, fillGap, swapSlots, removeOperand, removeOperator,
-  wrapGroup, dissolveGroup, dropZones, nextOpenSurface, resolveBlockDrop,
+  wrapGroup, dissolveGroup, dropZones, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
 } from './expression'
@@ -286,6 +286,54 @@ describe('nextOpenSurface (concept 3.1: document order, group interiors first)',
     const expr = createExpression()
     expr.root.children = [num(3, 0), createOperatorLeaf('+'), num(7, 1)] // already complete for a 2-number puzzle
     expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: null, index: 3, kind: 'operator' })
+  })
+})
+
+describe('nextOpenRootSurface (a block only ever targets a root position)', () => {
+  it('an empty root: the first operand surface is index 0, same as nextOpenSurface', () => {
+    expect(nextOpenRootSurface(createExpression(), 'operand')).toEqual({ groupId: null, index: 0, kind: 'operand' })
+  })
+
+  it("does not descend into a group's interior, unlike nextOpenSurface", () => {
+    const expr = createExpression()
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), null, num(2, 1)] }
+    expr.root.children = [g]
+    // nextOpenSurface would find the group's own open operator slot first
+    // (index 1 inside g1) — a second block must skip straight past it to
+    // the root's own trailing frontier instead.
+    expect(nextOpenSurface(expr, 'operator')).toEqual({ groupId: 'g1', index: 1, kind: 'operator' })
+    expect(nextOpenRootSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
+  })
+
+  it("returns null rather than the group's own interior once the frontier past it is operator-kind", () => {
+    // [g] is length 1 — the root frontier right after it is an *operator*
+    // position (concept 2.1's parity), not an operand one, so there's
+    // genuinely no root-level operand surface yet: an operator has to go
+    // between two operands first. The point is what it must NOT do —
+    // wander into g's own still-open interior the way nextOpenSurface would.
+    const expr = createExpression()
+    const g: Group = { id: 'g1', kind: 'group', children: [null, null, null] } // freshly placed, nothing filled yet
+    expr.root.children = [g]
+    expect(nextOpenRootSurface(expr, 'operand')).toBeNull()
+  })
+
+  it('a second block goes after the first once an operator separates them', () => {
+    const expr = createExpression()
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expr.root.children = [g, createOperatorLeaf('*')]
+    expect(nextOpenRootSurface(expr, 'operand')).toEqual({ groupId: null, index: 2, kind: 'operand' })
+  })
+
+  it('a stored root-level gap counts before the trailing frontier, same as nextOpenSurface', () => {
+    const expr = createExpression()
+    expr.root.children = [num(3, 0), null, num(7, 1)]
+    expect(nextOpenRootSurface(expr, 'operator')).toEqual({ groupId: null, index: 1, kind: 'operator' })
+  })
+
+  it('returns null for the kind that has no open root surface', () => {
+    const expr = createExpression()
+    expr.root.children = [num(3, 0), createOperatorLeaf('+'), num(7, 1)]
+    expect(nextOpenRootSurface(expr, 'operand')).toBeNull()
   })
 })
 

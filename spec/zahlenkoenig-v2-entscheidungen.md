@@ -54,13 +54,15 @@ Fehlermeldungen beim Bauen.
 | **Kein Löschen-Knopf** (PO) | Tippen auf einen platzierten Chip ist die exakte Umkehrung des Platzierens. |
 | **Kein Alles-löschen** (PO) | Nach einer falschen Antwort will man fast immer *eine* Sache ändern, nicht neu anfangen. |
 | **Block: antippen löst auf** | Wer einen Block entfernt, will andere Klammern, nicht weniger Zahlen. Zwei Gesten statt acht. |
-| **Platzhalter in der Ablage sind antippbar** | Der Klammerrand ist schmal, Daumen sind es nicht. Große Zweitfläche für dieselbe Aufgabe – als allgemeine Regel, nicht als Sonderfall für den Block. |
+| **Platzhalter in der Ablage sind antippbar – für Zahlen** | Der Klammerrand ist schmal, Daumen sind es nicht. Große Zweitfläche für dieselbe Aufgabe. Galt ursprünglich auch für den Block; entfällt dort mit der Revision unten, weil der Block keinen Platzhalter mehr hat, der für ein bestimmtes Vorkommen steht. |
+| **Block-Chip ist einzeln und dauerhaft, wie ein Operator** (Revision, nach Rückmeldung zum ersten spielbaren Brett) | Ursprünglich ein Platzhalter pro Kontingent-Einheit (⌊n/2⌋ Chips, jeder verschwindet beim Setzen wie bei einer Zahl) – bei vier Zahlen liefen zwei davon im Layout aus dem Raster, das Abschnitt 12.1 ohnehin nur für einen einzigen `[Block]` vorsieht. Ein einzelner Chip behebt beides zugleich: er passt in die eine reservierte Spalte, und „wie viele Blöcke passen noch" wird eine einzige Ja/Nein-Frage statt eines Zählens über mehrere Chips. Deaktiviert sich, sobald ⌊n/2⌋ erreicht ist – dieselbe Behandlung wie beim `=`-Knopf, kein Sonderfall. |
 | **Kein Undo** | Keine Geste verliert mehr als einen Chip. Die Anforderung entfällt, statt erfüllt zu werden. |
 
 **Verworfen:** nur Drag-and-Drop · Löschen-/Clear-Knopf · langes Drücken
 (Modalität, die es sonst nirgends gibt und die nichts ankündigt) · „Block erst
 leeren, dann entfernen" · einen vollen Block aus dem Feld ziehen und den Inhalt
-in die Ablage schütten.
+in die Ablage schütten · ein Platzhalter pro Block-Kontingent-Einheit (siehe
+Revision oben).
 
 ---
 

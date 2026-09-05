@@ -12,11 +12,11 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, fillGap, swapSlots, removeOperand, removeOperator,
-  wrapGroup, dissolveGroup, nextOpenSurface, resolveBlockDrop, isExpressionComplete,
+  wrapGroup, dissolveGroup, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop, isExpressionComplete,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
 import { evaluate } from '../core/evaluate'
-import type { TrayNumberSlot, TrayBlockSlot } from './Tray'
+import type { TrayNumberSlot } from './Tray'
 import { parseZoneId } from './Expression'
 
 export interface UseGameOptions {
@@ -164,10 +164,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     () => tray.map(leaf => ({ id: leaf.id, value: leaf.value, used: placedIds.has(leaf.id) })),
     [tray, placedIds]
   )
-  const blockSlots: TrayBlockSlot[] = useMemo(
-    () => Array.from({ length: blockBudget }, (_, i) => ({ id: `block-${i}`, used: i < blocksUsed })),
-    [blockBudget, blocksUsed]
-  )
+  const blockDisabled = blocksUsed >= blockBudget
 
   // ------------------------------------------------------------- placing
 
@@ -187,10 +184,14 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
 
   const placeBlock = useCallback(() => {
     setExpr(e => {
-      const surface = nextOpenSurface(e, 'operand')
-      // Tap always resolves to a bare empty group — concept 6.1's
+      // nextOpenRootSurface, not nextOpenSurface: a block only ever targets
+      // a root position (concept section 4) — the general operand-surface
+      // walk would find an existing group's own open interior slot first
+      // and overwrite that group instead of adding a second one alongside
+      // it. Tap always resolves to a bare empty group — concept 6.1's
       // wrap-existing-content behavior needs an *occupied* target, which
-      // nextOpenSurface (by definition) never returns.
+      // nextOpenRootSurface (by definition) never returns.
+      const surface = nextOpenRootSurface(e, 'operand')
       return surface ? placeGroupAt(e, surface, createEmptyGroup()) : e
     })
   }, [])
@@ -211,30 +212,12 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   }, [placeOperator])
 
   /**
-   * `id` is the tray slot's own synthetic id (`block-0`, `block-1`, …, one
-   * per unit of budget — concept 4's ⌊n/2⌋), not a real group id: a used
-   * slot doesn't otherwise remember which board group it stands for. Its
-   * index into document-order groups is enough to find it, the same way a
-   * number placeholder's real id finds its board leaf — concept 12.3's
-   * "Platzhalter in der Ablage sind antippbar" applies to a block
-   * placeholder exactly as it does to a number's.
+   * The tray's block chip is a single, permanent button, like an operator's
+   * — not one placeholder per unit of budget (Tray.tsx's own note on why).
+   * Once the budget (concept 4: ⌊n/2⌋) is used up the chip disables itself
+   * (`blockDisabled`); this only needs to place, never to dissolve.
    */
-  const onTapBlock = useCallback((id: string) => {
-    const index = Number(id.slice('block-'.length))
-    if (index < blocksUsed) {
-      setExpr(e => {
-        let seen = 0
-        for (let i = 0; i < e.root.children.length; i++) {
-          const c = e.root.children[i]
-          if (c !== null && c.kind === 'group') {
-            if (seen === index) return withRootChildren(e, dissolveGroup(e.root.children, i))
-            seen++
-          }
-        }
-        return e
-      })
-      return
-    }
+  const onTapBlock = useCallback(() => {
     if (blocksUsed >= blockBudget) return
     placeBlock()
   }, [blocksUsed, blockBudget, placeBlock])
@@ -256,7 +239,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // Origin (tray vs. already on the board) isn't tagged explicitly — it's
   // derivable from the tree itself: a number's id never changes between
   // tray and board (same NumberLeaf throughout its life), and a tray-origin
-  // operator/block's id is synthetic (`tray-op-+`, `block-0`) and never
+  // operator/block's id is synthetic (`tray-op-+`, `tray-block`) and never
   // matches a real placed leaf/group id. So "not found in the tree" *is*
   // "still in the tray" — one fact instead of two that could disagree.
   //
@@ -281,6 +264,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     setExpr(e => {
       if (item.data.role === 'block') {
         if (surface.groupId !== null) return e // a block only ever targets a root position
+        if (blocksUsed >= blockBudget) return e // same cap the tray chip disables itself for (concept 4: ⌊n/2⌋)
         const resolved = resolveBlockDrop(e.root.children, surface.index)
         if (!resolved) return e
         if (resolved.kind === 'empty') return placeGroupAt(e, surface, createEmptyGroup())
@@ -321,7 +305,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       }
       return e // swapping between root and a group's interior isn't a supported gesture (concept 6.5 only describes swapping among root-level operands)
     })
-  }, [tray])
+  }, [tray, blocksUsed, blockBudget])
 
   // ------------------------------------------------------------- submit
 
@@ -333,7 +317,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   return {
     expr,
     trayNumbers,
-    blockSlots,
+    blockDisabled,
     operators: ops,
     submitEnabled: complete,
     status,

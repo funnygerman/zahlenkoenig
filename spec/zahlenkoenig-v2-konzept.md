@@ -123,10 +123,16 @@ füllt.
   aber nicht eigens verboten.
 - **Keine Verschachtelung.** Eine Gruppe enthält nie eine weitere Gruppe.
   Stattdessen dürfen **mehrere Blöcke nebeneinander** stehen.
-- Das Kontingent folgt aus der Zahl der Operanden, nicht mehr aus einem Level:
-  **⌊n/2⌋ Block-Chips** – bei zwei oder drei Zahlen einer, bei vier zwei. Mehr
-  wären nicht unterzubringen, denn ein Block braucht mindestens zwei Operanden.
-  Das Kontingent ist sichtbar statt eine Regel, die man sich merken muss.
+- **In der Ablage gibt es genau einen Block-Chip**, dauerhaft und wiederholt
+  antippbar wie ein Operator – kein Platzhalter pro Kontingent-Einheit, der
+  beim Setzen verschwindet. Wie viele Blöcke im Ausdruck gleichzeitig stehen
+  dürfen, folgt weiterhin aus der Zahl der Operanden statt aus einem Level:
+  **⌊n/2⌋** – bei zwei oder drei Zahlen einer, bei vier zwei. Mehr wären nicht
+  unterzubringen, denn ein Block braucht mindestens zwei Operanden. Ist das
+  Kontingent ausgeschöpft, **deaktiviert sich der Chip**, statt zu
+  verschwinden – dieselbe Regel wie beim `=`-Knopf vor einem unvollständigen
+  Ausdruck. (Revision nach Rückmeldung zum ersten spielbaren Brett: ursprünglich
+  ein Platzhalter pro Kontingent-Einheit, siehe Entscheidungen Abschnitt 3.)
 - Ein gesetzter Block wird **nie zerlegt**: Antippen oder Herausziehen entfernt
   nur die Klammern, der Inhalt bleibt stehen. Abschnitt 6 beschreibt das
   vollständig.
@@ -302,8 +308,9 @@ eigenen Ablageziele** – die gültigen Ziele bleiben die aus 6.1.
 ```
 
 Die Klammern verschwinden. Die 6, das `+` und die 2 bleiben, in derselben
-Reihenfolge, an derselben Stelle. Der Block-Chip kehrt in die Ablage zurück.
-**Es fällt nichts heraus.**
+Reihenfolge, an derselben Stelle. Das Kontingent hat wieder einen Block frei –
+war der Chip in der Ablage deaktiviert, wird er wieder aktiv. **Es fällt
+nichts heraus.**
 
 Denn wer einen Block entfernt, will fast immer *andere* Klammern, nicht weniger
 Zahlen. `(6+2)×9` → `6+(2×9)` kostet so zwei Gesten: tippen, dann den Block auf
@@ -315,10 +322,9 @@ in die Ablage und zurück.
 | Rand tippen | Klammern gehen heim, Inhalt bleibt |
 | auf einen anderen Operanden ziehen | die beiden tauschen, Inhalt reist mit |
 | aus dem Feld ziehen und loslassen | Klammern gehen heim, Inhalt bleibt |
-| Platzhalter in der Ablage tippen | Klammern gehen heim, Inhalt bleibt |
 
-Vier Einträge, drei mit demselben Ergebnis – das ist der Punkt: **alle scheinbar
-zerstörerischen Gesten laufen auf die harmlose hinaus.**
+Drei Einträge, zwei mit demselben Ergebnis – das ist der Punkt: **alle
+scheinbar zerstörerischen Gesten laufen auf die harmlose hinaus.**
 
 **Bewegen ist keine neue Regel.** Ein Block ist ein Operand, und für einen
 Operanden auf einer belegten Operandenfläche gilt bereits: tauschen.
@@ -329,22 +335,20 @@ eines), nicht die Regel.
 
 ### 6.6 Treffflächen
 
-Der sichtbare Rand ist dünn, und Daumen sind es nicht. Deshalb hat das Auflösen
-**zwei Wege**:
+Der sichtbare Rand ist dünn, und Daumen sind es nicht. Deshalb ist die
+Trefffläche größer als der sichtbare Steg: die beiden Klammerstege sowie das
+Band über und unter den Chips. Jeder Steg bekommt eine unsichtbare Trefffläche
+von etwa 22 px Breite über die volle Blockhöhe, nach außen in den Feldabstand
+und nach innen über die Polsterung, ohne je einen Chip zu überlappen. Ein hoher
+schmaler Streifen ist deutlich leichter zu treffen als ein kleines Quadrat.
 
-- **Der Rand selbst** – die beiden Klammerstege sowie das Band über und unter den
-  Chips. Jeder Steg bekommt eine unsichtbare Trefffläche von etwa 22 px Breite
-  über die volle Blockhöhe, nach außen in den Feldabstand und nach innen über die
-  Polsterung, ohne je einen Chip zu überlappen. Ein hoher schmaler Streifen ist
-  deutlich leichter zu treffen als ein kleines Quadrat.
-- **Der Platzhalter in der Ablage** – eine volle Zelle von 64 px, dort wo der
-  Daumen ohnehin ist.
-
-Verallgemeinert, statt als Sonderfall: **ein gestrichelter Platzhalter in der
-Ablage ist antippbar und holt zurück, was ihn verlassen hat.** Das gilt für
-Zahlen genauso wie für den Block, ist eine Regel statt zweier, und gibt jedem
-Element eine große Rückholfläche. Der genaue Weg bleibt für alle, die ihn
-mögen; niemand ist darauf angewiesen.
+**Ein gestrichelter Platzhalter in der Ablage ist antippbar und holt zurück,
+was ihn verlassen hat** (Abschnitt 5) – aber das gilt nur für Zahlen. Der Block
+hat in der Ablage keinen Platzhalter mehr, der für ein bestimmtes gesetztes
+Vorkommen steht: der Chip dort ist einzeln und dauerhaft, wie ein Operator
+(Abschnitt 4, Revision), und tippt immer *neu*. Auflösen eines gesetzten
+Blocks bleibt deshalb allein Sache des Randes – der einzige Grund, warum
+dessen Trefffläche oben eigens vergrößert wird.
 
 ### 6.7 Die Animation trägt die Bedeutung
 
@@ -679,6 +683,12 @@ verhindert, dass die drei Formen als Gesicht gelesen werden.
 Die ersten beiden dürfen nicht gleich aussehen: sonst lässt sich ein
 3-Zahlen-Rätsel nicht von einem 4-Zahlen-Rätsel unterscheiden, bei dem schon eine
 Zahl gesetzt ist.
+
+Der Block-Chip trägt keine dieser drei: er ist einzeln und dauerhaft (Abschnitt
+4, Revision) und kennt stattdessen nur **aktiv** und **deaktiviert** – dieselbe
+Unterscheidung wie beim `=`-Knopf. Wie sich „deaktiviert" von den drei
+Markierungen hier abhebt, ist noch offen (visuelle Feinarbeit, kein
+Verhaltensthema).
 
 ### 12.4 Kontrast des Blocks
 

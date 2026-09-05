@@ -42,7 +42,7 @@ export function Game() {
   const handleTap = useCallback((item: DragItem<DragPayload>) => {
     const { role, operator } = item.data!
     if (role === 'number') game.onTapNumber(item.id)
-    else if (role === 'block') game.onTapBlock(item.id)
+    else if (role === 'block') game.onTapBlock()
     else if (role === 'operator' && operator) game.onTapOperator(operator)
   }, [game])
 
@@ -68,7 +68,7 @@ export function Game() {
 
       <Tray
         numberSlots={game.trayNumbers}
-        blockSlots={game.blockSlots}
+        blockDisabled={game.blockDisabled}
         operators={game.operators}
         submitEnabled={game.submitEnabled}
         onTapNumber={game.onTapNumber}

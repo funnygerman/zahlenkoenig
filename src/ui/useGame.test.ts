@@ -18,17 +18,24 @@ describe('useGame — initial state', () => {
   it('nothing placed, submit disabled, status idle', () => {
     const { result } = setup([6, 2, 9, 3], 48)
     expect(result.current.trayNumbers.every(n => !n.used)).toBe(true)
-    expect(result.current.blockSlots).toHaveLength(2) // floor(4/2)
-    expect(result.current.blockSlots.every(b => !b.used)).toBe(true)
+    expect(result.current.blockDisabled).toBe(false) // floor(4/2) = 2, none used yet
     expect(result.current.submitEnabled).toBe(false)
     expect(result.current.status).toBe('idle')
     expect(result.current.result).toBeNull()
   })
 
   it('block budget is floor(n/2): one for 2-3 numbers, two for four', () => {
-    expect(setup([3, 7], 10).result.current.blockSlots).toHaveLength(1)
-    expect(setup([3, 7, 9], 10).result.current.blockSlots).toHaveLength(1)
-    expect(setup([1, 2, 3, 4], 10).result.current.blockSlots).toHaveLength(2)
+    const two = setup([3, 7], 10)
+    act(() => two.result.current.onTapBlock())
+    expect(two.result.current.blockDisabled).toBe(true) // budget 1, now used up
+
+    const three = setup([3, 7, 9], 10)
+    act(() => three.result.current.onTapBlock())
+    expect(three.result.current.blockDisabled).toBe(true) // budget 1, now used up
+
+    const four = setup([1, 2, 3, 4], 10)
+    act(() => four.result.current.onTapBlock())
+    expect(four.result.current.blockDisabled).toBe(false) // budget 2, one still free
   })
 })
 
@@ -79,8 +86,8 @@ describe('useGame — tap-to-place and tap-to-return (concept 5)', () => {
 describe('useGame — blocks (concept 4/6)', () => {
   it('tapping the block chip places an empty group at the next operand surface, which then accepts numbers into its interior', () => {
     const { result } = setup([6, 2], 8)
-    act(() => result.current.onTapBlock('block-0'))
-    expect(result.current.blockSlots[0].used).toBe(true)
+    act(() => result.current.onTapBlock())
+    expect(result.current.blockDisabled).toBe(true) // budget 1, now used up
 
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
     act(() => result.current.onTapOperator('+'))
@@ -89,27 +96,39 @@ describe('useGame — blocks (concept 4/6)', () => {
     expect(result.current.result).toBe(8)
   })
 
-  it('cannot place more blocks than the budget allows, and tapping a used slot dissolves it', () => {
+  it('cannot place more blocks than the budget allows', () => {
     const { result } = setup([3, 7], 10) // budget 1
-    act(() => result.current.onTapBlock('block-0'))
-    expect(result.current.blockSlots).toHaveLength(1)
-    expect(result.current.blockSlots[0].used).toBe(true)
+    act(() => result.current.onTapBlock())
+    expect(result.current.blockDisabled).toBe(true)
 
-    // 'block-1' isn't a slot Tray would ever render at this budget —
-    // defensive no-op, not reachable from a real tap.
-    act(() => result.current.onTapBlock('block-1'))
+    act(() => result.current.onTapBlock()) // should no-op — the tray chip disables itself, but defend anyway
     expect(result.current.expr.root.children).toHaveLength(1)
-
-    // Tapping the tray's own (now-used) placeholder is symmetric with a
-    // number's — it returns the block instead of trying to place another
-    // one (concept 12.3: "Platzhalter in der Ablage sind antippbar").
-    act(() => result.current.onTapBlock('block-0'))
-    expect(result.current.blockSlots[0].used).toBe(false)
   })
 
-  it('dissolving a group keeps its content in place (concept 6.5)', () => {
+  it("tapping the block chip again before filling the first one is a safe no-op, not an overwrite of it", () => {
+    // Document-order tap placement (concept 3.1) always dives into a still-
+    // open group's own interior before advancing past it — the same reason
+    // a *second* block genuinely can't be tapped in before the first is
+    // filled (there's no root-level operand surface to put it at yet, only
+    // ones inside the still-open first group). What must never happen is
+    // the second tap finding that interior slot and overwriting the first
+    // group with a fresh, empty one.
+    const { result } = setup([1, 2, 3, 4], 10) // budget 2
+    act(() => result.current.onTapBlock())
+    const firstGroupId = (result.current.expr.root.children[0] as { id: string }).id
+
+    act(() => result.current.onTapBlock()) // no root-level operand surface yet — no-op
+    expect(result.current.expr.root.children).toHaveLength(1)
+    const group = result.current.expr.root.children[0] as { id: string; kind: string; children: unknown[] }
+    expect(group.kind).toBe('group')
+    expect(group.id).toBe(firstGroupId) // same group, not a fresh one replacing it
+    expect(group.children).toEqual([null, null, null]) // untouched, not replaced
+    expect(result.current.blockDisabled).toBe(false) // only one unit of budget used so far
+  })
+
+  it('dissolving a group keeps its content in place (concept 6.5) and frees up the budget again', () => {
     const { result } = setup([6, 2], 8)
-    act(() => result.current.onTapBlock('block-0'))
+    act(() => result.current.onTapBlock())
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(idOf(result.current, 2)))
@@ -119,18 +138,18 @@ describe('useGame — blocks (concept 4/6)', () => {
     act(() => result.current.onDissolveGroup(groupId))
     expect(result.current.expr.root.children).toHaveLength(3) // 6, +, 2 — flattened, nothing lost
     expect(result.current.result).toBe(8) // same value, no group needed for two numbers anyway
-    expect(result.current.blockSlots[0].used).toBe(false) // the block chip returns to the tray
+    expect(result.current.blockDisabled).toBe(false) // the block chip is available again
   })
 
   it("the full worst-case expression from concept 12.5 builds correctly via tap alone: (6+2)*(9-3) = 48", () => {
     const { result } = setup([6, 2, 9, 3], 48)
 
-    act(() => result.current.onTapBlock('block-0'))
+    act(() => result.current.onTapBlock())
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(idOf(result.current, 2)))
     act(() => result.current.onTapOperator('*'))
-    act(() => result.current.onTapBlock('block-1'))
+    act(() => result.current.onTapBlock())
     act(() => result.current.onTapNumber(idOf(result.current, 9)))
     act(() => result.current.onTapOperator('-'))
     act(() => result.current.onTapNumber(idOf(result.current, 3)))
@@ -201,7 +220,7 @@ describe('useGame — drag: placing from the tray (concept 5.1)', () => {
     act(() => result.current.onDrop({ id: 'tray-op-+', kind: 'operator', data: { role: 'operator', operator: '+' } }, { zoneId: 'root-1', occupied: false }))
     act(() => result.current.onDrop({ id: idOf(result.current, 2), kind: 'operand', data: { role: 'number' } }, { zoneId: 'root-2', occupied: false }))
     // now [6, +, 2] — drop the block onto the 6 (an occupied operand position)
-    act(() => result.current.onDrop({ id: 'block-0', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-0', occupied: true }))
+    act(() => result.current.onDrop({ id: 'tray-block', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-0', occupied: true }))
     const wrapped = result.current.expr.root.children[0] as { kind: string }
     expect(wrapped.kind).toBe('group')
     expect(result.current.result).toBe(8) // (6+2), still complete and correct
@@ -209,10 +228,17 @@ describe('useGame — drag: placing from the tray (concept 5.1)', () => {
 
   it('a block dropped on an empty zone places a bare empty group, not a wrap', () => {
     const { result } = setup([6, 2], 8)
-    act(() => result.current.onDrop({ id: 'block-0', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-0', occupied: false }))
+    act(() => result.current.onDrop({ id: 'tray-block', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-0', occupied: false }))
     const group = result.current.expr.root.children[0] as { kind: string; children: unknown[] }
     expect(group.kind).toBe('group')
     expect(group.children).toEqual([null, null, null])
+  })
+
+  it('dragging a block in cannot exceed the budget either — same cap the tray chip disables itself for', () => {
+    const { result } = setup([3, 7], 10) // budget 1
+    act(() => result.current.onTapBlock()) // budget now used up via a tap
+    act(() => result.current.onDrop({ id: 'tray-block', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-1', occupied: false }))
+    expect(result.current.expr.root.children).toHaveLength(1) // still just the one group — the drop was a no-op
   })
 })
 
@@ -248,13 +274,13 @@ describe('useGame — drag: moving and removing placed chips', () => {
   it("moving a placed number into another group's empty slot leaves a gap behind, without deleting its old neighbor operator", () => {
     const { result } = setup([1, 2, 9, 5], 999) // 4 numbers -> block budget 2 (concept 4); target is irrelevant to this structural test
     // group1 = (1+2): place block, fill both operands and the operator.
-    act(() => result.current.onTapBlock('block-0'))
+    act(() => result.current.onTapBlock())
     act(() => result.current.onTapNumber(idOf(result.current, 1)))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(idOf(result.current, 2)))
     // root frontier is now operator-kind: "*", then a second empty group.
     act(() => result.current.onTapOperator('*'))
-    act(() => result.current.onTapBlock('block-1'))
+    act(() => result.current.onTapBlock())
     // group2 gets one operand filled (9), leaving its other operand null.
     act(() => result.current.onTapNumber(idOf(result.current, 9)))
 
