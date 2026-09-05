@@ -28,8 +28,17 @@ interface DragPayload {
   operator?: Operator
   /** what the ghost has to show while this chip is in the air — the chip it came from isn't reachable from an id alone. */
   value?: number
-  /** field chips are smaller than tray chips (concept 12.5); the ghost matches whichever it was picked up from. */
-  scale?: 'tray' | 'field'
+  /**
+   * Which half of the board this chip was picked up from. Tapping means
+   * opposite things on the two sides — the tray places, the field returns
+   * (concept 6.6: "die exakte Umkehrung des Platzierens") — and `role`
+   * alone can't tell them apart, so a tapped operator on the board looked
+   * exactly like a tapped operator in the tray and placed a second one.
+   *
+   * It doubles as the chip's scale, which is the same fact: field chips
+   * are smaller than tray chips (concept 12.5).
+   */
+  origin: 'tray' | 'field'
 }
 
 function cx(...parts: Array<string | false | undefined>): string {
@@ -49,7 +58,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
       variant={GHOST_VARIANT[payload.role]}
       value={payload.value}
       operator={payload.operator}
-      scale={payload.scale ?? 'tray'}
+      scale={payload.origin}
       tabIndex={-1}
     />
   )
@@ -63,7 +72,13 @@ export function Game() {
   // actions, just triggered differently) — the `!` reflects that
   // invariant, not a gap in it.
   const handleTap = useCallback((item: DragItem<DragPayload>) => {
-    const { role, operator } = item.data!
+    const { role, operator, origin } = item.data!
+    // Anything already on the board goes back where it came from, whatever
+    // kind of chip it is (concept 6.6). Only the tray places.
+    if (origin === 'field') {
+      game.onTapLeaf(item.id)
+      return
+    }
     if (role === 'number') game.onTapNumber(item.id)
     else if (role === 'block') game.onTapBlock()
     else if (role === 'operator' && operator) game.onTapOperator(operator)

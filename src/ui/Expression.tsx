@@ -54,7 +54,7 @@ export interface ExpressionProps {
   onDissolveGroup: (groupId: string) => void
   registerZone?: (zoneId: string, kind: 'operand' | 'operator', occupied: boolean, el: HTMLElement | null) => void
   /** `data.role` tells the drop handler what kind of chip this is without guessing from the id string. */
-  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator'; operator?: Operator; value?: number; scale?: 'tray' | 'field' } }) => DragHandlers
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
   /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
   activeZoneId?: string | null
 }
@@ -100,7 +100,7 @@ function LeafChip({
           role: leaf.kind === 'number' ? 'number' : 'operator',
           value: leaf.kind === 'number' ? leaf.value : undefined,
           operator: leaf.kind === 'operator' ? leaf.value : undefined,
-          scale: 'field',
+          origin: 'field',
         },
       }) : undefined)}
     />

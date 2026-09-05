@@ -157,6 +157,35 @@ Beleg dafür, dass Ziehen funktioniert – nur dafür, wie Tippen sich anfühlt.
 nachlaufende Lücken speichern (siehe oben) · die Toleranz senkrecht großzügig
 lassen (frisst den Abstand zur Ablage).
 
+
+### 3.3 Antippen heißt zurücknehmen — auf beiden Seiten (dritter Gerätetest)
+
+„Tippe ich auf den Operator im Ausdruck, verschwindet er nicht. Schlimmer: es
+kommt derselbe Operator an der nächsten freien Stelle dazu."
+
+Die Tipp-Weiche in `Game.tsx` verzweigte nach **was** ein Chip ist (`role`) und
+nie danach, **wo** er liegt. Ein gesetzter Operator sah damit exakt aus wie der
+in der Ablage, und `onTapOperator` kann nur setzen. Zahlen entkamen dem nur
+durch Zufall: `onTapNumber` prüft ohnehin, ob die Id schon platziert ist.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Die Nutzlast trägt `origin: 'tray' \| 'field'`** | Tippen bedeutet auf den beiden Seiten das Gegenteil – die Ablage setzt, das Feld nimmt zurück (6.6). Welche Komponente den Chip gezeichnet hat, ist keine ableitbare Zustandsgröße, die driften könnte, sondern schlicht bekannt. Ersetzt das bisherige `scale`, weil es dieselbe Tatsache ist: Feld-Chips sind kleiner als Ablage-Chips (12.5). |
+| **Ein Block behält immer seine Mindestform** (`withMinimumShape`, konzept 6.3) | Beim Prüfen der Reparatur aufgefallen: `removeOperand` nimmt den Nachbaroperator mit, also wurde aus `(6+2)` ohne `+` und `6` ein `(2)` – eine Klammer ohne offene Fläche darin, aus der nur Auflösen herausführt. Gleiches Bild über einen zweiten Weg: ein Block auf eine **einzelne** Zahl gezogen (6.1, span 1) ergab `(6)`. Beide gehen jetzt durch dieselbe Regel und zeigen `⬚ ○ ⬚`. |
+
+**Der eigentliche Befund ist aber, dass 453 Tests grün blieben.** Der Fehler
+sitzt in der Verdrahtung zwischen `useGame` und `Expression`/`Tray`; beide Hooks
+für sich waren korrekt, und `Game.test.tsx` spielte nur eine Partie durch, in
+der nie ein gesetzter Chip angetippt wird. Die neuen Tests dort greifen genau da
+an – und fallen ohne die Reparatur mit dem gemeldeten Symptom durch (zwei
+Operatoren statt keinem), bevor sie als Absicherung gelten.
+
+**Verworfen:** die Herkunft im Spielzustand nachschlagen (`findLeaf` über den
+Baum, um „liegt schon" zu erkennen) – die zeichnende Komponente weiß es
+sicher, eine Suche kann nur falsch liegen · `scale` für die Weiche
+zweckentfremden · `wrapGroup` im Kern auffüllen lassen (bräche die in 6.9
+getestete Umkehrbarkeit von wrap/dissolve).
+
 ---
 
 ## 4. Fortschritt und Rückmeldung

@@ -140,8 +140,23 @@ function withRootChildren(expr: ExpressionTree, children: Slot[]): ExpressionTre
   return { root: { ...expr.root, children: trimTrailingGaps(children) } }
 }
 
+/**
+ * concept 6.3: "Ein Block zeigt immer sein Minimum" — operand, operator,
+ * operand. Taking a number back out of a block used to shrink the bracket
+ * with it (`removeOperand` splices out the operand *and* its operator), so
+ * `(6+2)` minus its `+` and `6` left `(2)`: a bracket with no open slot
+ * inside it and no visible way to refill it, only dissolve and start over.
+ * The bracket keeps its shape instead and shows the gaps.
+ */
+function withMinimumShape(children: (Leaf | null)[]): (Leaf | null)[] {
+  const next = children.slice()
+  while (next.length < 3) next.push(null)
+  return next
+}
+
 function withGroupChildren(expr: ExpressionTree, groupId: string, groupChildren: (Leaf | null)[]): ExpressionTree {
-  return withRootChildren(expr, expr.root.children.map(c => (c !== null && c.kind === 'group' && c.id === groupId ? { ...c, children: groupChildren } : c)))
+  const children = withMinimumShape(groupChildren)
+  return withRootChildren(expr, expr.root.children.map(c => (c !== null && c.kind === 'group' && c.id === groupId ? { ...c, children } : c)))
 }
 
 /**
@@ -320,7 +335,17 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
         const resolved = resolveBlockDrop(e.root.children, surface.index)
         if (!resolved) return e
         if (resolved.kind === 'empty') return placeGroupAt(e, surface, createEmptyGroup())
-        return withRootChildren(e, wrapGroup(e.root.children, resolved.start, resolved.span))
+        // A block dropped on a lone number wraps just that number (concept
+        // 6.1's span-1 case) — which on its own would be `(6)`, the same
+        // shapeless bracket `withMinimumShape` exists to prevent. Same
+        // rule, so the bracket comes out as `(6 ○ ⬚)`: it says what it
+        // still needs, and can be filled without dissolving it first.
+        const wrapped = wrapGroup(e.root.children, resolved.start, resolved.span)
+        const group = wrapped[resolved.start]
+        if (group !== null && group.kind === 'group') {
+          wrapped[resolved.start] = { ...group, children: withMinimumShape(group.children) }
+        }
+        return withRootChildren(e, wrapped)
       }
 
       const existing = findLeaf(e.root.children, item.id)
