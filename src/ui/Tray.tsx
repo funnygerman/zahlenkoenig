@@ -51,9 +51,11 @@ export interface TrayProps {
    * Wires a chip into the shared drag layer (concept 5.1) — pass useDrag's
    * `dragHandlers`, lifted to a common ancestor of Tray and Expression so a
    * chip can be dragged from one into the other. Omit to make the tray
-   * tap-only (e.g. in a test, or before drag is wired up).
+   * tap-only (e.g. in a test, or before drag is wired up). `data.role`
+   * lets the drop handler tell a number from a block (both are
+   * operand-kind) without guessing from the id string.
    */
-  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator' }) => DragHandlers
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator } }) => DragHandlers
 }
 
 function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers'] }) {
@@ -63,7 +65,7 @@ function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: s
       value={slot.value}
       placeholder={slot.used}
       onClick={() => onTap(slot.id)}
-      {...(drag && !slot.used ? drag({ id: slot.id, kind: 'operand' }) : undefined)}
+      {...(drag && !slot.used ? drag({ id: slot.id, kind: 'operand', data: { role: 'number' } }) : undefined)}
     />
   )
 }
@@ -97,7 +99,7 @@ export function Tray({
             variant="block"
             placeholder={slot.used}
             onClick={() => onTapBlock(slot.id)}
-            {...(dragHandlers && !slot.used ? dragHandlers({ id: slot.id, kind: 'operand' }) : undefined)}
+            {...(dragHandlers && !slot.used ? dragHandlers({ id: slot.id, kind: 'operand', data: { role: 'block' } }) : undefined)}
           />
         ))}
       </div>
@@ -110,7 +112,7 @@ export function Tray({
               variant="operator"
               operator={op}
               onClick={() => onTapOperator(op)}
-              {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator' }) : undefined)}
+              {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op } }) : undefined)}
             />
           ))}
         <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />

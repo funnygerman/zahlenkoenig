@@ -292,7 +292,10 @@ function isPlainLeaf(children: RootChildren, index: number): boolean {
 export function resolveBlockDrop(children: RootChildren, index: number): BlockDropResult | null {
   if (index % 2 !== 0) return null // operator position — not resolved in this pass, see the note above
   const slot = children[index]
-  if (slot === null) return { kind: 'empty' }
+  // `undefined` (the trailing frontier, beyond the array's current length)
+  // is an open operand slot exactly like a stored `null` — only the
+  // reason differs, not the outcome.
+  if (slot === null || slot === undefined) return { kind: 'empty' }
   if (slot.kind === 'group') return null // already a group — not a valid block target
 
   if (isPlainLeaf(children, index + 1) && isPlainLeaf(children, index + 2)) {

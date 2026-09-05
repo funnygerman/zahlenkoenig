@@ -297,6 +297,11 @@ describe('resolveBlockDrop (concept 6.1)', () => {
     expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'empty' })
   })
 
+  it('the trailing frontier of an empty (or not-yet-that-long) root is also just an open slot, not a crash', () => {
+    expect(resolveBlockDrop([], 0)).toEqual({ kind: 'empty' })
+    expect(resolveBlockDrop([num(3, 0), createOperatorLeaf('+')], 2)).toEqual({ kind: 'empty' })
+  })
+
   it('an operator position is never resolved in this pass', () => {
     const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
     expect(resolveBlockDrop(children, 1)).toBeNull()

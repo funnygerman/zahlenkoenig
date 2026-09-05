@@ -49,7 +49,8 @@ export interface ExpressionProps {
   /** tapping a bracket edge dissolves that group; its content stays put (concept 6.5). */
   onDissolveGroup: (groupId: string) => void
   registerZone?: (zoneId: string, kind: 'operand' | 'operator', occupied: boolean, el: HTMLElement | null) => void
-  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator' }) => DragHandlers
+  /** `data.role` tells the drop handler what kind of chip this is without guessing from the id string. */
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' } }) => DragHandlers
   /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
   activeZoneId?: string | null
 }
@@ -80,7 +81,7 @@ function LeafChip({
       className={active ? styles.activeZone : undefined}
       onClick={() => onTapLeaf(leaf.id)}
       ref={el => registerZone?.(zoneId, kind, true, el)}
-      {...(dragHandlers ? dragHandlers({ id: leaf.id, kind }) : undefined)}
+      {...(dragHandlers ? dragHandlers({ id: leaf.id, kind, data: { role: leaf.kind === 'number' ? 'number' : 'operator' } }) : undefined)}
     />
   )
 }
