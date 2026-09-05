@@ -16,7 +16,7 @@ import { useGame } from './useGame'
 import { useDrag, type DragItem, type DropTarget } from './useDrag'
 import { Tray } from './Tray'
 import { Expression } from './Expression'
-import { Chip } from './Chip'
+import { Chip, type ChipVariant } from './Chip'
 import type { Operator } from '../core/expression'
 import './tokens.css'
 import styles from './Game.module.css'
@@ -26,10 +26,33 @@ const PUZZLE = { numbers: [6, 2, 9, 3], target: 48, ops: ['+', '-', '*', '/'] as
 interface DragPayload {
   role: 'number' | 'operator' | 'block'
   operator?: Operator
+  /** what the ghost has to show while this chip is in the air — the chip it came from isn't reachable from an id alone. */
+  value?: number
+  /** field chips are smaller than tray chips (concept 12.5); the ghost matches whichever it was picked up from. */
+  scale?: 'tray' | 'field'
 }
 
 function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
+}
+
+const GHOST_VARIANT: Record<DragPayload['role'], ChipVariant> = {
+  number: 'number',
+  operator: 'operator',
+  block: 'block',
+}
+
+/** The dragged chip, redrawn inside the ghost — same variant, same scale, so what follows the finger looks like what was picked up. */
+function GhostChip({ payload }: { payload: DragPayload }) {
+  return (
+    <Chip
+      variant={GHOST_VARIANT[payload.role]}
+      value={payload.value}
+      operator={payload.operator}
+      scale={payload.scale ?? 'tray'}
+      tabIndex={-1}
+    />
+  )
 }
 
 export function Game() {
@@ -57,6 +80,8 @@ export function Game() {
       <div className={styles.fieldRow}>
         <Expression
           expr={game.expr}
+          scaffoldOperands={game.scaffoldOperands}
+          scaffoldOperators={game.scaffoldOperators}
           onTapLeaf={game.onTapLeaf}
           onDissolveGroup={game.onDissolveGroup}
           registerZone={drag.registerZone}
@@ -85,12 +110,18 @@ export function Game() {
         {game.result !== null && `= ${game.result}`}
       </div>
 
+      {/* concept 5.1's "Geisterelement": the chip itself stays put and
+          dims, a copy follows the finger. useDrag writes the transform
+          straight onto this node — React only ever decides *what* is in
+          it, never where it is. */}
       <div
         ref={drag.ghostRef}
         className={styles.ghost}
-        style={{ display: drag.isDragging ? 'block' : 'none' }}
+        style={{ display: drag.isDragging ? 'grid' : 'none' }}
         aria-hidden="true"
-      />
+      >
+        {drag.draggingItem && <GhostChip payload={drag.draggingItem.data!} />}
+      </div>
     </div>
   )
 }

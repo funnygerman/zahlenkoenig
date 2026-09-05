@@ -64,6 +64,50 @@ leeren, dann entfernen" · einen vollen Block aus dem Feld ziehen und den Inhalt
 in die Ablage schütten · ein Platzhalter pro Block-Kontingent-Einheit (siehe
 Revision oben).
 
+
+### 3.1 Die Zeigerschicht, nach dem ersten Test auf echten Geräten
+
+Das erste spielbare Brett war per Ziehen **gar nicht** bedienbar – auf Android
+(Chrome, DuckDuckGo) wie auf dem Mac (Firefox, Chrome). Drei Ursachen, alle
+drei unabhängig voneinander ausreichend, um jedes Ablegen scheitern zu lassen:
+
+| Befund | Ursache | Entscheidung |
+|---|---|---|
+| **Das Geisterelement klebte oben links am Bildschirmrand**, weit über dem Ausdrucksfeld | Es stand auf `position: fixed; top: 0; left: 0` und bekam als `transform` die **Wegstrecke** des Fingers seit dem Aufsetzen, nicht dessen Position. Bei 20px Bewegung steht es 20px unter der linken oberen Ecke – egal, wo gezogen wird. | Der `transform` ist die Zeigerposition im Sichtfenster, plus `translate(-50%, -50%)`. Beides schreibt der Hook, nicht das Stylesheet: ein Inline-`transform` überschreibt ein Regel-`transform`, die beiden lassen sich nicht mischen. |
+| **Nichts sah nach Ziehen aus** | Das Geisterelement war ein leeres graues Quadrat. Der aufgenommene Chip blieb unverändert liegen. | Der Hook meldet den gezogenen Chip nach außen (`draggingItem`); `Game.tsx` zeichnet ihn im Geist noch einmal – gleiche Art, gleiche Größe wie das Original (Ablage- oder Feldmaßstab). Der Quell-Chip wird für die Dauer gedimmt, direkt am Knoten, ohne Render. |
+| **Kein Ablegen kam an** | Im leeren Feld war die einzige angemeldete Fläche der nachlaufende Rand, und der zeichnete **nichts**: ein 0×0-Element, das per Rechteck nie zu treffen ist. Das Gerüst aus Abschnitt 6.4 war nie verdrahtet. | `useGame` leitet die Gerüstzahlen her (offene Zahlen der Ablage abzüglich der bereits gezeichneten Lücken; *n* Zahlen brauchen immer *n−1* Operatoren) und `Game.tsx` reicht sie durch. Damit hat jede offene Position sichtbare Fläche. |
+
+Dazu zwei Regeln, die aus demselben Test folgen:
+
+- **Treffen mit Toleranz statt reinem Rechteck.** Eine Feldfläche ist ~32px
+  breit in einem 64px hohen Feld; der Rand eines vollen Blocks ist weiterhin
+  0px breit. Wer 10px über der Fläche loslässt, meint sie trotzdem. Getroffen
+  wird zuerst per Rechteck, danach die **nächstgelegene** Fläche innerhalb von
+  28px. Darüber hinaus bleibt Loslassen ein echtes „Herausziehen" (Abschnitt 5)
+  – die Ablage liegt weit außerhalb dieser 28px.
+- **Der nachlaufende Rand ist eine Fläche, nicht sieben.** Das angemeldete
+  Element umfasst die vorderste Gerüstfläche, alle dekorativen dahinter und den
+  leeren Rest des Feldes. Das widerspricht 6.4 nicht, sondern führt es aus: nur
+  die vorderste Position ist überhaupt lebendig („keine eigenen Ablageziele"),
+  und Loslassen im leeren rechten Teil des Feldes kann nichts anderes heißen als
+  „hinten anstellen". Hervorgehoben wird weiterhin nur die eine Fläche, in der
+  der Chip landet.
+
+**Eine Zahl aus der Ablage auf eine belegte Fläche** ersetzt, was dort liegt;
+der verdrängte Chip fällt in die Ablage zurück. Vorher passierte nichts – die
+einzige Geste, die stumm ins Leere lief.
+
+**Nebenbefund, nicht von der Zeigerschicht verursacht:** der nachlaufende Rand
+ist ein Flex-Element und kostete den `gap` der Zeile (4px), auch wenn er leer
+war. Der schlimmste Ausdruck `(6+2) × (9−3)` hat laut 12.5 rund 7px übrig – er
+lief also um 4px über und wurde beschnitten. Ein leerer Rand hebt den `gap` per
+negativem Rand wieder auf; gemessen bleiben 7,7px übrig. **Verworfen:** dem Rand
+eine Mindestbreite geben (kostet genau die Breite, die 12.5 nicht hat).
+
+**Verworfen:** HTML5-Drag-and-Drop (löst auf iOS-Safari bei Berührung nicht
+aus) · Zonen während des Ziehens neu vermessen · das Geisterelement über
+React-State bewegen · dekorative Gerüstflächen zu eigenen Ablagezielen machen.
+
 ---
 
 ## 4. Fortschritt und Rückmeldung

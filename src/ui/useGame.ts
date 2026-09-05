@@ -62,6 +62,33 @@ function countGroups(children: readonly Slot[]): number {
   return children.filter(c => c !== null && c.kind === 'group').length
 }
 
+/** Open (null) positions of one kind, root level and group interiors alike — the slots already drawn on the board, which the trailing scaffold must not count a second time. */
+function countOpenSlots(children: readonly Slot[], kind: 'operand' | 'operator'): number {
+  let open = 0
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i]
+    if (c !== null && c.kind === 'group') {
+      for (let j = 0; j < c.children.length; j++) {
+        if (c.children[j] === null && (j % 2 === 0 ? 'operand' : 'operator') === kind) open += 1
+      }
+      continue
+    }
+    if (c === null && (i % 2 === 0 ? 'operand' : 'operator') === kind) open += 1
+  }
+  return open
+}
+
+/** Operator leaves already placed, root level and group interiors alike. */
+function countPlacedOperators(children: readonly Slot[]): number {
+  let placed = 0
+  for (const c of children) {
+    if (c === null) continue
+    if (c.kind === 'group') { for (const gc of c.children) if (gc?.kind === 'operator') placed += 1 }
+    else if (c.kind === 'operator') placed += 1
+  }
+  return placed
+}
+
 interface Location {
   groupId: string | null
   index: number
@@ -165,6 +192,22 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     [tray, placedIds]
   )
   const blockDisabled = blocksUsed >= blockBudget
+
+  // concept 6.4: the field shows, from the start, how many chips this
+  // puzzle still needs — "ein Gerüst ist damit in der Anzahl immer
+  // richtig". Derived, not tracked: what's left in the tray minus the open
+  // slots already drawn on the board. n numbers always need n-1 operators,
+  // whatever shape the expression ends up in, so the operator count follows
+  // from the same one fact.
+  //
+  // This is also what makes the field droppable at all: with no scaffold
+  // the trailing frontier renders nothing, and a zero-width element can't
+  // be hit by a finger (useDrag's `tolerance` covers the rest).
+  const scaffoldOperands = Math.max(0, (numbers.length - placedIds.size) - countOpenSlots(expr.root.children, 'operand'))
+  const scaffoldOperators = Math.max(
+    0,
+    (numbers.length - 1) - countPlacedOperators(expr.root.children) - countOpenSlots(expr.root.children, 'operator')
+  )
 
   // ------------------------------------------------------------- placing
 
@@ -293,10 +336,24 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
         return next
       }
 
-      // an occupied same-kind target: swap. Only meaningful for a chip
-      // already on the board — a tray-origin item has no "other side" to
-      // receive what it displaces, so it's a no-op rather than guessing.
-      if (!originLoc) return e
+      // an occupied same-kind target, dragged in from the tray: replace
+      // what's there. The displaced chip isn't lost — a number's tray
+      // placeholder simply frees up again (`placedIds` is derived from the
+      // tree), and operators are unlimited — so the gesture is the same
+      // "swap" seen from the tray's side, with the tray as the other half.
+      // Doing nothing here instead was the one drop that could silently
+      // fail: releasing a number over a slot that already had one.
+      if (!originLoc) {
+        const leaf: Leaf | undefined = item.data.role === 'number'
+          ? tray.find(n => n.id === item.id)
+          : (item.data.operator ? createOperatorLeaf(item.data.operator) : undefined)
+        if (!leaf) return e
+        if (surface.groupId === null) return withRootChildren(e, fillGap(e.root.children, surface.index, leaf))
+        const group = groupAt(e.root.children, surface.groupId)
+        return group ? withGroupChildren(e, surface.groupId, fillGap(group.children, surface.index, leaf)) : e
+      }
+
+      // both sides on the board: a real swap (concept 3, "Tauschen").
       if (surface.groupId === null && originLoc.groupId === null) {
         return withRootChildren(e, swapSlots(e.root.children, originLoc.index, surface.index))
       }
@@ -317,6 +374,8 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   return {
     expr,
     trayNumbers,
+    scaffoldOperands,
+    scaffoldOperators,
     blockDisabled,
     operators: ops,
     submitEnabled: complete,
