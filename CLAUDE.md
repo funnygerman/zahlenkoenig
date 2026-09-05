@@ -65,6 +65,15 @@ which is what `entwurf.html` always did and the app didn't: two numbers in a row
 now work. Decisions 3.2 has the whole round, including the one place this goes
 beyond the draft (an operator may be the first chip).
 
+**Tapping returns a chip on the board and places one from the tray — and the
+payload's `origin` is what tells those apart.** Dispatching on what a chip *is*
+(`role`) rather than where it *is* meant a tapped operator on the board placed a
+second one; numbers escaped it only because `onTapNumber` happens to check
+whether the id is already placed. Decisions 3.3. The wiring between `useGame`
+and `Tray`/`Expression` is the one place the hook tests can't see, so
+`Game.test.tsx` is where that class of bug has to be caught — and a new test
+there should be checked against the unfixed code before it counts.
+
 **`spec/entwurf.html` has no drag at all** — only `click` handlers. Its
 `.ghost` class is 6.4's pale scaffold slot, not a ghost following a finger. It
 tells you how tapping should feel, never whether dragging works.

@@ -130,6 +130,46 @@ describe('useGame — blocks (concept 4/6)', () => {
     expect(result.current.blockDisabled).toBe(true) // both units of budget now used
   })
 
+  it("taking a number back out of a block leaves the bracket at its minimum shape, not collapsed (concept 6.3)", () => {
+    // removeOperand takes the operand's adjacent operator with it, which
+    // for a 3-slot group means the bracket shrinks by two. `(6+2)` minus
+    // its `+` and its `6` became `(2)`: no open slot inside, nothing to
+    // drop into, dissolve-and-restart the only way out.
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    const group = () => result.current.expr.root.children[0] as { kind: string; children: unknown[] }
+    expect(group().children).toHaveLength(3)
+
+    const plusId = (group().children[1] as { id: string }).id
+    act(() => result.current.onTapLeaf(plusId))
+    act(() => result.current.onTapLeaf(idOf(result.current, 6)))
+
+    expect(group().kind).toBe('group')
+    expect(group().children).toHaveLength(3) // still three slots, not the bare (2)
+    // removeOperand closes up behind itself, so the 2 slides to the front
+    // and the two open slots are the ones after it
+    expect(group().children[0]).toMatchObject({ kind: 'number', value: 2 })
+    expect(group().children[1]).toBeNull()
+    expect(group().children[2]).toBeNull()
+    // and it can be filled straight back in
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    expect(result.current.result).toBe(8)
+  })
+
+  it('emptying a block completely leaves it at its minimum shape too', () => {
+    const { result } = setup([6, 2], 8)
+    act(() => result.current.onTapBlock())
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapLeaf(idOf(result.current, 6)))
+    const group = result.current.expr.root.children[0] as { kind: string; children: unknown[] }
+    expect(group.kind).toBe('group')
+    expect(group.children).toEqual([null, null, null])
+  })
+
   it('dissolving a group keeps its content in place (concept 6.5) and frees up the budget again', () => {
     const { result } = setup([6, 2], 8)
     act(() => result.current.onTapBlock())
@@ -293,6 +333,27 @@ describe('useGame — drag: placing from the tray (concept 5.1)', () => {
     const wrapped = result.current.expr.root.children[0] as { kind: string }
     expect(wrapped.kind).toBe('group')
     expect(result.current.result).toBe(8) // (6+2), still complete and correct
+  })
+
+  it('a block dropped on a lone number wraps it at the minimum shape, not as a bare (6)', () => {
+    // concept 6.1's span-1 wrap, held to concept 6.3: the bracket has to
+    // show what it still needs. `(6)` has no slot inside it, so the only
+    // way on from there is to dissolve it again.
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onDrop({ id: idOf(result.current, 6), kind: 'operand', data: { role: 'number' } }, { zoneId: 'root-0', occupied: false }))
+    act(() => result.current.onDrop({ id: 'tray-block', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-0', occupied: true }))
+
+    const group = result.current.expr.root.children[0] as { kind: string; children: unknown[] }
+    expect(group.kind).toBe('group')
+    expect(group.children).toHaveLength(3)
+    expect(group.children[0]).toMatchObject({ kind: 'number', value: 6 })
+    expect(group.children[1]).toBeNull()
+    expect(group.children[2]).toBeNull()
+
+    // and it takes the rest without any dissolve-and-retry
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    expect(result.current.result).toBe(8)
   })
 
   it('a block dropped on an empty zone places a bare empty group, not a wrap', () => {

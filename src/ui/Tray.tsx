@@ -53,7 +53,7 @@ export interface TrayProps {
    * lets the drop handler tell a number from a block (both are
    * operand-kind) without guessing from the id string.
    */
-  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; scale?: 'tray' | 'field' } }) => DragHandlers
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
 }
 
 function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers'] }) {
@@ -77,7 +77,7 @@ function NumberCell({ slot, onTap, drag }: { slot: TrayNumberSlot; onTap: (id: s
       value={slot.value}
       placeholder={slot.used}
       onClick={hasDrag ? undefined : () => onTap(slot.id)}
-      {...(drag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number', value: slot.value, scale: 'tray' } }) : undefined)}
+      {...(drag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number', value: slot.value, origin: 'tray' } }) : undefined)}
     />
   )
 }
@@ -109,7 +109,7 @@ export function Tray({
           variant="block"
           disabled={blockDisabled}
           onClick={dragHandlers ? undefined : onTapBlock}
-          {...(dragHandlers ? dragHandlers({ id: 'tray-block', kind: 'operand', data: { role: 'block', scale: 'tray' } }) : undefined)}
+          {...(dragHandlers ? dragHandlers({ id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } }) : undefined)}
         />
       </div>
       <div className={styles.row}>
@@ -121,7 +121,7 @@ export function Tray({
               variant="operator"
               operator={op}
               onClick={dragHandlers ? undefined : () => onTapOperator(op)}
-              {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op, scale: 'tray' } }) : undefined)}
+              {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op, origin: 'tray' } }) : undefined)}
             />
           ))}
         <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
