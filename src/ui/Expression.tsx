@@ -116,6 +116,16 @@ function GroupView({
   activeZoneId?: string | null
 }) {
   const zones = dropZones(group.children)
+  // The group's own trailing frontier (concept 6.2: a third number joins a
+  // group the same way any operand joins anything else — drag operator+
+  // number in after the last one). Registered but not shown as a ghost:
+  // unlike the root, a group's shape isn't derived from anything external
+  // (concept 6.3 only promises the *initial* minimum shape), so there's
+  // nothing to preview here, just a live drop target.
+  const frontierIndex = group.children.length
+  const frontierZoneId = groupZoneId(group.id, frontierIndex)
+  const frontierActive = activeZoneId === frontierZoneId
+
   return (
     <div className={styles.group}>
       <button
@@ -143,6 +153,10 @@ function GroupView({
           />
         )
       })}
+      <div
+        ref={el => registerZone?.(frontierZoneId, zones[frontierIndex].kind, false, el)}
+        className={frontierActive ? styles.activeZone : undefined}
+      />
       <button
         type="button"
         className={styles.bracketEdge + ' ' + styles.bracketRight}

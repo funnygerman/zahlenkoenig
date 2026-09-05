@@ -119,6 +119,14 @@ describe('Expression — drop zone registration (concept 3.1)', () => {
     expect(ids).toContain(groupZoneId('g1', 1))
     expect(ids).toContain(groupZoneId('g1', 2))
   })
+
+  it("registers a group's own trailing frontier, so a third number can join it via drag (concept 6.2)", () => {
+    const registerZone = vi.fn()
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    render(<Expression expr={exprOf([g])} onTapLeaf={noop} onDissolveGroup={noop} registerZone={registerZone} />)
+    const calls = new Map(registerZone.mock.calls.map(([zoneId, kind, occupied]) => [zoneId, { kind, occupied }]))
+    expect(calls.get(groupZoneId('g1', 3))).toEqual({ kind: 'operator', occupied: false })
+  })
 })
 
 describe('Expression — active zone highlighting (concept 3.1)', () => {
