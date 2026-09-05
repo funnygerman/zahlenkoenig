@@ -26,6 +26,22 @@ The v1 documents (`zahlenkoenig-anforderungen.md`, `zahlenkoenig-spezifikation.m
 describe the app as it currently stands. Where they disagree with the v2 concept,
 the v2 concept wins for anything being built now.
 
+## Next v2 step
+
+**Step 3** (concept section 16, "vollständige Spielschleife"): wire
+`puzzles.ts`'s `nextPuzzle()` into `Game.tsx` in place of its current
+hardcoded `(6+2)×(9−3)=48`, build the selection/settings UI (concept section
+15), and give the notation line real precedence-aware notation instead of
+just the evaluated result. `onSubmit`'s `=` check already exists in
+`useGame.ts`. Concept section 18 lists what else this step needs first.
+
+**If asked to "implement next step" with nothing more specific, this is the
+step.** Before ending your turn: if concept section 16's stated result for
+this step is actually true, update this section — in the same PR — to name
+the *following* step instead, so the next session can start from the same
+bare instruction. If the step isn't fully done, leave this section as it is;
+don't advance the pointer on a partial result.
+
 ## Where v2 stands
 
 Steps 0–2 of concept section 16 are done and merged to `main`: vitest is set
@@ -35,19 +51,12 @@ written and tested, and `src/ui/` has a playable board (`Game.tsx`, wiring
 already on-device (step 2b, `puzzles.ts`'s `nextPuzzle()` — no bank, no
 bank JSON; the "two things to know before touching the puzzle bank" this
 section used to warn about are gone, not just moved) — `Game.tsx` just doesn't
-call it yet, see below.
+call it yet.
 
 **Try it**: `index-v2.html`/`src/main-v2.tsx` mount `Game.tsx` standalone,
 separate from v1's `src/main.tsx`. `npm run build` emits both, so every push
 to `main` deploys the v2 preview too, at `/zahlenkoenig/index-v2.html` — open
 it on a real device rather than guessing from the code.
-
-**Next up is step 3**: "vollständige Spielschleife" — wire `nextPuzzle()`
-into `Game.tsx` instead of its current hardcoded `(6+2)×(9−3)=48`, build the
-selection/settings UI (concept section 15), and give the notation line real
-precedence-aware notation instead of just the evaluated result. `onSubmit`'s
-`=` check already exists in `useGame.ts`. Section 18 of the concept document
-lists what else each step needs first.
 
 **There are no levels any more.** A1–F3 and E1 are gone; the player sets three
 things directly — how many numbers, which operators, how big the target — and the
