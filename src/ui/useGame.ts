@@ -30,6 +30,8 @@ export type GameStatus = 'idle' | 'correct' | 'wrong'
 interface DragPayload {
   role: 'number' | 'operator' | 'block'
   operator?: Operator
+  /** which half of the board a chip was picked up from — Game.tsx's own DragPayload has the full account of why this is needed. Only a placed block's origin actually distinguishes anything here: a number/operator's is already recoverable from whether its id is in the tree. */
+  origin?: 'tray' | 'field'
 }
 
 export interface GameDropItem {
@@ -124,6 +126,11 @@ function findLeaf(children: readonly Slot[], id: string): Leaf | null {
 function groupAt(children: readonly Slot[], groupId: string): Group | null {
   for (const c of children) if (c !== null && c.kind === 'group' && c.id === groupId) return c
   return null
+}
+
+/** The root index of the group with this id, or -1 if there is none. */
+function findGroupIndex(children: readonly Slot[], id: string): number {
+  return children.findIndex(c => c !== null && c.kind === 'group' && c.id === id)
 }
 
 // ------------------------------------------------------------- tree edits
@@ -303,20 +310,30 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   }, [])
 
   // -------------------------------------------------------------- drag/drop
-  // Origin (tray vs. already on the board) isn't tagged explicitly — it's
-  // derivable from the tree itself: a number's id never changes between
-  // tray and board (same NumberLeaf throughout its life), and a tray-origin
-  // operator/block's id is synthetic (`tray-op-+`, `tray-block`) and never
-  // matches a real placed leaf/group id. So "not found in the tree" *is*
-  // "still in the tray" — one fact instead of two that could disagree.
-  //
-  // Not implemented in this pass: dragging an entire placed *group* to
-  // swap/relocate it (concept 6.5 allows it — "ein Block ist ein Operand"
-  // — but Expression.tsx doesn't wire drag onto a group as a whole yet,
-  // only onto its individual leaf children and its bracket edges).
+  // Origin (tray vs. already on the board) isn't tagged explicitly for a
+  // number or operator — it's derivable from the tree itself: a number's id
+  // never changes between tray and board (same NumberLeaf throughout its
+  // life), and a tray-origin operator's id is synthetic (`tray-op-+`) and
+  // never matches a real placed leaf id. A dragged *block*, though, carries
+  // its origin explicitly (`item.data.origin`): a tray-origin block is
+  // always the same synthetic `tray-block` id (concept section 4's single,
+  // permanent chip — there's no per-occurrence id to derive an origin
+  // from), and a field-origin one carries the id of the actual placed
+  // Group, which never collides with `tray-block`.
 
   const onDrop = useCallback((item: GameDropItem, target: GameDropTarget | null) => {
     if (!target) {
+      if (item.data.role === 'block' && item.data.origin === 'field') {
+        // "aus dem Feld ziehen und loslassen" (concept 6.5's table): the
+        // same outcome as tapping the edge — brackets go home, content
+        // stays. The one gesture that could have lost more than one chip
+        // dissolves instead of removing (concept 6.8).
+        setExpr(e => {
+          const index = findGroupIndex(e.root.children, item.id)
+          return index === -1 ? e : withRootChildren(e, dissolveGroup(e.root.children, index))
+        })
+        return
+      }
       // released outside every zone: remove it, if it was actually on the
       // board — a tray-origin item dropped nowhere just bounces back, and
       // findLocation correctly finds nothing to remove for it.
@@ -329,6 +346,24 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     const surface: Surface = { groupId: parsed.groupId, index: parsed.index, kind: item.kind }
 
     setExpr(e => {
+      if (item.data.role === 'block' && item.data.origin === 'field') {
+        // Moving an already-placed block (concept 6.5: "ein Block ist ein
+        // Operand") follows the same rule any operand on an occupied
+        // operand surface already does: swap. An empty target just relocates
+        // it — same treatment a dragged leaf gets a few lines down.
+        if (surface.groupId !== null) return e // a group can't hold another group
+        const originIndex = findGroupIndex(e.root.children, item.id)
+        if (originIndex === -1) return e
+        if (surface.index === originIndex) return e
+        if (!target.occupied) {
+          const group = e.root.children[originIndex] as Group
+          let next = withRootChildren(e, placeAt(e.root.children, surface.index, group))
+          next = withRootChildren(next, fillGap(next.root.children, originIndex, null))
+          return next
+        }
+        return withRootChildren(e, swapSlots(e.root.children, originIndex, surface.index))
+      }
+
       if (item.data.role === 'block') {
         if (surface.groupId !== null) return e // a block only ever targets a root position
         if (blocksUsed >= blockBudget) return e // same cap the tray chip disables itself for (concept 4: ⌊n/2⌋)
