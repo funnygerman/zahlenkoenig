@@ -62,17 +62,18 @@ describe('useGame — tap-to-place and tap-to-return (concept 5)', () => {
     expect(result.current.submitEnabled).toBe(false)
   })
 
-  it("removing the last operand also removes its operator, not just the number (concept 3: '3+7 -> 3')", () => {
+  it("returning the last operand via tap leaves its operator in place — an open gap, not a second removal (concept 6.6: tap is the exact inverse of placing)", () => {
     const { result } = setup([3, 7], 10)
     const id3 = idOf(result.current, 3), id7 = idOf(result.current, 7)
     act(() => result.current.onTapNumber(id3))
     act(() => result.current.onTapOperator('+'))
     act(() => result.current.onTapNumber(id7))
     act(() => result.current.onTapLeaf(id7)) // Expression.tsx's return-to-tray path
-    // only the 3 remains placed; the '+' went with the 7
+    // only the 7 returns to the tray; the '+' stays exactly where it was
     expect(result.current.trayNumbers.find(n => n.id === id3)!.used).toBe(true)
     expect(result.current.trayNumbers.find(n => n.id === id7)!.used).toBe(false)
-    expect(result.current.expr.root.children).toHaveLength(1) // '+' is gone too, not just '7' — see the next test for why this alone is still "complete"
+    expect(result.current.expr.root.children).toHaveLength(2) // "3 +", waiting for a second operand — not collapsed to just "3"
+    expect(result.current.submitEnabled).toBe(false)
   })
 
   it('a single placed number with nothing else is a "complete" expression (root has no minimum length, concept 2.1)', () => {
@@ -80,6 +81,45 @@ describe('useGame — tap-to-place and tap-to-return (concept 5)', () => {
     act(() => result.current.onTapNumber(idOf(result.current, 3)))
     expect(result.current.submitEnabled).toBe(true)
     expect(result.current.result).toBe(3)
+  })
+})
+
+describe('useGame — returning a placed number leaves everything else exactly where it was (concept 6.6)', () => {
+  // Both reported as bugs: tapping either number in "6 + 2" took the '+'
+  // with it, and tapping the *first* one additionally slid the second
+  // number up to fill the gap — neither is the "exact inverse of placing"
+  // concept 6.6 promises (placing only ever fills a slot, never touches a
+  // neighbor).
+
+  it('tapping the second number leaves the operator behind, not a collapsed single number', () => {
+    const { result } = setup([6, 2], 10)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+
+    act(() => result.current.onTapLeaf(idOf(result.current, 2)))
+
+    const children = result.current.expr.root.children
+    expect(children).toHaveLength(2) // "6 +", not just "6"
+    expect(children[0]).toMatchObject({ value: 6 })
+    expect(children[1]).toMatchObject({ value: '+' })
+    expect(result.current.trayNumbers.find(n => n.value === 2)!.used).toBe(false)
+  })
+
+  it('tapping the first number leaves a gap in front — the operator and second number do not slide up', () => {
+    const { result } = setup([6, 2], 10)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+
+    act(() => result.current.onTapLeaf(idOf(result.current, 6)))
+
+    const children = result.current.expr.root.children
+    expect(children).toHaveLength(3) // "⬚ + 2", the shape is unchanged
+    expect(children[0]).toBeNull()
+    expect(children[1]).toMatchObject({ value: '+' })
+    expect(children[2]).toMatchObject({ value: 2 }) // stayed put, did not slide into the gap
+    expect(result.current.trayNumbers.find(n => n.value === 6)!.used).toBe(false)
   })
 })
 

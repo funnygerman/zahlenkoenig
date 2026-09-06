@@ -176,15 +176,33 @@ function placeLeafAt(expr: ExpressionTree, surface: Surface, leaf: Leaf): Expres
   return withGroupChildren(expr, surface.groupId, placeAt(group.children, surface.index, leaf))
 }
 
-/** Removes the leaf with this id from wherever it is — a number takes its adjacent operator with it, an operator just leaves a gap (concept 3). */
+/**
+ * Removes the leaf with this id from wherever it is. At the root, this just
+ * clears its slot — concept 6.6: "Tippen auf einen platzierten Chip ist
+ * zugleich die exakte Umkehrung des Platzierens" (tapping/pulling a placed
+ * chip out is the *exact* inverse of placing it), and placing one (`placeAt`)
+ * never touches a neighbor either. Coupling an operand's removal to an
+ * adjacent operator's — `6, +, 2`, tap `2`, and the `+` vanished too, or tap
+ * `6` and `2` slid up to take its place — was concept 3's original worry
+ * about a "dangling" operator, from before `placeAt` made every root
+ * position independently addressable; a leftover open operator slot is now
+ * exactly as normal as any other gap the scaffold already shows, not
+ * something to avoid. `trimTrailingGaps` (via `withRootChildren`) still
+ * closes it up when the cleared slot was the trailing one, same as it
+ * always has.
+ *
+ * A *group's* interior keeps the old coupled behavior on purpose: concept
+ * 6.3 (`withMinimumShape`, in `withGroupChildren`) always closes a block's
+ * content up to its front and keeps the open slots at the end, so `(6+2)`
+ * minus `6` becomes `(2 ⬚ ⬚)`, not a hole in the middle of the bracket.
+ */
 function removeLeafById(expr: ExpressionTree, id: string): ExpressionTree {
   const loc = findLocation(expr.root.children, id)
   if (!loc) return expr
-  const isOperand = loc.index % 2 === 0
   if (loc.groupId === null) {
-    const next = isOperand ? removeOperand(expr.root.children, loc.index) : removeOperator(expr.root.children, loc.index)
-    return withRootChildren(expr, next)
+    return withRootChildren(expr, fillGap(expr.root.children, loc.index, null))
   }
+  const isOperand = loc.index % 2 === 0
   const group = groupAt(expr.root.children, loc.groupId)
   if (!group) return expr
   const next = isOperand ? removeOperand(group.children, loc.index) : removeOperator(group.children, loc.index)
