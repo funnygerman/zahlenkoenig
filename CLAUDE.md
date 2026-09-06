@@ -110,13 +110,28 @@ trying the first playable board (concept section 4, decisions section 3). It
 disables once the puzzle's block budget (⌊n/2⌋) is used up.
 
 The worst-case expression `(6+2) × (9−3)` fits the five-column grid with about
-7px to spare (7.7px measured in the app at 390px wide, once the empty trailing
-frontier stopped charging the row's 4px `gap` for itself — see decisions 3.1),
-which makes three proportions in section 12.5 load-bearing —
+7px to spare at `spec/entwurf.html`'s own fixed `--cell: 64px` (once the empty
+trailing frontier stopped charging the row's 4px `gap` for itself — see
+decisions 3.1), which makes three proportions in section 12.5 load-bearing —
 expression chips are smaller than tray chips, and bracket edges are absolutely
 positioned so they cost no width. Changing any of them costs 50–80px and
-overflows. `spec/entwurf.html` recomputes the slack on every render and turns
-red if it goes negative, so a later session finds out immediately. `Game.tsx`
+overflows.
+
+That 7px figure — and `entwurf.html`'s own live recomputation of it — only
+ever covers that one fixed cell size. The app's own `--cell` is responsive
+(concept 12.5's "Die Formel") and caps at a fixed 88px/104px on anything wider
+than a phone; two full blocks actually overflowed there in practice (from
+about 500px wide up — a tablet or a desktop window, not just an extreme),
+clipping a sliver off the second bracket at the field's own rounded corner.
+The cause: `tokens.css`'s `--gap` was a flat 10px, the one size in the whole
+board that didn't scale with `--cell` (and didn't match 12.5's own `gap =
+0.14 × cell` either) — invisible at the narrow width everything was tuned at,
+fatal once `--cell` hit its cap. Fixed by scaling `--gap` with `--cell` too
+(concept 12.5's addendum, decisions section 3 has the revision entry) — but
+checking only `entwurf.html`'s own fixed-`--cell` reference, the way the
+previous paragraph describes, would not have caught this class of bug; a
+later session touching these proportions needs to check across the app's own
+actual `--cell` range, not just `entwurf.html`'s one measurement. `Game.tsx`
 doesn't build the 5-column grid yet — that needs `Header.tsx` and the
 selection panel, which come with step 3.
 

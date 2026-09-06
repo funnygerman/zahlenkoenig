@@ -854,7 +854,11 @@ function wrap(){
   if(blockUsed||!puzzle)return;
   var i;
   for(i=0;i<root.length;i+=2){
-    if(root[i]&&root[i].k==='num'&&root[i+1]&&root[i+2]&&root[i+2].k==='num'){
+    /* Only the *other* operand has to be a real number — the operator
+       between them travels into the group either way, filled or still
+       open (two numbers tapped in a row, no operator between them yet,
+       pair up exactly like a filled pair does). */
+    if(root[i]&&root[i].k==='num'&&root[i+2]&&root[i+2].k==='num'){
       root.splice(i,3,{k:'group',children:root.slice(i,i+3)});
       blockUsed=true;hintStage=0;render();return;
     }

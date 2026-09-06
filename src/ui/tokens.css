@@ -1,7 +1,12 @@
 /* Design tokens (concept 13.1) — one hue drives every color, including the
- * block's fill. Values mirror spec/entwurf.html's `.zk` block exactly; that
- * file is the validated reference (it measures the worst-case expression
- * width live), so these numbers are copied from it, not re-derived.
+ * block's fill. Values mirror spec/entwurf.html's `.zk` block, so these
+ * numbers are copied from it, not re-derived — but entwurf.html's own live
+ * slack measurement only ever runs at its own fixed `--cell: 64px` (it's a
+ * static side-by-side comparison tool, not the responsive app), so it can't
+ * catch a regression that only shows up once `--cell` is capped at a wider
+ * viewport, the way the `--gap` one below did. "Validated in entwurf.html"
+ * means validated at that one cell size, not at every size the app itself
+ * can reach.
  *
  * Concept 13.1 scopes these to the board itself (`.zk`), not `:root` — but
  * Game.tsx, the component that would carry that class, doesn't exist yet
@@ -36,25 +41,36 @@
    * --cell at a flat 64px instead, since it's a static side-by-side
    * comparison tool, not the responsive app. */
   --cell: min(16vw, 13dvh, 88px);
-  /* Was a flat 10px. Two full blocks side by side (concept 12.5's worst
-   * case, "(6+2)×(9−3)") only clears the field's own border/padding/corner
-   * radius by a margin the field's width formula (Game.module.css) derives
-   * from `--gap` — every other term in that math (`--fn`/`--fo`/`--fg`/
-   * `--gp`) already scales with `--cell`, so a flat `--gap` was the one
-   * fixed-px quantity left in it. That's harmless at the narrow width this
-   * was originally tuned at (`--cell` well under its cap), but `--cell`'s
+  /* Was a flat 10px — which never actually matched concept 12.5's own
+   * formula ("Die Formel") either, which derives the page-fit width from
+   * `gap = 0.14 * cell`. That mismatch predates this file; nobody had
+   * reason to notice, because a flat 10px and 0.14*cell land within a
+   * pixel of each other at the one width (`--cell` well under its cap)
+   * everything here was originally tuned and eyeballed at.
+   *
+   * It stopped being invisible once two full blocks sat side by side
+   * (concept 12.5's worst case, "(6+2)×(9−3)"): that only clears the
+   * field's own border/padding/corner radius by a margin the field's width
+   * formula (Game.module.css) derives from `--gap` — every other term in
+   * that math (`--fn`/`--fo`/`--fg`/`--gp`) already scales with `--cell`,
+   * so a flat `--gap` was the one fixed-px quantity left in it. `--cell`'s
    * `min(...)` caps out at a fixed 88px/104px on anything wider than a
-   * phone — and past that point every width in the formula stops growing
-   * *except* the two-groups' own content, which needs slightly more than
-   * 4 cells' worth once it's fully populated. The margin shrinks as the
-   * viewport grows and goes negative well before the cap (a phone or
-   * tablet in landscape, a desktop window, or a page zoomed in enough to
-   * shrink the effective viewport) — `overflow: hidden` then clips a
+   * phone — a tablet, a landscape phone, a desktop window, or a page
+   * zoomed in enough to shrink the effective viewport — and past that
+   * point every width in the formula stops growing *except* the two
+   * groups' own content, which needs slightly more than 4 cells' worth
+   * once fully populated. The margin shrinks as the viewport grows and
+   * goes negative well before the cap; `overflow: hidden` then clips a
    * sliver off the second bracket's corners, right where they sit inside
-   * the field's own rounded corner. Scaling `--gap` with `--cell` like
-   * every other size in this file keeps that margin a constant fraction
-   * of the board's size instead of a constant number of pixels, so it
-   * no longer shrinks away as `--cell` grows towards its cap.
+   * the field's own rounded corner.
+   *
+   * Scaling `--gap` with `--cell` keeps that margin a constant fraction of
+   * the board's size instead of a constant number of pixels, so it no
+   * longer shrinks away as `--cell` grows towards its cap — but 0.14, the
+   * coefficient 12.5 already names, isn't quite enough of a fraction to
+   * clear this specific margin (it was derived for the page-fit width, a
+   * different constraint); a sweep from 280px to 1920px wide landed on
+   * 0.22 as comfortable at every size tried.
    */
   --gap: calc(var(--cell) * .22);
   --radius: 12px;
