@@ -36,7 +36,27 @@
    * --cell at a flat 64px instead, since it's a static side-by-side
    * comparison tool, not the responsive app. */
   --cell: min(16vw, 13dvh, 88px);
-  --gap: 10px;
+  /* Was a flat 10px. Two full blocks side by side (concept 12.5's worst
+   * case, "(6+2)×(9−3)") only clears the field's own border/padding/corner
+   * radius by a margin the field's width formula (Game.module.css) derives
+   * from `--gap` — every other term in that math (`--fn`/`--fo`/`--fg`/
+   * `--gp`) already scales with `--cell`, so a flat `--gap` was the one
+   * fixed-px quantity left in it. That's harmless at the narrow width this
+   * was originally tuned at (`--cell` well under its cap), but `--cell`'s
+   * `min(...)` caps out at a fixed 88px/104px on anything wider than a
+   * phone — and past that point every width in the formula stops growing
+   * *except* the two-groups' own content, which needs slightly more than
+   * 4 cells' worth once it's fully populated. The margin shrinks as the
+   * viewport grows and goes negative well before the cap (a phone or
+   * tablet in landscape, a desktop window, or a page zoomed in enough to
+   * shrink the effective viewport) — `overflow: hidden` then clips a
+   * sliver off the second bracket's corners, right where they sit inside
+   * the field's own rounded corner. Scaling `--gap` with `--cell` like
+   * every other size in this file keeps that margin a constant fraction
+   * of the board's size instead of a constant number of pixels, so it
+   * no longer shrinks away as `--cell` grows towards its cap.
+   */
+  --gap: calc(var(--cell) * .22);
   --radius: 12px;
   --fn: calc(var(--cell) * .52); /* number chip inside the expression field (concept 12.5) */
   --fo: calc(var(--cell) * .39); /* operator chip inside the expression field (concept 12.5) */
