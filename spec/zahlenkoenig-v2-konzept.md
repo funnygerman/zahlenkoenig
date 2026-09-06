@@ -94,6 +94,19 @@ Zahl verschwindet der zugehörige Operator mit – man bleibt nie auf einem lose
 `+` sitzen. Beim Herausziehen eines Operators bleibt dagegen eine Lücke stehen,
 denn wer einen Operator entfernt, will fast immer einen anderen einsetzen.
 
+**Gilt nur noch innerhalb eines Blocks** (Revision, siehe Entscheidungen
+Abschnitt 3). Auf der Wurzelebene macht `placeAt` jede Position einzeln
+adressierbar (Abschnitt 6.4), und Abschnitt 5 verlangt für das Zurückholen
+per Tippen die *exakte* Umkehrung des Platzierens – ein Platzieren rührt nie
+einen Nachbarn an. Die gekoppelte Entfernung war die einzige Stelle, an der
+das nicht galt: `6 + 2`, `2` antippen, ließ das `+` mitverschwinden statt nur
+`2`; `6` antippen ließ zusätzlich `2` nach vorne rutschen. Auf der
+Wurzelebene leert eine Rückgabe jetzt nur die eine Fläche (`children[i] =
+null`, wie beim Operator), egal ob Operand oder Operator. Innerhalb eines
+Blocks bleibt es bei der gekoppelten Entfernung – Abschnitt 6.3s Minimalform
+räumt eine Klammer ohnehin immer zur Vorderkante auf, eine Lücke mittendrin
+würde dem widersprechen.
+
 ### 3.1 Ablageflächen
 
 Ablageflächen werden **berechnet, nicht gespeichert**:
@@ -221,6 +234,14 @@ hineinziehen.
 
 Nichts innerhalb eines Blocks ist je ein Ziel. Genau das hält die
 Verschachtelung draußen.
+
+„Operator + Nicht-Block-Operand" verlangt nur, dass die **zweite Zahl** des
+Paars echt und gesetzt ist – der Operator zwischen den beiden zählt so oder
+so mit, ob gesetzt oder noch offen. `6, ⬚, 2` (zwei Zahlen ohne Operator
+dazwischen, Abschnitt 3.1s „zwei Zahlen hintereinander") ist damit ein
+genauso gültiges Paar wie `6, +, 2` und wird zu `(6 ⬚ 2)` – eine frühere
+Implementierung verlangte irrtümlich auch den Operator als gesetzt und ließ
+diesen Fall auf „Zahl allein" zurückfallen (Entscheidungen Abschnitt 3).
 
 **Rechts vor links**, weil eine angetippte Zahl sich wie „hier beginnt die
 Klammer" liest – in Leserichtung.
@@ -645,12 +666,16 @@ Ausdruck und unten die Ablage.
 ┌────────┬────────┬────────┬──────────┬────────┐
 │  Ausdrucksfeld (Spalten 1–4)        │   48   │   Zeile 1
 ├────────┼────────┼────────┼──────────┼────────┤
-│   Z4   │   Z3   │   Z2   │    Z1    │  [ ]   │   Zeile 2  Zahlen + Block
+│   Z4   │   Z3   │   Z2   │    Z1    │   =    │   Zeile 2  Zahlen + Absenden
 ├────────┼────────┼────────┼──────────┼────────┤
-│   ×    │   ÷    │   +    │    −     │   =    │   Zeile 3  Operatoren + Absenden
+│   ×    │   ÷    │   +    │    −     │  [ ]   │   Zeile 3  Operatoren + Block
 └────────┴────────┴────────┴──────────┴────────┘
               (6 + 2) × (9 − 3)                     Notationszeile
 ```
+
+`[ ]` und `=` stehen seit einer Revision vertauscht gegenüber dem ersten
+Entwurf (PO): der Block sitzt jetzt bei den Operatoren, `=` bei den Zahlen.
+`spec/entwurf.html`s eigenes Board wurde entsprechend nachgezogen.
 
 **Alle drei Zeilen sind gleich hoch, und zwar genau eine Chiphöhe.** Die Zielzahl
 ist **derselbe Chip wie eine Zahl** – gleiches Quadrat, gleiche Rundung, nur in
@@ -772,7 +797,21 @@ eine Umschaltung aus 12.6 und kein Breakpoint.
 > Operatoren und zwei Blöcken. Die Formel gibt den Ausgangspunkt; gemessen wird
 > trotzdem.
 
-### 12.6 Hoch- und Querformat
+**Der Deckel selbst hat genau das gerissen.** `tokens.css` setzte `--gap` als
+flaches `10px` statt, wie hier verlangt, `0,14 × cell` – unauffällig an der
+einen Breite, an der alles bisher eingerichtet und mit dem Auge geprüft wurde
+(`--cell` weit unter seinem Deckel), aber der schlimmste Fall (zwei volle
+Blöcke) verlor an Reserve, sobald `--cell` an seinem Deckel ankam – ab
+ungefähr 500 px Breite, also ein Tablet, ein Desktop-Fenster oder ein
+gezoomtes Telefon, nicht nur ein Extremfall. Die Reserve wurde dort negativ,
+und `overflow: hidden` schnitt eine Ecke der zweiten Klammer am eigenen
+abgerundeten Feldrand ab. `spec/entwurf.html`s eigene Live-Messung (oben,
+„rund 7 px") hätte das nie gefunden – sie misst nur beim eigenen festen
+`--cell: 64px`, nie am Deckel. `--gap` jetzt ebenfalls proportional zu
+`--cell` zu setzen behebt es, aber nicht mit den hier genannten `0,14` –
+das reicht für diese eine Fläche nicht aus (abgeleitet für die
+Seitenbreite, eine andere Nebenbedingung); ein Durchlauf über 280–1920 px
+Breite landete bei `0,22` als durchgehend komfortabel.
 
 **Kein Breakpoint auf die Breite.** Wie bei *flashcards* gibt es genau eine
 Umschaltung, und zwar auf das Seitenverhältnis:

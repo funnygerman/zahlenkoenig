@@ -172,12 +172,43 @@
 
 /* ------------------------------------------------------------------ block icon
  * concept 12.2's chosen symbol (Variante D): filled square, open circle,
- * filled square — truthful to what a block holds without reading as a face. */
+ * filled square — truthful to what a block holds without reading as a face.
+ * Mirrors spec/entwurf.html's `.blockicon` — including the square-bracket
+ * frame around it (`::before`/`::after`), which is the one piece this used
+ * to be missing: without it the icon read as three plain shapes, not "this
+ * chip is a pair of brackets" the way the field's own bracket edges do. */
 
 .blockIcon {
+  position: relative;
+  box-sizing: border-box;
+  width: calc(var(--cell) * .74);
+  height: calc(var(--cell) * .36);
+  padding: 0 calc(var(--cell) * .145);
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: calc(var(--cell) * .038);
+}
+
+.blockIcon::before,
+.blockIcon::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: calc(var(--cell) * .08);
+  border-top: var(--stroke) solid var(--zk-accent);
+  border-bottom: var(--stroke) solid var(--zk-accent);
+}
+
+.blockIcon::before {
+  left: 0;
+  border-left: var(--stroke) solid var(--zk-accent);
+}
+
+.blockIcon::after {
+  right: 0;
+  border-right: var(--stroke) solid var(--zk-accent);
 }
 
 .blockSquare {

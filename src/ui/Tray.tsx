@@ -1,5 +1,7 @@
-// The tray/palette (concept 12.1's rows 2-3): numbers and block chips on
-// one row, operators and "=" on the next. Numbers are right-aligned — with
+// The tray/palette (concept 12.1's rows 2-3): numbers and "=" on one row,
+// operators and the block chip on the next (PO: swapped from entwurf.html's
+// own arrangement, which pairs the block with the numbers instead — a
+// deliberate departure, not an oversight). Numbers are right-aligned — with
 // fewer than 4 numbers the left cells are simply empty ("nichts", concept
 // 12.3), never a placeholder, so a 3-number puzzle can't be mistaken for a
 // 4-number one with a chip already placed.
@@ -105,12 +107,7 @@ export function Tray({
         {numberSlots.map(slot => (
           <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} />
         ))}
-        <Chip
-          variant="block"
-          disabled={blockDisabled}
-          onClick={dragHandlers ? undefined : onTapBlock}
-          {...(dragHandlers ? dragHandlers({ id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } }) : undefined)}
-        />
+        <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
       </div>
       <div className={styles.row}>
         {(['*', '/', '+', '-'] as Operator[])
@@ -124,7 +121,12 @@ export function Tray({
               {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op, origin: 'tray' } }) : undefined)}
             />
           ))}
-        <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
+        <Chip
+          variant="block"
+          disabled={blockDisabled}
+          onClick={dragHandlers ? undefined : onTapBlock}
+          {...(dragHandlers ? dragHandlers({ id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } }) : undefined)}
+        />
       </div>
     </div>
   )
