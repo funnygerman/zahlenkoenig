@@ -4,6 +4,7 @@
   display: flex;
   flex-direction: column;
   justify-content: center;
+  align-items: center; /* the board (fieldRow/tray/readout) is its own fixed width now, not stretched to fill this container — center it, rather than leaving it flush against the left edge */
   gap: var(--gap);
   padding: var(--gap);
   min-height: 100dvh;

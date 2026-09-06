@@ -9,6 +9,15 @@
  * render standalone; move this block onto `.zk` once Game.tsx exists, no
  * value changes needed.
  */
+/* v1's index.css carries this same reset for its own page, but v2 doesn't
+ * import that file, and without it the field's explicit width (Game.module.css)
+ * measured content only — its border and padding then added on top, so the
+ * rendered box came out a few px wider than the tray row it's meant to
+ * match exactly. */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
 :root {
   --hue: 214;
   --zk-bg: hsl(var(--hue) 20% 98.5%);
