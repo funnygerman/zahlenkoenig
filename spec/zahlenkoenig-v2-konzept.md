@@ -645,12 +645,16 @@ Ausdruck und unten die Ablage.
 ┌────────┬────────┬────────┬──────────┬────────┐
 │  Ausdrucksfeld (Spalten 1–4)        │   48   │   Zeile 1
 ├────────┼────────┼────────┼──────────┼────────┤
-│   Z4   │   Z3   │   Z2   │    Z1    │  [ ]   │   Zeile 2  Zahlen + Block
+│   Z4   │   Z3   │   Z2   │    Z1    │   =    │   Zeile 2  Zahlen + Absenden
 ├────────┼────────┼────────┼──────────┼────────┤
-│   ×    │   ÷    │   +    │    −     │   =    │   Zeile 3  Operatoren + Absenden
+│   ×    │   ÷    │   +    │    −     │  [ ]   │   Zeile 3  Operatoren + Block
 └────────┴────────┴────────┴──────────┴────────┘
               (6 + 2) × (9 − 3)                     Notationszeile
 ```
+
+`[ ]` und `=` stehen seit einer Revision vertauscht gegenüber dem ersten
+Entwurf (PO): der Block sitzt jetzt bei den Operatoren, `=` bei den Zahlen.
+`spec/entwurf.html`s eigenes Board wurde entsprechend nachgezogen.
 
 **Alle drei Zeilen sind gleich hoch, und zwar genau eine Chiphöhe.** Die Zielzahl
 ist **derselbe Chip wie eine Zahl** – gleiches Quadrat, gleiche Rundung, nur in

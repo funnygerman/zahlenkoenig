@@ -1002,6 +1002,15 @@ function render(){
       })(idx);
     }
   }
+  var eq=el('button','chip submit'+(isComplete()?'':' is-off'),'=');
+  eq.addEventListener('click',submit);
+  board.appendChild(eq);
+  OPS.forEach(function(op){
+    if(cfg.ops.indexOf(op)<0){board.appendChild(el('div','cell-empty'));return;}
+    var b=el('button','chip op',GLYPH[op]);
+    b.addEventListener('click',function(){tapOperator(op);});
+    board.appendChild(b);
+  });
   if(blockUsed){
     var bh=el('button','cell-hole');bh.setAttribute('aria-label','Block zur\u00fcckholen');
     bh.addEventListener('click',function(){
@@ -1014,15 +1023,6 @@ function render(){
     bb.addEventListener('click',wrap);
     board.appendChild(bb);
   }
-  OPS.forEach(function(op){
-    if(cfg.ops.indexOf(op)<0){board.appendChild(el('div','cell-empty'));return;}
-    var b=el('button','chip op',GLYPH[op]);
-    b.addEventListener('click',function(){tapOperator(op);});
-    board.appendChild(b);
-  });
-  var eq=el('button','chip submit'+(isComplete()?'':' is-off'),'=');
-  eq.addEventListener('click',submit);
-  board.appendChild(eq);
 
   var out=el('div','readout');
   out.appendChild(el('span',null,notationOf()));
