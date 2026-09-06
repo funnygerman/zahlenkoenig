@@ -10,20 +10,15 @@
 
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
 import type { Operator } from '../core/expression'
+import { operatorGlyph } from '../core/expression'
 import styles from './Chip.module.css'
 
 export type ChipVariant = 'number' | 'operator' | 'block' | 'target' | 'submit'
 
-const OPERATOR_GLYPH: Record<Operator, string> = {
-  '+': '+',
-  '-': '−', // − (concept 13.2: typographic minus, not a hyphen)
-  '*': '×', // ×
-  '/': '÷', // ÷
-}
-
-export function operatorGlyph(op: Operator): string {
-  return OPERATOR_GLYPH[op]
-}
+// Re-exported for callers that used to import this from here — the glyph
+// map itself now lives in core/expression.ts (concept 13.2), shared with
+// notation.ts's notation line (concept 9.2).
+export { operatorGlyph }
 
 export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'children'> {
   variant: ChipVariant

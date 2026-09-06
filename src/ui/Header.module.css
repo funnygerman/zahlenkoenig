@@ -1,0 +1,165 @@
+/* Concept 12.7's header chip + concept 15.6's panel. Classes and values
+ * are carried over from spec/entwurf.html's validated `.lvlchip`/`.panel`
+ * family, the same way Chip.module.css does for the board itself. */
+
+.header {
+  position: relative;
+  width: calc(5 * var(--cell) + 4 * var(--gap)); /* matches the board's own total width (field + target chip) */
+  display: flex;
+  justify-content: center;
+}
+
+.chip {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  background: hsl(var(--hue) 26% 95%);
+  border: 1px solid transparent;
+  border-radius: 999px;
+  padding: 5px 12px;
+  cursor: pointer;
+  font: inherit;
+  color: var(--zk-ink);
+}
+
+.chip[aria-expanded='true'] {
+  background: var(--zk-surface);
+  border-color: var(--zk-accent);
+}
+
+.mini {
+  display: flex;
+  align-items: center;
+  gap: 3px;
+}
+
+.square {
+  display: block;
+  width: 7px;
+  height: 7px;
+  background: var(--zk-ink);
+  border-radius: 1.5px;
+  opacity: 0.8;
+}
+
+.circle {
+  display: block;
+  width: 6px;
+  height: 6px;
+  border: 1.3px solid var(--zk-accent);
+  border-radius: 50%;
+}
+
+.range {
+  font-size: 0.7rem;
+  color: var(--zk-muted);
+  letter-spacing: 0.02em;
+  font-variant-numeric: tabular-nums;
+}
+
+.panel {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: calc(100% + 6px);
+  background: var(--zk-surface);
+  border: 1px solid var(--zk-line);
+  border-radius: 14px;
+  box-shadow: 0 14px 30px -12px hsl(var(--hue) 40% 20% / 0.3);
+  padding: 11px;
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.label {
+  font-size: 0.64rem;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--zk-muted);
+  width: 100%;
+}
+
+.options {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.opt {
+  border: 1.5px solid var(--zk-line);
+  background: var(--zk-surface);
+  color: var(--zk-ink);
+  border-radius: 9px;
+  padding: 5px 9px;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font: inherit;
+  font-size: 0.76rem;
+}
+
+.opt[aria-pressed='true'] {
+  border-color: var(--zk-accent);
+  background: hsl(var(--hue) 62% 42% / 0.1);
+}
+
+.sq {
+  display: block;
+  width: 8px;
+  height: 8px;
+  background: var(--zk-ink);
+  border-radius: 1.5px;
+}
+
+.ci {
+  width: 17px;
+  height: 17px;
+  border: 1.5px solid currentColor;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.band {
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+  padding: 5px 10px;
+}
+
+.bandLabel {
+  font-size: 0.76rem;
+}
+
+.bandRange {
+  font-size: 0.63rem;
+  color: var(--zk-muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.footer {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  cursor: pointer;
+  border-top: 1px solid var(--zk-line);
+  padding-top: 9px;
+  font-size: 0.72rem;
+  color: var(--zk-muted);
+}
+
+.footer input:disabled {
+  cursor: not-allowed;
+}

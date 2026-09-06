@@ -1,13 +1,23 @@
 import { describe, it, expect } from 'vitest'
 import { render, screen, fireEvent } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Game } from './Game'
+import { Board } from './Board'
+import type { Operator } from '../core/expression'
 
 // End-to-end smoke test for v2 step 2's actual goal: "ein fest verdrahtetes
-// Rätsel ist spielbar". Exercises the real rendered tree — Game -> useGame
+// Rätsel ist spielbar". Exercises the real rendered tree — Board -> useGame
 // + useDrag -> Tray/Expression/Chip — not just the hooks in isolation, so
 // it's the one place a wiring mistake between them (e.g. the double-fire
 // bug fixed just before this file was written) would actually show up.
+//
+// This renders Board directly with a fixed puzzle, not Game: Game (step 3)
+// draws a random one from the generator, and these tests are about the
+// tap/drag wiring, not what puzzle happens to be on screen.
+
+const PUZZLE = { numbers: [6, 2, 9, 3], target: 48, ops: ['+', '-', '*', '/'] as Operator[] }
+function Game() {
+  return <Board numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />
+}
 
 describe('Game — renders the hardcoded puzzle (concept 12.5: (6+2)×(9−3)=48)', () => {
   it('shows the target and all four tray numbers, nothing placed yet', () => {
@@ -105,7 +115,7 @@ describe('Game — a full playthrough via tap alone reaches a correct answer', (
     expect(submit).toBeEnabled()
     await user.click(submit)
 
-    expect(screen.getByRole('status')).toHaveTextContent('= 48')
+    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2) × (9 − 3) = 48')
   })
 })
 

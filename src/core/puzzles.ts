@@ -214,3 +214,16 @@ export function uniqueOnlyAvailable(numbers: PuzzleSettings['numbers'], ops: Ope
   const row = BAND_TABLE[`${numbers}-${opsMask(ops)}`]
   return row !== undefined && row.unique > 0
 }
+
+/**
+ * The three bands' [lo, hi] target ranges for a selection (concept 15.5) —
+ * what the selection panel (concept 15.6) shows under each band chip, and
+ * what the header's own summary chip (concept 12.7) shows for the current
+ * one. `band`/`uniqueOnly` don't affect which row this reads, so they're
+ * fixed placeholders here rather than parameters — every (numbers, ops)
+ * pair the 45-row table has an entry for is a valid selection (concept
+ * 15.5: "kein einziges Band leer").
+ */
+export function bandRanges(numbers: PuzzleSettings['numbers'], ops: Operator[]): [number, number][] {
+  return bandRow({ numbers, ops, band: 0, uniqueOnly: false }).bands.map(([lo, hi]) => [lo, hi])
+}

@@ -28,12 +28,18 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Step 3** (concept section 16, "vollständige Spielschleife"): wire
-`puzzles.ts`'s `nextPuzzle()` into `Game.tsx` in place of its current
-hardcoded `(6+2)×(9−3)=48`, build the selection/settings UI (concept section
-15), and give the notation line real precedence-aware notation instead of
-just the evaluated result. `onSubmit`'s `=` check already exists in
-`useGame.ts`. Concept section 18 lists what else this step needs first.
+**Step 4** (concept section 16, "ein Tippknopf steht"): build the hint system
+(concept section 10) — a `core/hints.ts` "Restlöser" that answers "is the
+target still reachable from here?" and computes the **kanonische Fortsetzung**
+(10.2: smallest continuation by block count, then document order, over the
+remaining tray numbers and the tree already built), plus the one hint button
+described in 10.3 (dead-end amber border, first press pulses the next
+canonical block's two operands in the tray, every press after that places one
+more chip of it). 10.4: pressing through to the end **is** giving up — no
+separate button, and the solved board stays on screen instead of advancing
+automatically (12.8's 1200ms auto-advance is for a *correct answer* only).
+Concept section 18 ("Vor Schritt 4") says nothing is blocking this — the rule
+is fully specified in section 10.
 
 **If asked to "implement next step" with nothing more specific, this is the
 step.** Before ending your turn: if concept section 16's stated result for
@@ -44,14 +50,45 @@ don't advance the pointer on a partial result.
 
 ## Where v2 stands
 
-Steps 0–2 of concept section 16 are done and merged to `main`: vitest is set
-up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`) is
-written and tested, and `src/ui/` has a playable board (`Game.tsx`, wiring
-`useGame.ts` + `useDrag.ts` + `Chip`/`Tray`/`Expression`). Puzzle generation is
-already on-device (step 2b, `puzzles.ts`'s `nextPuzzle()` — no bank, no
-bank JSON; the "two things to know before touching the puzzle bank" this
-section used to warn about are gone, not just moved) — `Game.tsx` just doesn't
-call it yet.
+Steps 0–3 of concept section 16 are done and merged to `main`: vitest is set
+up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
+`notation.ts`, `settings.ts`) is written and tested, and `src/ui/` has a full
+game loop. Puzzle generation is on-device (step 2b, `puzzles.ts`'s
+`nextPuzzle()` — no bank, no bank JSON).
+
+**Step 3 split `Game.tsx` into `Game.tsx` (owns settings, generation, the
+header) and `Board.tsx` (one puzzle, played) rather than growing the old file
+in place.** `useGame.ts` never resets its own expression tree when its
+`numbers` prop changes — it didn't need to while the puzzle was hardcoded — so
+swapping in a new puzzle after a correct answer remounts `Board` under a fresh
+`key` instead of trying to reset state in place; a stale tree still holding
+the *previous* puzzle's leaf ids is exactly the kind of second source of truth
+this codebase avoids elsewhere. `Game.test.tsx`'s interaction tests import
+`Board` directly with a fixed puzzle, the same `(6+2)×(9−3)=48` they always
+used — they're about tap/drag wiring, not which puzzle the generator drew,
+and a random one would make them flaky for no reason.
+
+**Settings persistence lives in `core/settings.ts`, kept mutually valid by
+`ui/useSettings.ts`.** `core/settings.ts` itself only loads/saves/sanitizes
+(concept section 11's five fields); the "last operator can't be deselected"
+and "uniqueOnly turns itself off once the selection can't offer it" rules
+(concept 15.6/15.7) are `useSettings.ts`'s job, one level up, because they
+need `puzzles.ts`'s `uniqueOnlyAvailable()` to answer and `core/` doesn't
+import across its own files that way.
+
+**The selection panel (`Header.tsx`, concept 15.6) only builds the chip and
+the panel it opens** — not the hamburger/hint icons concept 12.7 also puts in
+the header. Those belong to menu/language (never scoped to a step) and hints
+(step 4, not built yet); a button with no handler would be worse than no
+button, so they're left out rather than stubbed.
+
+**The board still isn't concept 12.1's literal 5-column CSS grid** — `Board`'s
+own layout note explains why flex-with-matched-widths was chosen over grid
+back in step 2, and step 3 kept that choice rather than revisiting it:
+`Header.tsx` sizes itself to the same total width
+(`5 × --cell + 4 × --gap`) so the chip lines up over the board, which is the
+part of 12.1 that's actually visible, without rewriting either component's
+layout.
 
 **Every open position is a drop target, and tapping fills the next free one
 of its kind.** Concept 6.4 originally made the scaffold slots decorative; the
@@ -131,9 +168,7 @@ fatal once `--cell` hit its cap. Fixed by scaling `--gap` with `--cell` too
 checking only `entwurf.html`'s own fixed-`--cell` reference, the way the
 previous paragraph describes, would not have caught this class of bug; a
 later session touching these proportions needs to check across the app's own
-actual `--cell` range, not just `entwurf.html`'s one measurement. `Game.tsx`
-doesn't build the 5-column grid yet — that needs `Header.tsx` and the
-selection panel, which come with step 3.
+actual `--cell` range, not just `entwurf.html`'s one measurement.
 
 ## Conventions
 

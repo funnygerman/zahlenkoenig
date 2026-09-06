@@ -10,6 +10,20 @@
 
 export type Operator = '+' | '-' | '*' | '/'
 
+// Display glyphs (concept 13.2: typographic minus/times/divide, not the
+// keyboard characters) — shared by Chip.tsx (a chip's own label) and
+// notation.ts (the notation line, concept 9.2), so the two never drift.
+const OPERATOR_GLYPH: Record<Operator, string> = {
+  '+': '+',
+  '-': '−', // −
+  '*': '×', // ×
+  '/': '÷', // ÷
+}
+
+export function operatorGlyph(op: Operator): string {
+  return OPERATOR_GLYPH[op]
+}
+
 export interface NumberLeaf {
   id: string
   kind: 'number'
