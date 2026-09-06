@@ -3,6 +3,7 @@ import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   wrapGroup, dissolveGroup, dropZones, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop,
+  nextBlockTarget, applyBlockDrop,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
 } from './expression'
@@ -452,5 +453,58 @@ describe('resolveBlockDrop (concept 6.1)', () => {
     // g, *, 9  — targeting 9: no leaf to its right, and its left neighbor (*) pairs with a group, not a leaf
     const children: Slot[] = [g, createOperatorLeaf('*'), num(9, 2)]
     expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 1, start: 2 })
+  })
+
+  it('an open operator gap between two numbers still pairs them — the gap travels into the group, it does not block the wrap', () => {
+    // "6, ⬚, 2" (concept 3.1's two-numbers-in-a-row): only the *other
+    // operand* of a pair has to be real content; the operator between them
+    // can be anything, including still open.
+    const children: Slot[] = [num(6, 0), null, num(2, 1)]
+    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'wrap', span: 3, start: 0 })
+    expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 3, start: 0 })
+  })
+})
+
+describe('nextBlockTarget (where a tapped block chip lands — "Tippen ist dieselbe Operation mit anderem Auslöser", PO)', () => {
+  it('an empty root: the very first position', () => {
+    expect(nextBlockTarget([])).toBe(0)
+  })
+
+  it('a number already placed: that same position, not past it — a tapped block wraps content, it does not skip it', () => {
+    expect(nextBlockTarget([num(6, 0)])).toBe(0)
+  })
+
+  it('an existing group: skips its interior and lands on the next root operand position', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expect(nextBlockTarget([g])).toBe(2)
+  })
+
+  it('a group followed by real content: the content, not a fresh position past it', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expect(nextBlockTarget([g, createOperatorLeaf('*'), num(9, 2)])).toBe(2)
+  })
+})
+
+describe('applyBlockDrop (concept 6.1/6.3: resolve, then apply — one place for the minimum-shape rule)', () => {
+  it('an empty target: places a bare group at that index, minimum-shaped', () => {
+    const result = applyBlockDrop([], 0, { kind: 'empty' })
+    expect(result).toHaveLength(1)
+    expect((result[0] as Group).children).toEqual([null, null, null])
+  })
+
+  it('a wrap target: encloses the resolved span and pads a lone-number wrap to the minimum shape', () => {
+    const children: Slot[] = [num(6, 0)]
+    const result = applyBlockDrop(children, 0, { kind: 'wrap', span: 1, start: 0 })
+    expect(result).toHaveLength(1)
+    const group = result[0] as Group
+    expect(group.children[0]).toMatchObject({ value: 6 })
+    expect(group.children).toHaveLength(3)
+  })
+
+  it('a full pair needs no padding — it is already the minimum shape', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
+    const result = applyBlockDrop(children, 0, { kind: 'wrap', span: 3, start: 0 })
+    expect(result).toHaveLength(1)
+    expect((result[0] as Group).children).toHaveLength(3)
   })
 })
