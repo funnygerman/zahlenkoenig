@@ -10,9 +10,9 @@
 
 import { useCallback, useMemo, useState } from 'react'
 import {
-  createExpression, createTray, createOperatorLeaf, createEmptyGroup,
+  createExpression, createTray, createOperatorLeaf,
   placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
-  wrapGroup, dissolveGroup, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop, isExpressionComplete,
+  dissolveGroup, nextOpenSurface, resolveBlockDrop, nextBlockTarget, applyBlockDrop, withMinimumShape, isExpressionComplete,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
 import { evaluate } from '../core/evaluate'
@@ -147,19 +147,14 @@ function withRootChildren(expr: ExpressionTree, children: Slot[]): ExpressionTre
   return { root: { ...expr.root, children: trimTrailingGaps(children) } }
 }
 
-/**
- * concept 6.3: "Ein Block zeigt immer sein Minimum" — operand, operator,
- * operand. Taking a number back out of a block used to shrink the bracket
- * with it (`removeOperand` splices out the operand *and* its operator), so
- * `(6+2)` minus its `+` and `6` left `(2)`: a bracket with no open slot
- * inside it and no visible way to refill it, only dissolve and start over.
- * The bracket keeps its shape instead and shows the gaps.
- */
-function withMinimumShape(children: (Leaf | null)[]): (Leaf | null)[] {
-  const next = children.slice()
-  while (next.length < 3) next.push(null)
-  return next
-}
+// `withMinimumShape` itself now lives in core/expression.ts (concept 6.3
+// applies to a freshly wrapped group exactly as much as a freshly placed
+// empty one, and both paths need it) — this file just keeps using it: taking
+// a number back out of a block used to shrink the bracket with it
+// (`removeOperand` splices out the operand *and* its operator), so `(6+2)`
+// minus its `+` and `6` left `(2)`: a bracket with no open slot inside it
+// and no visible way to refill it, only dissolve and start over. The
+// bracket keeps its shape instead and shows the gaps.
 
 function withGroupChildren(expr: ExpressionTree, groupId: string, groupChildren: (Leaf | null)[]): ExpressionTree {
   const children = withMinimumShape(groupChildren)
@@ -179,11 +174,6 @@ function placeLeafAt(expr: ExpressionTree, surface: Surface, leaf: Leaf): Expres
   const group = groupAt(expr.root.children, surface.groupId)
   if (!group) return expr
   return withGroupChildren(expr, surface.groupId, placeAt(group.children, surface.index, leaf))
-}
-
-/** A block only ever targets a root-level operand surface — a group can't contain another group (concept section 4). */
-function placeGroupAt(expr: ExpressionTree, surface: Surface, group: Group): ExpressionTree {
-  return withRootChildren(expr, placeAt(expr.root.children, surface.index, group))
 }
 
 /** Removes the leaf with this id from wherever it is — a number takes its adjacent operator with it, an operator just leaves a gap (concept 3). */
@@ -257,16 +247,18 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     })
   }, [numbers.length])
 
+  // Tapping is dragging's own resolution, just found without a hover
+  // position: `nextBlockTarget` finds the first eligible root position in
+  // document order, and `resolveBlockDrop` resolves it exactly as it would
+  // for a drag released there — wrapping an existing pair, not just landing
+  // on an empty slot (concept: "Tippen ist dieselbe Operation mit anderem
+  // Auslöser", PO).
   const placeBlock = useCallback(() => {
     setExpr(e => {
-      // nextOpenRootSurface, not nextOpenSurface: a block only ever targets
-      // a root position (concept section 4) — the general operand-surface
-      // walk would find an existing group's own open interior slot first
-      // and overwrite that group instead of adding a second one alongside
-      // it. Tap always resolves to a bare empty group — concept 6.1's
-      // wrap-existing-content behavior needs an *occupied* target, which
-      // nextOpenRootSurface (by definition) never returns.
-      return placeGroupAt(e, nextOpenRootSurface(e, 'operand'), createEmptyGroup())
+      const index = nextBlockTarget(e.root.children)
+      const resolved = resolveBlockDrop(e.root.children, index)
+      if (!resolved) return e
+      return withRootChildren(e, applyBlockDrop(e.root.children, index, resolved))
     })
   }, [])
 
@@ -369,18 +361,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
         if (blocksUsed >= blockBudget) return e // same cap the tray chip disables itself for (concept 4: ⌊n/2⌋)
         const resolved = resolveBlockDrop(e.root.children, surface.index)
         if (!resolved) return e
-        if (resolved.kind === 'empty') return placeGroupAt(e, surface, createEmptyGroup())
-        // A block dropped on a lone number wraps just that number (concept
-        // 6.1's span-1 case) — which on its own would be `(6)`, the same
-        // shapeless bracket `withMinimumShape` exists to prevent. Same
-        // rule, so the bracket comes out as `(6 ○ ⬚)`: it says what it
-        // still needs, and can be filled without dissolving it first.
-        const wrapped = wrapGroup(e.root.children, resolved.start, resolved.span)
-        const group = wrapped[resolved.start]
-        if (group !== null && group.kind === 'group') {
-          wrapped[resolved.start] = { ...group, children: withMinimumShape(group.children) }
-        }
-        return withRootChildren(e, wrapped)
+        return withRootChildren(e, applyBlockDrop(e.root.children, surface.index, resolved))
       }
 
       const existing = findLeaf(e.root.children, item.id)

@@ -342,6 +342,7 @@ export type BlockDropResult =
   | { kind: 'empty' } // an empty operand slot: place a bare, still-empty group there (concept 6.1's first row)
   | { kind: 'wrap'; span: 1 | 3; start: number } // existing content: enclose it (concept 6.1/6.2)
 
+/** A real, placed operand — not an open gap, not past the end, and not a group (a group can't hold another group, concept section 4). */
 function isPlainLeaf(children: RootChildren, index: number): boolean {
   const slot = children[index]
   return slot !== null && slot !== undefined && slot.kind !== 'group'
@@ -356,6 +357,13 @@ function isPlainLeaf(children: RootChildren, index: number): boolean {
  * available. Never reaches into or across an existing group — a group
  * can't contain another group (concept section 4), so `isPlainLeaf`
  * treats a neighboring group the same as a missing neighbor.
+ *
+ * Only the *other operand* of a pair has to be a real, placed leaf —
+ * `6, ⬚, 2` (two numbers with no operator tapped between them yet, concept
+ * 3.1's "zwei Zahlen hintereinander") is exactly as pairable as `6, +, 2`.
+ * The operator position between them isn't checked at all: it travels into
+ * the new group either way, filled or not, the same as any other gap a
+ * group already shows inside itself (concept 6.3).
  */
 export function resolveBlockDrop(children: RootChildren, index: number): BlockDropResult | null {
   if (index % 2 !== 0) return null // operator position — not resolved in this pass, see the note above
@@ -366,11 +374,51 @@ export function resolveBlockDrop(children: RootChildren, index: number): BlockDr
   if (slot === null || slot === undefined) return { kind: 'empty' }
   if (slot.kind === 'group') return null // already a group — not a valid block target
 
-  if (isPlainLeaf(children, index + 1) && isPlainLeaf(children, index + 2)) {
+  if (isPlainLeaf(children, index + 2)) {
     return { kind: 'wrap', span: 3, start: index }
   }
-  if (isPlainLeaf(children, index - 1) && isPlainLeaf(children, index - 2)) {
+  if (isPlainLeaf(children, index - 2)) {
     return { kind: 'wrap', span: 3, start: index - 2 }
   }
   return { kind: 'wrap', span: 1, start: index }
+}
+
+/** concept 6.3: "Ein Block zeigt immer sein Minimum" — operand, operator, operand. A freshly wrapped or placed group always shows at least this much, even when the leaf(ves) it encloses don't fill it. */
+export function withMinimumShape(children: (Leaf | null)[]): (Leaf | null)[] {
+  const next = children.slice()
+  while (next.length < 3) next.push(null)
+  return next
+}
+
+/**
+ * Where a *tapped* block chip lands — concept section 3's "Tippen ist
+ * dieselbe Operation mit anderem Auslöser" (PO): the same resolution a drag
+ * would find hovering over the first eligible root position, in document
+ * order. Both an open gap and a real, placed leaf are eligible (either is a
+ * valid `resolveBlockDrop` target); only an existing group is skipped, the
+ * same way `resolveBlockDrop` itself refuses one.
+ */
+export function nextBlockTarget(children: RootChildren): number {
+  for (let i = 0; i < children.length; i += 2) {
+    const slot = children[i]
+    if (slot === null || slot.kind !== 'group') return i
+  }
+  return positionPastEnd(children.length, 'operand')
+}
+
+/**
+ * Applies an already-resolved block placement/wrap (concept 6.1/6.9) to
+ * `children`, minimum-shaping a freshly wrapped group the same way a freshly
+ * placed empty one already is (concept 6.3) — one place for that rule
+ * instead of two, now that both the tap and drag paths resolve through
+ * `resolveBlockDrop` and need to apply the result the same way.
+ */
+export function applyBlockDrop(children: RootChildren, index: number, resolved: BlockDropResult): (Leaf | Group | null)[] {
+  if (resolved.kind === 'empty') return placeAt(children, index, createEmptyGroup())
+  const wrapped = wrapGroup(children, resolved.start, resolved.span)
+  const group = wrapped[resolved.start]
+  if (group !== null && group.kind === 'group') {
+    wrapped[resolved.start] = { ...group, children: withMinimumShape(group.children) }
+  }
+  return wrapped
 }

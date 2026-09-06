@@ -205,6 +205,112 @@ describe('useGame — blocks (concept 4/6)', () => {
   })
 })
 
+describe('useGame — tapping the block chip wraps content already on the board (concept 6.1), not just an open slot', () => {
+  // Tapping used to always target the next *open* root surface
+  // (`nextOpenRootSurface`), so tapping the block chip after numbers were
+  // already placed skipped right over them and opened a fresh empty group
+  // past everything instead of wrapping what's there — even though concept
+  // section 3 ("Ziehen und Tippen", PO) says tapping is dragging's own
+  // resolution with a different trigger, and dragging already wraps
+  // existing content (`resolveBlockDrop`).
+
+  it('one number placed, then the block chip: wraps that number alone (span 1)', () => {
+    const { result } = setup([6, 2, 9, 3], 48) // budget 2
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapBlock())
+
+    const children = result.current.expr.root.children
+    expect(children).toHaveLength(1)
+    const group = children[0] as { kind: string; children: ({ id: string; value?: number } | null)[] }
+    expect(group.kind).toBe('group')
+    expect(group.children[0]).toMatchObject({ value: 6 })
+    expect(group.children[1]).toBeNull()
+    expect(group.children[2]).toBeNull()
+
+    // tapping the block chip again must not touch that group — it targets
+    // the next root position past it, not the group's own open interior.
+    act(() => result.current.onTapBlock())
+    const after = result.current.expr.root.children
+    expect(after).toHaveLength(3)
+    expect(after[0]).toBe(children[0]) // the first group, untouched
+    expect(after[1]).toBeNull()
+    expect((after[2] as { kind: string }).kind).toBe('group')
+  })
+
+  it('a full pair (number, operator, number) placed, then the block chip: wraps all three', () => {
+    const { result } = setup([6, 2, 9, 3], 48) // budget 2
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapBlock())
+
+    const children = result.current.expr.root.children
+    expect(children).toHaveLength(1)
+    const group = children[0] as { kind: string; children: ({ id: string; value?: number; operator?: string } | null)[] }
+    expect(group.kind).toBe('group')
+    expect(group.children).toMatchObject([{ value: 6 }, { value: '+' }, { value: 2 }])
+
+    // second tap: nothing left to wrap but the group itself, so it opens a
+    // fresh one past it instead of reaching into the first.
+    act(() => result.current.onTapBlock())
+    const after = result.current.expr.root.children
+    expect(after).toHaveLength(3)
+    expect(after[0]).toBe(children[0])
+    expect(after[1]).toBeNull()
+    expect((after[2] as { kind: string }).kind).toBe('group')
+  })
+
+  it('two numbers placed without an operator between them, then the block dragged onto the first: both wrap, the open operator slot travels in with them', () => {
+    // "6, ⬚, 2" — concept 3.1's two-numbers-in-a-row tap: the first number
+    // takes root-0, the second skips the still-open operator gap and lands
+    // on root-2 rather than being silently dropped.
+    const { result } = setup([6, 2, 9, 3], 48) // budget 2
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    expect(result.current.expr.root.children).toMatchObject([{ value: 6 }, null, { value: 2 }])
+
+    act(() => result.current.onDrop({ id: 'tray-block', kind: 'operand', data: { role: 'block' } }, { zoneId: 'root-0', occupied: true }))
+
+    const children = result.current.expr.root.children
+    expect(children).toHaveLength(1)
+    const group = children[0] as { kind: string; children: ({ value?: number } | null)[] }
+    expect(group.kind).toBe('group')
+    expect(group.children).toMatchObject([{ value: 6 }, null, { value: 2 }]) // the gap stayed a gap, just moved inside
+
+    // and tapping the block chip a second time still doesn't reach into it
+    act(() => result.current.onTapBlock())
+    const after = result.current.expr.root.children
+    expect(after).toHaveLength(3)
+    expect(after[0]).toBe(children[0])
+    expect((after[2] as { kind: string }).kind).toBe('group')
+  })
+
+  it('the whole flat expression placed, then the block chip twice: wraps the first pair, then the next one — the full bracketed shape, without ever dissolving anything', () => {
+    const { result } = setup([6, 2, 9, 3], 48) // budget 2
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapOperator('*'))
+    act(() => result.current.onTapNumber(idOf(result.current, 9)))
+    act(() => result.current.onTapOperator('-'))
+    act(() => result.current.onTapNumber(idOf(result.current, 3)))
+    expect(result.current.expr.root.children).toHaveLength(7) // 6 + 2 * 9 - 3, no groups yet
+
+    act(() => result.current.onTapBlock())
+    const afterFirst = result.current.expr.root.children
+    expect(afterFirst).toHaveLength(5) // (6+2), *, 9, -, 3
+    expect((afterFirst[0] as { kind: string; children: unknown[] }).children).toMatchObject([{ value: 6 }, { value: '+' }, { value: 2 }])
+
+    act(() => result.current.onTapBlock())
+    const afterSecond = result.current.expr.root.children
+    expect(afterSecond).toHaveLength(3) // (6+2), *, (9-3) — concept 12.5's worst case, reached from flat content
+    expect((afterSecond[0] as { id: string }).id).toBe((afterFirst[0] as { id: string }).id) // first group untouched
+    expect((afterSecond[2] as { kind: string; children: unknown[] }).children).toMatchObject([{ value: 9 }, { value: '-' }, { value: 3 }])
+    expect(result.current.blockDisabled).toBe(true) // both units of budget now used
+    expect(result.current.result).toBe(48)
+  })
+})
+
 describe('useGame — the trailing scaffold (concept 6.4)', () => {
   // The field has to show how many chips are still to come — and, until it
   // does, the trailing frontier renders nothing at all and there is no
