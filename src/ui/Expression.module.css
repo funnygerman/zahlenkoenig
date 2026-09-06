@@ -39,6 +39,11 @@
   padding: 0;
   background: transparent;
   cursor: pointer;
+  /* it's a drag handle now too (concept 6.5) — same contract useDrag.ts
+   * asks every draggable chip and zone to meet. */
+  touch-action: none;
+  user-select: none;
+  -webkit-user-select: none;
 }
 
 .bracketLeft {

@@ -74,9 +74,14 @@ export function Game() {
   const handleTap = useCallback((item: DragItem<DragPayload>) => {
     const { role, operator, origin } = item.data!
     // Anything already on the board goes back where it came from, whatever
-    // kind of chip it is (concept 6.6). Only the tray places.
+    // kind of chip it is (concept 6.6). Only the tray places — except a
+    // placed block, which isn't a leaf at all: tapping its bracket edge
+    // dissolves the group (concept 6.5), the same as ever, just routed
+    // through the shared drag layer's tap detection now that the edge is
+    // also a drag handle.
     if (origin === 'field') {
-      game.onTapLeaf(item.id)
+      if (role === 'block') game.onDissolveGroup(item.id)
+      else game.onTapLeaf(item.id)
       return
     }
     if (role === 'number') game.onTapNumber(item.id)

@@ -54,7 +54,7 @@ export interface ExpressionProps {
   onDissolveGroup: (groupId: string) => void
   registerZone?: (zoneId: string, kind: 'operand' | 'operator', occupied: boolean, el: HTMLElement | null) => void
   /** `data.role` tells the drop handler what kind of chip this is without guessing from the id string. */
-  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
+  dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
   /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
   activeZoneId?: string | null
 }
@@ -132,9 +132,11 @@ function EmptySlot({
 }
 
 function GroupView({
-  group, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId,
+  group, rootIndex, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId,
 }: {
   group: Group
+  /** this group's own position among the root's children — what a drag that picks it up, or drops something onto it, targets (concept 6.5: "Ein Block ist ein Operand"). */
+  rootIndex: number
   onTapLeaf: (id: string) => void
   onDissolveGroup: (groupId: string) => void
   registerZone?: ExpressionProps['registerZone']
@@ -152,13 +154,29 @@ function GroupView({
   const frontierZoneId = groupZoneId(group.id, frontierIndex)
   const frontierActive = activeZoneId === frontierZoneId
 
+  const rootZone = rootZoneId(rootIndex)
+  const rootActive = activeZoneId === rootZone
+
+  // The block itself is a root-level operand (concept 6.5), so it needs the
+  // same two things every other operand gets: a registered zone at its own
+  // root position (an occupied one — dropping something else here swaps),
+  // and something to grab it by. `registerZone` goes on the whole group so
+  // the entire block is a valid drop target; `dragHandlers` goes only on
+  // the bracket edges (concept 6.6's enlarged hit strip), never on the
+  // wrapper itself — a press on a child chip must stay that chip's own
+  // drag, and putting handlers on the wrapper too would just add a second,
+  // redundant listener that bubbling already makes unnecessary.
   return (
-    <div className={styles.group}>
+    <div
+      ref={el => registerZone?.(rootZone, 'operand', true, el)}
+      className={cx(styles.group, rootActive && styles.activeZone)}
+    >
       <button
         type="button"
         className={styles.bracketEdge + ' ' + styles.bracketLeft}
-        onClick={() => onDissolveGroup(group.id)}
+        onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
         aria-label="Klammer auflösen"
+        {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
       />
       {group.children.map((child, i) => {
         const zoneId = groupZoneId(group.id, i)
@@ -186,8 +204,9 @@ function GroupView({
       <button
         type="button"
         className={styles.bracketEdge + ' ' + styles.bracketRight}
-        onClick={() => onDissolveGroup(group.id)}
+        onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
         aria-label="Klammer auflösen"
+        {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
       />
     </div>
   )
@@ -210,6 +229,7 @@ export function Expression({
         <GroupView
           key={slot.id}
           group={slot}
+          rootIndex={i}
           onTapLeaf={onTapLeaf}
           onDissolveGroup={onDissolveGroup}
           registerZone={registerZone}
