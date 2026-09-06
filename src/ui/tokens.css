@@ -21,6 +21,25 @@
  * match exactly. */
 *, *::before, *::after {
   box-sizing: border-box;
+  margin: 0;
+}
+
+/* Concept 12.6: "Kein Scrollen" — `100dvh` (Game.module.css's `.game`),
+ * `overflow: hidden`, `overscroll-behavior: none`. v2 never actually had the
+ * last two: without them the page scrolled on both desktop and mobile
+ * (visibly so on mobile, where scrolling is also what makes the browser's
+ * own address bar show and hide). The browser's default 8px `body` margin
+ * alone was enough to trigger it — 16px of it (top and bottom together) on
+ * top of `.game`'s own `100dvh`, with nothing declaring the page shouldn't
+ * scroll to hide that excess. The `margin: 0` above removes the 16px;
+ * `overflow: hidden` (and `overscroll-behavior: none`, for the rubber-band
+ * scroll some mobile browsers still do even past that) is the belt this
+ * spec section asks for regardless, the same way v1's `index.css` already
+ * has it for its own page. */
+html, body {
+  height: 100%;
+  overflow: hidden;
+  overscroll-behavior: none;
 }
 
 :root {
