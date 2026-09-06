@@ -18,7 +18,17 @@
 }
 
 .fieldRow > :first-child {
-  flex: 1; /* the Expression field grows; the target chip beside it stays fixed */
+  /* concept 12.1's 5-column grid: the field spans the first 4 columns, the
+   * target chip is the 5th — `flex: 1` here used to stretch the field to
+   * fill whatever width was left over instead, so the board's actual width
+   * (this row plus the tray below) depended on the viewport rather than on
+   * the chips it's made of. Sized explicitly instead, the same way
+   * `spec/entwurf.html`'s `.zk-field{grid-column:1/5}` is: 4 cells and the
+   * 3 gaps between them — matching the tray's own natural width below it,
+   * chip for chip, gap for gap.
+   */
+  flex: none;
+  width: calc(4 * var(--cell) + 3 * var(--gap));
 }
 
 .readout {
