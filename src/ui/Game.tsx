@@ -1,147 +1,57 @@
-// Wires useGame (state), useDrag (gestures), Tray and Expression
-// (rendering) into a playable board — v2 step 2's actual goal: "ein fest
-// verdrahtetes Rätsel ist spielbar". The puzzle is hardcoded to concept
-// 12.5's own worst-case expression, (6+2)×(9−3)=48 — the same one
-// spec/entwurf.html uses to measure the field's width. Settings, the
-// on-device generator (concept 15.10), and hints (concept 10) come with
-// later steps; this file has none of them.
-//
-// Not the final layout: concept 12.1's 5-column grid needs Header.tsx and
-// the selection panel to mean anything (there's no settings chip to put in
-// column 5 yet), so this stacks field/tray/readout in a plain flex column
-// instead — same deferral Tray.tsx's own file comment already made.
+// The full game loop (concept 16, step 3: "vollständige Spielschleife").
+// Owns settings (concept 15/section 11) and puzzle generation (concept
+// 15.10's `nextPuzzle()`), renders the header/selection chip (concept
+// 12.7) above the board, and replaces the puzzle 1200ms after a correct
+// answer (concept 12.8). Board.tsx — everything this used to be, back
+// when the puzzle was concept 12.5's own hardcoded worst case — now owns
+// just one puzzle at a time; this is what feeds it a new one.
 
-import { useCallback } from 'react'
-import { useGame } from './useGame'
-import { useDrag, type DragItem, type DropTarget } from './useDrag'
-import { Tray } from './Tray'
-import { Expression } from './Expression'
-import { Chip, type ChipVariant } from './Chip'
-import type { Operator } from '../core/expression'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { Header } from './Header'
+import { Board } from './Board'
+import { useSettings } from './useSettings'
+import { nextPuzzle, type Puzzle } from '../core/puzzles'
 import './tokens.css'
 import styles from './Game.module.css'
 
-const PUZZLE = { numbers: [6, 2, 9, 3], target: 48, ops: ['+', '-', '*', '/'] as Operator[] }
-
-interface DragPayload {
-  role: 'number' | 'operator' | 'block'
-  operator?: Operator
-  /** what the ghost has to show while this chip is in the air — the chip it came from isn't reachable from an id alone. */
-  value?: number
-  /**
-   * Which half of the board this chip was picked up from. Tapping means
-   * opposite things on the two sides — the tray places, the field returns
-   * (concept 6.6: "die exakte Umkehrung des Platzierens") — and `role`
-   * alone can't tell them apart, so a tapped operator on the board looked
-   * exactly like a tapped operator in the tray and placed a second one.
-   *
-   * It doubles as the chip's scale, which is the same fact: field chips
-   * are smaller than tray chips (concept 12.5).
-   */
-  origin: 'tray' | 'field'
-}
-
-function cx(...parts: Array<string | false | undefined>): string {
-  return parts.filter(Boolean).join(' ')
-}
-
-const GHOST_VARIANT: Record<DragPayload['role'], ChipVariant> = {
-  number: 'number',
-  operator: 'operator',
-  block: 'block',
-}
-
-/** The dragged chip, redrawn inside the ghost — same variant, same scale, so what follows the finger looks like what was picked up. */
-function GhostChip({ payload }: { payload: DragPayload }) {
-  return (
-    <Chip
-      variant={GHOST_VARIANT[payload.role]}
-      value={payload.value}
-      operator={payload.operator}
-      scale={payload.origin}
-      tabIndex={-1}
-    />
-  )
-}
-
 export function Game() {
-  const game = useGame(PUZZLE)
+  const { settings, setNumbers, toggleOp, setBand, setUniqueOnly } = useSettings()
 
-  // useDrag only ever hands back what this app itself put into `data`
-  // (concept 5: onTap and onDrop both feed the same handful of game
-  // actions, just triggered differently) — the `!` reflects that
-  // invariant, not a gap in it.
-  const handleTap = useCallback((item: DragItem<DragPayload>) => {
-    const { role, operator, origin } = item.data!
-    // Anything already on the board goes back where it came from, whatever
-    // kind of chip it is (concept 6.6). Only the tray places — except a
-    // placed block, which isn't a leaf at all: tapping its bracket edge
-    // dissolves the group (concept 6.5), the same as ever, just routed
-    // through the shared drag layer's tap detection now that the edge is
-    // also a drag handle.
-    if (origin === 'field') {
-      if (role === 'block') game.onDissolveGroup(item.id)
-      else game.onTapLeaf(item.id)
-      return
-    }
-    if (role === 'number') game.onTapNumber(item.id)
-    else if (role === 'block') game.onTapBlock()
-    else if (role === 'operator' && operator) game.onTapOperator(operator)
-  }, [game])
+  const [puzzle, setPuzzle] = useState<Puzzle>(() => nextPuzzle(settings))
+  // A fresh key per puzzle remounts Board — simpler and safer than trying
+  // to reset useGame's own expression tree in place, since a stale tree
+  // built from the *previous* puzzle's leaf ids would otherwise survive
+  // the swap (its `numbers` prop changing doesn't imply its state should).
+  const [puzzleKey, setPuzzleKey] = useState(0)
 
-  const handleDrop = useCallback((item: DragItem<DragPayload>, target: DropTarget | null) => {
-    game.onDrop({ id: item.id, kind: item.kind, data: item.data! }, target)
-  }, [game])
+  const draw = useCallback(() => {
+    setPuzzle(nextPuzzle(settings))
+    setPuzzleKey(k => k + 1)
+  }, [settings])
 
-  const drag = useDrag<DragPayload>({ onTap: handleTap, onDrop: handleDrop })
+  // Re-draw whenever a setting that defines the puzzle space changes —
+  // `language` doesn't, so it's deliberately not in this list. Skips its
+  // own first run: the initial puzzle above already drew one for the
+  // settings loaded from storage, and running this on mount too would
+  // silently throw that first draw away and remount before the player
+  // ever saw it.
+  const mounted = useRef(false)
+  useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return }
+    draw()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [settings.numbers, settings.ops.join(''), settings.band, settings.uniqueOnly])
 
   return (
-    <div className={styles.game}>
-      <div className={styles.fieldRow}>
-        <Expression
-          expr={game.expr}
-          scaffoldOperands={game.scaffoldOperands}
-          scaffoldOperators={game.scaffoldOperators}
-          onTapLeaf={game.onTapLeaf}
-          onDissolveGroup={game.onDissolveGroup}
-          registerZone={drag.registerZone}
-          dragHandlers={drag.dragHandlers}
-          activeZoneId={drag.activeZoneId}
-        />
-        <Chip variant="target" value={PUZZLE.target} />
-      </div>
-
-      <Tray
-        numberSlots={game.trayNumbers}
-        blockDisabled={game.blockDisabled}
-        operators={game.operators}
-        submitEnabled={game.submitEnabled}
-        onTapNumber={game.onTapNumber}
-        onTapBlock={game.onTapBlock}
-        onTapOperator={game.onTapOperator}
-        onSubmit={game.onSubmit}
-        dragHandlers={drag.dragHandlers}
+    <div className={styles.page}>
+      <Header
+        settings={settings}
+        onSetNumbers={setNumbers}
+        onToggleOp={toggleOp}
+        onSetBand={setBand}
+        onSetUniqueOnly={setUniqueOnly}
       />
-
-      {/* concept 9.2's notation line, in its simplest form: the built
-          expression isn't rendered as real notation yet (that needs its own
-          precedence-aware printer — deferred), just the evaluated result. */}
-      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong)} role="status">
-        {game.result !== null && `= ${game.result}`}
-      </div>
-
-      {/* concept 5.1's "Geisterelement": the chip itself stays put and
-          dims, a copy follows the finger. useDrag writes the transform
-          straight onto this node — React only ever decides *what* is in
-          it, never where it is. */}
-      <div
-        ref={drag.ghostRef}
-        className={styles.ghost}
-        style={{ display: drag.isDragging ? 'grid' : 'none' }}
-        aria-hidden="true"
-      >
-        {drag.draggingItem && <GhostChip payload={drag.draggingItem.data!} />}
-      </div>
+      <Board key={puzzleKey} numbers={puzzle.numbers} target={puzzle.target} ops={settings.ops} onSolved={draw} />
     </div>
   )
 }
