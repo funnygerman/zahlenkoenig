@@ -203,3 +203,61 @@ describe('Game — dragging a placed block (concept 6.5: "ein Block ist ein Oper
     expect(document.querySelector('[class*="_group_"]')).not.toBeNull() // still a block, content intact
   })
 })
+
+describe('Game — growing a group past its minimum shape (concept 6.2: up to three numbers)', () => {
+  // The bug this reproduces: the group's own wrapper is registered as a
+  // wide 'operand' drop zone spanning the whole block (concept 6.5 — drop
+  // a number on the block to swap with it), and that wrapper physically
+  // *encloses* the group's own zero-width 'operator' frontier zone. Real,
+  // non-overlapping mocked rects (mockZoneRects, used by the tests above)
+  // never exercise this — the two zones have to actually overlap the way
+  // they do in the real layout for the "other kind squarely inside is a
+  // refusal" rule to blanket-refuse the nested frontier. Reproduced here
+  // with rects that overlap on purpose, the way the real DOM's do.
+  const placed = () => [...document.querySelectorAll<HTMLButtonElement>('button[class*="_chip_"][class*="_field_"]')]
+  const placedText = () => placed().map(b => b.textContent?.trim()).join(' ')
+
+  function pointerEvt(type: string, x: number, y: number) {
+    const e = new Event(type, { bubbles: true, cancelable: true }) as unknown as {
+      pointerId: number; clientX: number; clientY: number
+    }
+    e.pointerId = 1
+    e.clientX = x
+    e.clientY = y
+    return e as unknown as Event
+  }
+  function drag(el: Element, to: { x: number; y: number }) {
+    fireEvent(el, pointerEvt('pointerdown', 0, 0))
+    fireEvent(el, pointerEvt('pointermove', to.x, to.y))
+    fireEvent(el, pointerEvt('pointerup', to.x, to.y))
+  }
+
+  it('a drag lands in the group frontier a few px off its exact (zero-width) line', async () => {
+    const user = userEvent.setup()
+    render(<Game />)
+
+    const blockChip = screen.getAllByRole('button').find(b => b.querySelector('[class*="blockIcon"]'))!
+    await user.click(blockChip)
+    await user.click(screen.getAllByText('6', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('+', { selector: 'button' })[0])
+    await user.click(screen.getAllByText('2', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    expect(placedText()).toBe('6 + 2')
+
+    const groupEl = document.querySelector('[class*="_group_"]') as HTMLElement
+    const frontierEl = document.querySelector('[class*="_groupFrontier_"]') as HTMLElement
+    // the wrapper spans the whole block; the frontier is a zero-width line
+    // inside it, near its right edge — exactly as in the real layout.
+    groupEl.getBoundingClientRect = () => ({
+      left: 20, right: 170, top: 100, bottom: 150, width: 150, height: 50, x: 20, y: 100, toJSON() { return this },
+    }) as DOMRect
+    frontierEl.getBoundingClientRect = () => ({
+      left: 158, right: 158, top: 100, bottom: 150, width: 0, height: 50, x: 158, y: 100, toJSON() { return this },
+    }) as DOMRect
+
+    const trayTimes = screen.getAllByText('×', { selector: 'button' }).find(b => !b.className.includes('_field_'))!
+    drag(trayTimes, { x: 153, y: 125 }) // 5px off the frontier's exact line, still inside the group's wrapper
+
+    expect(placedText()).toBe('6 + 2 ×') // landed *inside* the group, not bounced or placed at root
+    expect(document.querySelectorAll('[class*="_group_"]')).toHaveLength(1) // still one block, not two
+  })
+})

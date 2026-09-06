@@ -110,6 +110,11 @@ function contains(rect: DOMRect, x: number, y: number): boolean {
   return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom
 }
 
+/** Whether `outer` fully encloses `inner` — used to tell a container zone from a sibling one (see the note where this is used). */
+function encloses(outer: DOMRect, inner: DOMRect): boolean {
+  return outer.left <= inner.left && outer.right >= inner.right && outer.top <= inner.top && outer.bottom >= inner.bottom
+}
+
 export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<T> {
   const { onTap, onDrop, threshold = 6, tolerance = 8 } = options
 
@@ -215,12 +220,32 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
         // slot) — the rest are kept anyway, as the areas where hitTest
         // refuses rather than reaching past.
         measuredRef.current = []
-        otherKindRef.current = []
+        const otherKindCandidates: DOMRect[] = []
         for (const [zoneId, zone] of zonesRef.current) {
           const rect = zone.el.getBoundingClientRect()
           if (zone.kind === item.kind) measuredRef.current.push({ zoneId, occupied: zone.occupied, rect })
-          else otherKindRef.current.push(rect)
+          else otherKindCandidates.push(rect)
         }
+        // An other-kind rect that fully encloses one of this drag's own
+        // same-kind zones is a *container*, not a sibling — e.g. a group's
+        // own wrapper is registered as a big 'operand' zone (so dropping a
+        // number onto the whole block swaps with it), and that wrapper
+        // physically contains the group's own 'operator' frontier zone
+        // (Expression.tsx's own note on why that frontier is otherwise
+        // zero-width). The "other kind squarely inside is a refusal" rule
+        // below exists for *siblings* — an operand slot next to an operator
+        // slot — so a dragged operator doesn't overshoot a nearby operand
+        // slot to reach one further away (concept 3.2). Applied to a
+        // container instead, it blanks out the *whole* enclosing box,
+        // which swallows the enclosed zone's own tolerance halo entirely:
+        // every point except the one exact pixel on the frontier's own
+        // line hit the wrapper's refusal first. Excluding container rects
+        // here leaves the sibling case exactly as before (siblings don't
+        // enclose each other) while letting a nested zone's own tolerance
+        // apply.
+        otherKindRef.current = otherKindCandidates.filter(
+          rect => !measuredRef.current.some(zone => encloses(rect, zone.rect))
+        )
         setIsDragging(true)
         setDraggingItem(item)
         // The chip stays in place but recedes: what moves is the ghost
