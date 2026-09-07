@@ -44,19 +44,23 @@ describe('Game — changing the number-count setting redraws the puzzle (concept
   })
 })
 
-describe('Game — the last remaining operator cannot be deselected (concept 15.6)', () => {
+describe('Game — the last two remaining operators cannot be deselected (concept 15.6, revised: at least two)', () => {
   beforeEach(() => localStorage.clear())
 
-  it('stays pressed and stays offered in the tray', async () => {
+  it('stops deselecting at two and the third attempt stays pressed', async () => {
     const user = userEvent.setup()
     render(<Game />)
 
     await user.click(screen.getByRole('button', { name: /–/ }))
     const opButtons = screen.getAllByRole('button', { name: /^[+−×÷]$/ })
-    for (const b of opButtons.slice(0, 3)) await user.click(b) // deselect three of the four
+    for (const b of opButtons.slice(0, 2)) await user.click(b) // deselect two of the four — allowed, two remain
 
-    const remaining = screen.getAllByRole('button', { name: /^[+−×÷]$/ }).find(b => b.getAttribute('aria-pressed') === 'true')!
-    await user.click(remaining) // try to deselect the last one
-    expect(remaining).toHaveAttribute('aria-pressed', 'true')
+    const stillPressed = () => screen.getAllByRole('button', { name: /^[+−×÷]$/ }).filter(b => b.getAttribute('aria-pressed') === 'true')
+    expect(stillPressed()).toHaveLength(2)
+
+    const [thirdAttempt] = stillPressed()
+    await user.click(thirdAttempt) // try to go below two
+    expect(thirdAttempt).toHaveAttribute('aria-pressed', 'true')
+    expect(stillPressed()).toHaveLength(2)
   })
 })
