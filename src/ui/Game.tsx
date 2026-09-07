@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Header } from './Header'
-import { Board } from './Board'
+import { Board, type BoardHandle } from './Board'
 import { useSettings } from './useSettings'
 import { nextPuzzle, type Puzzle } from '../core/puzzles'
 import './tokens.css'
@@ -18,6 +18,7 @@ export function Game() {
   const { settings, setNumbers, toggleOp, setBand, setUniqueOnly } = useSettings()
 
   const [puzzle, setPuzzle] = useState<Puzzle>(() => nextPuzzle(settings))
+  const boardRef = useRef<BoardHandle>(null)
   // A fresh key per puzzle remounts Board — simpler and safer than trying
   // to reset useGame's own expression tree in place, since a stale tree
   // built from the *previous* puzzle's leaf ids would otherwise survive
@@ -50,8 +51,9 @@ export function Game() {
         onToggleOp={toggleOp}
         onSetBand={setBand}
         onSetUniqueOnly={setUniqueOnly}
+        onPressHint={() => boardRef.current?.pressHint()}
       />
-      <Board key={puzzleKey} numbers={puzzle.numbers} target={puzzle.target} ops={settings.ops} onSolved={draw} />
+      <Board ref={boardRef} key={puzzleKey} numbers={puzzle.numbers} target={puzzle.target} ops={settings.ops} onSolved={draw} />
     </div>
   )
 }

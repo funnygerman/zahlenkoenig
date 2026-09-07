@@ -27,6 +27,30 @@
   border-color: var(--zk-accent);
 }
 
+/* concept 12.7: "rechts ein Symbol: Tipp" — the chip stays centered
+ * (.header's own `justify-content: center`), so the hint icon sits at the
+ * header's own right edge instead of taking a flex slot next to it. */
+.hintButton {
+  position: absolute;
+  right: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border: none;
+  background: transparent;
+  color: var(--zk-muted);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.hintButton:hover {
+  color: var(--zk-accent);
+  background: hsl(var(--hue) 62% 42% / 0.08);
+}
+
 .mini {
   display: flex;
   align-items: center;

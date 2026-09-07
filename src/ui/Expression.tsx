@@ -75,6 +75,8 @@ export interface ExpressionProps {
   dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
   /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
   activeZoneId?: string | null
+  /** concept 10.3's free, permanent dead-end indicator: the target is no longer reachable from here (core/hints.ts's Restlöser). */
+  deadEnd?: boolean
 }
 
 function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; active?: boolean }) {
@@ -237,7 +239,7 @@ function GroupView({
 }
 
 export function Expression({
-  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId,
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId, deadEnd = false,
 }: ExpressionProps) {
   const { children } = expr.root
   const zones = dropZones(children)
@@ -311,7 +313,7 @@ export function Expression({
   }
 
   return (
-    <div className={styles.field}>
+    <div className={cx(styles.field, deadEnd && styles.deadEnd)}>
       {rendered}
       {scaffold}
     </div>

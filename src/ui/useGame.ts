@@ -17,6 +17,7 @@ import {
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
 import { evaluate } from '../core/evaluate'
+import type { HintMove } from '../core/hints'
 import type { TrayNumberSlot } from './Tray'
 import { parseZoneId } from './Expression'
 
@@ -575,8 +576,25 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     setStatus(result === target ? 'correct' : 'wrong')
   }, [complete, result, target])
 
+  // -------------------------------------------------------------- hints
+  // concept 10.3: a hint press is exactly one of the taps a player could
+  // make — the block chip, a specific tray number, or an operator — so
+  // applying a hint move reuses the same placement functions those taps
+  // already call. core/hints.ts decides *what* the next move is; this only
+  // decides how to apply it, the same split as onTapNumber/onTapBlock above.
+  const applyHintMove = useCallback((move: HintMove) => {
+    if (move.kind === 'block') { placeBlock(); return }
+    if (move.kind === 'number') {
+      const leaf = tray.find(n => n.id === move.leafId)
+      if (leaf) placeNumber(leaf)
+      return
+    }
+    placeOperator(move.op)
+  }, [tray, placeNumber, placeOperator, placeBlock])
+
   return {
     expr,
+    tray,
     trayNumbers,
     scaffoldOperands,
     scaffoldOperators,
@@ -592,5 +610,6 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     onDissolveGroup,
     onSubmit,
     onDrop,
+    applyHintMove,
   }
 }

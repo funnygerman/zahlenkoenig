@@ -1,10 +1,10 @@
-// The header (concept 12.7): a single chip, centered, that both shows and
-// changes the current selection — "das anzeigende Element ist das
-// ändernde". Concept 12.7 also puts a menu icon on the left and a hint
-// icon on the right, but those belong to concerns this step doesn't build
-// (language/rules, hints — concept 10, step 4): a button with no handler
-// yet is worse than no button, so this renders only the chip that step 3
-// actually needs.
+// The header (concept 12.7): the selection chip, centered, that both shows
+// and changes the current selection — "das anzeigende Element ist das
+// ändernde" — plus, as of step 4, the hint icon on the right (concept
+// 10.3). Concept 12.7 also puts a menu icon on the left, but that belongs
+// to language/rules, which no step has built yet: a button with no handler
+// is worse than no button, so this still renders only the chip and the
+// hint icon.
 //
 // The panel it opens is concept 15.6's selection UI — three rows the
 // player can change independently, plus the uniqueOnly switch — laid over
@@ -27,13 +27,26 @@ export interface HeaderProps {
   onToggleOp: (op: Operator) => void
   onSetBand: (band: Settings['band']) => void
   onSetUniqueOnly: (uniqueOnly: boolean) => void
+  /** concept 10.3: one button, the same on every press — see Board.tsx's useHint for what a press actually does. */
+  onPressHint: () => void
+}
+
+/** concept 13.2: inline SVG, never emoji. */
+function HintIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="9.5" />
+      <path d="M9.3 9.6a2.7 2.7 0 1 1 4 2.35c-.85.5-1.3 1-1.3 2.05" />
+      <circle cx="12" cy="17.2" r=".1" fill="currentColor" stroke="none" />
+    </svg>
+  )
 }
 
 function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -73,6 +86,10 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
           {settings.ops.map(op => <i key={op} className={styles.circle} />)}
         </span>
         <span className={styles.range}>{lo}–{hi}</span>
+      </button>
+
+      <button type="button" className={styles.hintButton} onClick={onPressHint} aria-label="Tipp">
+        <HintIcon />
       </button>
 
       {open && (

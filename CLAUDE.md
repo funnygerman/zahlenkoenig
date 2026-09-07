@@ -28,18 +28,23 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Step 4** (concept section 16, "ein Tippknopf steht"): build the hint system
-(concept section 10) — a `core/hints.ts` "Restlöser" that answers "is the
-target still reachable from here?" and computes the **kanonische Fortsetzung**
-(10.2: smallest continuation by block count, then document order, over the
-remaining tray numbers and the tree already built), plus the one hint button
-described in 10.3 (dead-end amber border, first press pulses the next
-canonical block's two operands in the tray, every press after that places one
-more chip of it). 10.4: pressing through to the end **is** giving up — no
-separate button, and the solved board stays on screen instead of advancing
-automatically (12.8's 1200ms auto-advance is for a *correct answer* only).
-Concept section 18 ("Vor Schritt 4") says nothing is blocking this — the rule
-is fully specified in section 10.
+**Step 5** (concept section 16, "v1-Reste sind weg"): remove what v2 has
+replaced rather than leaving it beside the new code. That's the whole v1 app
+— `src/main.tsx`, `src/index.css`, `src/components/`, `src/hooks/`,
+`src/i18n/`, `src/data/`, and the v1-only pieces of `src/core/` (
+`core/models/Level.ts` with its 🔥-labelled level group, `core/services/
+ScoringService.ts`, `core/services/ProgressService.ts` and whatever else only
+those reach) — plus replacing any remaining emoji with inline SVG (concept
+13.2) and adjusting user-facing text to v2's German copy wherever it still
+reads like v1's. Concept section 18 has no "Vor Schritt 5" entry, so nothing
+is blocking it.
+
+Check what `index.html`/`main.tsx` (v1's own entry point, not `index-v2.html`)
+is still for before deleting it outright — confirm with the product owner
+whether v1 stays live during v2's rollout or whether this step retires it
+for good; concept section 11 already describes v1's streak/score/level
+machinery as removed *from the design*, but the code implementing it is
+still in the tree today and this step is what actually deletes it.
 
 **If asked to "implement next step" with nothing more specific, this is the
 step.** Before ending your turn: if concept section 16's stated result for
@@ -50,11 +55,69 @@ don't advance the pointer on a partial result.
 
 ## Where v2 stands
 
-Steps 0–3 of concept section 16 are done and merged to `main`: vitest is set
+Steps 0–4 of concept section 16 are done and merged to `main`: vitest is set
 up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
-`notation.ts`, `settings.ts`) is written and tested, and `src/ui/` has a full
-game loop. Puzzle generation is on-device (step 2b, `puzzles.ts`'s
-`nextPuzzle()` — no bank, no bank JSON).
+`notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
+has a full game loop with hints. Puzzle generation is on-device (step 2b,
+`puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON).
+
+**Step 4 built `core/hints.ts`'s Restlöser as a search over completions of
+the tree already on the board, reusing the depth-1 model from
+`solver.ts` rather than re-deriving it, but constrained to what a *tap* can
+actually build.** Concept 10.2's "kanonische Fortsetzung" needed a concrete
+way to complete the board's still-open positions (existing group interiors
+and everything past the row's current length) from the tray's remaining
+numbers, plus optionally a brand-new bracket — but concept 6.2's own rule
+(growing a group past its two-number minimum is drag-only) means a
+hint-introduced block can never be more than a pair: 10.3's presses are
+literally taps (a block-chip tap, a number tap, an operator tap), so the
+search only ever proposes a two-number group when it needs one, never a
+three-number one. That has a real, verified consequence:
+`hints.test.ts` pins down a case (`[1,1,1,3]` → 9 under `+`/`×`, the same
+fact `solver.test.ts` already uses for "a three-number group reaches values a
+flat chain cannot") where `solver.ts`'s `reachable()` — which the *generator*
+uses, and which doesn't care how a group's shape gets built — says the
+puzzle is solvable, but `computeHint` correctly reports a dead end, because
+the only solution needs a 3-number block a hint press could never construct.
+No puzzle actually generated hits this today (the generator doesn't favor
+3-number-only solutions), but it's a real gap between what the game can
+generate and what the hint can walk a player through, worth knowing about
+before either side changes.
+
+**A hint move is expressed as a tap, and applying one reuses the exact
+placement functions a manual tap already calls** (`useGame.ts`'s
+`applyHintMove`, dispatching on `HintMove.kind` to `placeBlock`/
+`placeNumber`/`placeOperator`) — not a bespoke tree-surgery path in
+`hints.ts` itself. `core/hints.ts` only decides *what* the next move is;
+*where* it lands (which root position, which group) is `nextOpenSurface`/
+`nextBlockTarget`'s job, the same as any other tap. This is also why
+`ui/useHint.ts` never stores a captured plan across presses: it recomputes
+`computeHint` fresh from the current board on every press and always applies
+`moves[0]` of that fresh result, so a player who places a chip by hand
+between two hint presses still gets the right next move instead of a stale
+one.
+
+**The dead-end border and the hint's own "is there anything left to do"
+check are not gated on `isExpressionComplete`.** Concept 2.1 gives the root
+no minimum length — `useGame.test.ts` already documents "a single placed
+number with nothing else is a 'complete' expression" as intentional — so
+gating hint availability on that flag stopped the whole hint sequence dead
+after exactly one placed number on a fresh board (caught by `Hint.test.tsx`
+pressing all the way through and finding the readout stuck at `"6 = 6"`).
+`useHint.ts` calls `computeHint` unconditionally instead; a fully, correctly
+built expression just comes back with an empty, harmless move list.
+
+**10.2's "kleinste bezüglich einer festen Ordnung" doesn't name the order,
+only two criteria (fewest blocks, then document order) — any consistent
+order satisfies the letter of that rule.** `computeHint`'s own choice:
+generate candidates in a fixed recursion order (remaining tray leaves tried
+in tray order, operators in a fixed `+ - × ÷` priority) and keep the first
+one found at the minimum block count. One consequence worth knowing:
+"fewest blocks" can pick a completely flat continuation over the textbook
+`(6+2)×(9−3)` shape when a 0-block arrangement of the same four numbers also
+reaches the target (`6×9−2×3=48` does) — `Hint.test.tsx`'s own "press
+through to the end" test had to stop asserting the literal notation string
+for exactly this reason, and only checks that the readout ends `= 48`.
 
 **Step 3 split `Game.tsx` into `Game.tsx` (owns settings, generation, the
 header) and `Board.tsx` (one puzzle, played) rather than growing the old file
@@ -76,11 +139,19 @@ and "uniqueOnly turns itself off once the selection can't offer it" rules
 need `puzzles.ts`'s `uniqueOnlyAvailable()` to answer and `core/` doesn't
 import across its own files that way.
 
-**The selection panel (`Header.tsx`, concept 15.6) only builds the chip and
-the panel it opens** — not the hamburger/hint icons concept 12.7 also puts in
-the header. Those belong to menu/language (never scoped to a step) and hints
-(step 4, not built yet); a button with no handler would be worse than no
-button, so they're left out rather than stubbed.
+**`Header.tsx` (concept 15.6/12.7) builds the selection chip, the panel it
+opens, and — as of step 4 — the hint icon on the right.** The hamburger menu
+concept 12.7 also puts on the left still isn't built: it belongs to
+language/rules, which no step has scoped yet, and a button with no handler
+would be worse than no button. The hint icon's own click handler can't live
+in `Header.tsx` itself, though — the hint state it needs (`useHint`) lives
+inside `Board.tsx`, a sibling, not a parent, of `Header` in `Game.tsx`'s
+tree, and `Header` has to keep working across puzzle changes that remount
+`Board` under a fresh `key`. `Board` exposes a `BoardHandle`
+(`useImperativeHandle`: `{ pressHint }`) instead of lifting hint state
+upward; `Game.tsx` holds the `ref` and wires the header button's `onClick`
+straight to it. The dead-end border and the pulsing tray chips (10.3) never
+leave `Board`'s own tree, so no state actually needs to flow the other way.
 
 **The board still isn't concept 12.1's literal 5-column CSS grid** — `Board`'s
 own layout note explains why flex-with-matched-widths was chosen over grid

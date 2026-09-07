@@ -7,8 +7,9 @@
 // tap/drag wiring against a known, fixed puzzle and don't need (or want)
 // a random one from the generator.
 
-import { useCallback, useEffect } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle } from 'react'
 import { useGame } from './useGame'
+import { useHint } from './useHint'
 import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import { Tray } from './Tray'
 import { Expression } from './Expression'
@@ -24,6 +25,11 @@ export interface BoardProps {
   ops: Operator[]
   /** called 1200ms after a correct submit (concept 12.8) — the caller's cue to bring in the next puzzle. */
   onSolved?: () => void
+}
+
+/** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
+export interface BoardHandle {
+  pressHint: () => void
 }
 
 interface DragPayload {
@@ -68,8 +74,17 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export function Board({ numbers, target, ops, onSolved }: BoardProps) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved }, ref) {
   const game = useGame({ numbers, target, ops })
+  const hint = useHint({
+    expr: game.expr,
+    tray: game.tray,
+    target,
+    opsAllowed: ops,
+    numbersCount: numbers.length,
+    onApplyMove: game.applyHintMove,
+  })
+  useImperativeHandle(ref, () => ({ pressHint: hint.onPressHint }), [hint.onPressHint])
 
   // concept 12.8: a correct answer waits 1200ms — the value carried over
   // from v1 — before the next puzzle replaces this board; a wrong one
@@ -123,6 +138,7 @@ export function Board({ numbers, target, ops, onSolved }: BoardProps) {
           registerZone={drag.registerZone}
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}
+          deadEnd={hint.deadEnd}
         />
         <Chip variant="target" value={target} />
       </div>
@@ -137,6 +153,7 @@ export function Board({ numbers, target, ops, onSolved }: BoardProps) {
         onTapOperator={game.onTapOperator}
         onSubmit={game.onSubmit}
         dragHandlers={drag.dragHandlers}
+        pulsingIds={hint.pulseIds}
       />
 
       {/* concept 9.2's notation line: real notation as the tree grows, "=
@@ -160,4 +177,4 @@ export function Board({ numbers, target, ops, onSolved }: BoardProps) {
       </div>
     </div>
   )
-}
+})
