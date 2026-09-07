@@ -28,38 +28,71 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Step 5** (concept section 16, "v1-Reste sind weg"): remove what v2 has
-replaced rather than leaving it beside the new code. That's the whole v1 app
-— `src/main.tsx`, `src/index.css`, `src/components/`, `src/hooks/`,
-`src/i18n/`, `src/data/`, and the v1-only pieces of `src/core/` (
-`core/models/Level.ts` with its 🔥-labelled level group, `core/services/
-ScoringService.ts`, `core/services/ProgressService.ts` and whatever else only
-those reach) — plus replacing any remaining emoji with inline SVG (concept
-13.2) and adjusting user-facing text to v2's German copy wherever it still
-reads like v1's. Concept section 18 has no "Vor Schritt 5" entry, so nothing
-is blocking it.
+**Step 6** (concept section 16, "Feinschliff"): animations, landscape
+(Querformat), and the PWA work in concept section 19. Concept section 18's
+"Vor Schritt 6" names two things not yet done, and both block starting this
+step for real:
 
-Check what `index.html`/`main.tsx` (v1's own entry point, not `index-v2.html`)
-is still for before deleting it outright — confirm with the product owner
-whether v1 stays live during v2's rollout or whether this step retires it
-for good; concept section 11 already describes v1's streak/score/level
-machinery as removed *from the design*, but the code implementing it is
-still in the tree today and this step is what actually deletes it.
+| Fehlt | Warum es blockiert |
+|---|---|
+| **Die beiden Konstanten in `--cell`** (12.5's `88px`/`104px` caps) | Provisional, "am Gerät zu bestätigen" against the worst case (four numbers, three operators, two blocks) — needs a real device, not just a viewport resize. |
+| **App-Icons in allen Größen** | Concept 19.2 names the sizes; they're generated from `public/crown.svg` (13.2), which doesn't yet have a filled, small-icon-legible version — the current one is unfilled/line art, tuned as a favicon, not as a 48×48 home-screen icon. |
+
+Resolve those first (or bring back device-confirmed numbers and a proper
+filled crown), then work through 19's manifest/icons/offline requirements
+alongside the animation and landscape work 16's own table groups into this
+one step.
 
 **If asked to "implement next step" with nothing more specific, this is the
-step.** Before ending your turn: if concept section 16's stated result for
+step** — but start with the two blockers above, not the animation/PWA work
+itself. Before ending your turn: if concept section 16's stated result for
 this step is actually true, update this section — in the same PR — to name
-the *following* step instead, so the next session can start from the same
-bare instruction. If the step isn't fully done, leave this section as it is;
-don't advance the pointer on a partial result.
+the *following* step instead (there isn't one currently listed past 6; check
+whether concept section 16 has grown one). If the step isn't fully done,
+leave this section as it is; don't advance the pointer on a partial result.
 
 ## Where v2 stands
 
-Steps 0–4 of concept section 16 are done and merged to `main`: vitest is set
+Steps 0–5 of concept section 16 are done and merged to `main`: vitest is set
 up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
-`puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON).
+`puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
+
+**Step 5 deleted v1 outright rather than leaving it running alongside v2 —
+a product-owner decision (this section always flagged it as one), not a
+default.** The three options put to the PO were: keep v1 live and drop v2 in
+as a separate preview page indefinitely; delete v1's code but leave v2 at
+its old `/index-v2.html` preview URL; or delete v1 *and* promote v2 to the
+site's actual root. The PO chose the third. That made this step two things,
+not one: **deletion** (`src/components/`, `src/hooks/`, `src/i18n/`,
+`src/data/`, `src/index.css`, and the v1-only `src/core/` pieces —
+`models/Level.ts` (and its 🔥-labelled group), `models/Puzzle.ts`,
+`models/Token.ts`, `services/HintEngine.ts`, `services/ProgressService.ts`,
+`services/PuzzleGenerator.ts`, `services/PuzzleValidator.ts`,
+`services/ScoringService.ts`, `storage/IStorage.ts`, `storage/LocalStorage.ts`
+— confirmed unreachable from `src/ui/`+`src/core/`'s v2 files by grepping
+every import site first, not assumed from the file list) and **promotion**
+(`src/main-v2.tsx` → `src/main.tsx`, `index-v2.html` → `index.html` — keeping
+v1's old `index.html` metadata, the `crown.svg` favicon and German
+description included, since none of that was v1-specific — and
+`vite.config.ts`'s two-entry `rollupOptions.input` collapsed back to Vite's
+own single-`index.html` default).
+
+**The other two "Schritt 5" line items — emoji→SVG and v1-style copy —
+turned out to already be done, not by this step but by construction.**
+Grepping the whole tree for emoji before deleting anything found every hit
+inside a file this step was about to delete anyway; `src/ui/` and v2's own
+`src/core/` files had zero emoji to begin with (concept 13.2 was followed
+from the start, not retrofitted). Same story for leftover v1 wording —
+`src/ui/Header.tsx`'s copy ("Wie viele Zahlen", "Welche Rechenzeichen", …)
+was written fresh for v2's own selection model (concept 15.6), never
+touched v1's i18n strings, and grepping for `Level`/`Punkte`/`Streak`/
+`Aufgeben` across `src/ui/`+`src/core/` turned up nothing outside the files
+already being deleted. Worth knowing for the next time a "Schritt" table
+entry looks like three tasks: it can turn out to be one task plus two
+already-true assumptions, and checking that first is cheaper than doing
+the other two blind.
 
 **Step 4 built `core/hints.ts`'s Restlöser as a search over completions of
 the tree already on the board, reusing the depth-1 model from
@@ -322,10 +355,10 @@ near miss, and the tolerance is 8px, not 28 — every root position is registere
 at its row's full height now, so tolerance only bridges the horizontal seams,
 and 28px reached into the tray and broke "drag it out to remove it".
 
-**Try it**: `index-v2.html`/`src/main-v2.tsx` mount `Game.tsx` standalone,
-separate from v1's `src/main.tsx`. `npm run build` emits both, so every push
-to `main` deploys the v2 preview too, at `/zahlenkoenig/index-v2.html` — open
-it on a real device rather than guessing from the code.
+**Try it**: `index.html`/`src/main.tsx` mount `Game.tsx` — the site's actual
+root now (step 5 promoted it; there is no more `index-v2.html` preview
+split). Every push to `main` deploys it at `/zahlenkoenig/` — open it on a
+real device rather than guessing from the code.
 
 **There are no levels any more.** A1–F3 and E1 are gone; the player sets three
 things directly — how many numbers, which operators, how big the target — and the
