@@ -81,12 +81,20 @@
   gap: 16px;
 }
 
+/* A label above its options. This used to be a wrapping flex *row* whose
+ * label was pushed onto its own line by `width: 100%` — visually identical,
+ * but a wrapping flex container's max-content width is the sum of its items
+ * as if they never wrapped, and `.panel`'s `width: fit-content` sizes itself
+ * to exactly that. So the panel came out as wide as label + gap + options
+ * side by side (412px of content) while the widest thing it ever showed on
+ * one line was the four operator buttons (222px), leaving ~95px of dead
+ * space down each side. Stacking the two explicitly makes each row's
+ * max-content the wider of the two, which is what the panel should hug. */
 .row {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  justify-content: center;
   gap: 10px;
-  flex-wrap: wrap;
 }
 
 .label {
@@ -94,7 +102,7 @@
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--zk-muted);
-  width: 100%;
+  align-self: stretch; /* full width and left-aligned; `width: 100%` would be ignored while the panel measures itself */
 }
 
 .options {
@@ -158,10 +166,19 @@
   font-variant-numeric: tabular-nums;
 }
 
+/* The one place whose text must *not* decide how wide the panel is: with
+ * uniqueOnly unavailable this line grows by a whole parenthetical, and a
+ * panel that hugs its content would jump ~200px wider just to keep it on one
+ * line. `width: 0` keeps it out of the panel's max-content measurement (a
+ * percentage min-width can't be resolved during that pass, so it counts as
+ * zero); `min-width: 100%` then gives it the panel's full settled width to
+ * wrap inside. */
 .footer {
   display: flex;
   align-items: center;
   gap: 9px;
+  width: 0;
+  min-width: 100%;
   cursor: pointer;
   border-top: 1px solid var(--zk-line);
   padding-top: 14px;
