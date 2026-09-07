@@ -118,6 +118,41 @@ from -15px to +15px around the frontier's true position bounced beforehand,
 and only exactly 0px landed; afterwards the full ±8px tolerance band works,
 matching the design's own stated intent.
 
+**Fixing the frontier's hit-test immediately surfaced the next bug: moving
+a single already-placed leaf into (or out of) a root position could
+permanently strand its neighbor.** Once the frontier became reachable,
+dragging the one leftover chip next to a block into that block — the
+obvious next thing to try, and exactly what a player building `(6+2)×(9−3)`
+from a flat `6+2×9` would do — grew the block correctly but left the
+*other* half of the connecting pair sitting at the root with nothing to
+pair it with. `useGame.ts`'s move logic clears a moved leaf's old root
+position to `null` without touching its neighbor (concept 3's own
+revision: a root-level return only ever clears the one slot) — correct and
+harmless when there's still a spare chip of that kind to eventually refill
+the gap, but the moment a puzzle's operator or operand budget is already
+exactly spent (which it always is once anything is fully built — n numbers
+always need exactly n−1 operators, no slack), the leaf that just moved was
+the *only* thing that could ever fill its own old spot, and it can't fill
+two positions at once. The expression becomes permanently uncompletable
+with no visible explanation, breaking concept 6.8's "every gesture has an
+inverse" promise (there's no gesture that gets you back).
+
+Fixed with two changes in `useGame.ts`'s `onDrop`, both `core/expression.ts`
+primitives: **`absorbIntoGroup`** (new) lets a root-level leaf dropped onto
+an *adjacent* group bring its whole connecting (operand, operator) pair in
+at once, rather than moving only the one chip that was dragged — checked
+first, since it's what the player actually wants and it can never strand
+anything (a pair always keeps a group's length odd). For the
+non-adjacent case, **`wouldStrandAGap`** (new) refuses a move outright
+when clearing the old position would leave a gap nothing could ever fill
+again, rather than corrupting the tree — the same outcome as any other
+invalid drop (the chip bounces back). Verified both in `useGame.test.ts`
+(including that a genuinely unrelated, non-adjacent move without any spare
+budget still refuses rather than corrupts) and end-to-end in
+`Game.test.tsx` with real pointer drags, plus manually against the built
+app: dragging either half of the connecting pair into an adjacent block
+now always yields the *whole* thing wrapped, submit-ready.
+
 **Every open position is a drop target, and tapping fills the next free one
 of its kind.** Concept 6.4 originally made the scaffold slots decorative; the
 product owner overruled that on the second device test, because a chip that can

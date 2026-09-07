@@ -3,7 +3,7 @@ import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   wrapGroup, dissolveGroup, dropZones, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop,
-  nextBlockTarget, applyBlockDrop,
+  nextBlockTarget, applyBlockDrop, absorbIntoGroup,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
 } from './expression'
@@ -30,6 +30,15 @@ function num(value: number, source: number): NumberLeaf {
 // fixture doesn't depend on the function under test in every case
 function build(...slots: Slot[]): Slot[] {
   return slots
+}
+
+/** A readable summary of a Leaf|Group|null list — numbers and operator glyphs, groups spelled out recursively. Used where a test cares about content and order, not ids. */
+function flat(children: readonly (Slot | null)[]): unknown[] {
+  return children.map(c => {
+    if (c === null) return null
+    if (c.kind === 'group') return flat(c.children)
+    return c.kind === 'number' ? c.value : c.value
+  })
 }
 
 // ----------------------------------------------- concept 16/18's own list
@@ -506,5 +515,62 @@ describe('applyBlockDrop (concept 6.1/6.3: resolve, then apply — one place for
     const result = applyBlockDrop(children, 0, { kind: 'wrap', span: 3, start: 0 })
     expect(result).toHaveLength(1)
     expect((result[0] as Group).children).toHaveLength(3)
+  })
+})
+
+describe('absorbIntoGroup (concept 6.2: growing a block past two numbers by absorbing a connected neighbor)', () => {
+  it('before: absorbs the (operand, operator) pair in front of the group, in order', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2)] }
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), g]
+    const result = absorbIntoGroup(children, 2, 'before')!
+    expect(result).toHaveLength(1) // root shrinks to just the (now five-node) group
+    expect(flat(result)).toEqual([[6, '+', 2, '*', 9]])
+  })
+
+  it('after: absorbs the (operator, operand) pair behind the group, in order', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    const children: Slot[] = [g, createOperatorLeaf('*'), num(9, 2)]
+    const result = absorbIntoGroup(children, 0, 'after')!
+    expect(result).toHaveLength(1)
+    expect(flat(result)).toEqual([[6, '+', 2, '*', 9]])
+  })
+
+  it('keeps other root content in place around the shrunk root', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2)] }
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), g, createOperatorLeaf('-'), num(5, 3)]
+    const result = absorbIntoGroup(children, 2, 'before')!
+    expect(flat(result)).toEqual([[6, '+', 2, '*', 9], '-', 5])
+  })
+
+  it('returns null when the connecting operator is missing (an open gap instead)', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2)] }
+    const children: Slot[] = [num(6, 0), null, g]
+    expect(absorbIntoGroup(children, 2, 'before')).toBeNull()
+  })
+
+  it('returns null when the far operand is missing (an open gap instead)', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2)] }
+    const children: Slot[] = [null, createOperatorLeaf('+'), g]
+    expect(absorbIntoGroup(children, 2, 'before')).toBeNull()
+  })
+
+  it('returns null when the neighbor is itself a group — no nested groups (concept section 4)', () => {
+    const g1: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2)] }
+    const g2: Group = { id: 'g2', kind: 'group', children: [num(4, 3), createOperatorLeaf('/'), num(1, 0)] }
+    const children: Slot[] = [g2, createOperatorLeaf('+'), g1]
+    expect(absorbIntoGroup(children, 2, 'before')).toBeNull()
+  })
+
+  it('returns null when there is nothing at all on that side (the group is at the very front)', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2)] }
+    expect(absorbIntoGroup([g], 0, 'before')).toBeNull()
+  })
+
+  it("absorbing a pair always adds exactly two — an odd (complete) shape stays odd, an even (mid-build) shape stays even", () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('*'), num(9, 2), createOperatorLeaf('+')] } // grown to 4 already, mid-build
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('-'), g]
+    const result = absorbIntoGroup(children, 2, 'before')!
+    const group = result[0] as Group
+    expect(group.children).toHaveLength(6) // 4 + 2
   })
 })
