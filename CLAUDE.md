@@ -172,9 +172,10 @@ it was dropped on, however far away it started. From the tray a chip has no
 partner, so it brings an open slot for one (`insertLeafIntoGroup`), which
 is how a block is prepared for a third number; `withinBudget` refuses the
 drop that would open a slot the puzzle can never fill. Concept 6.2 and
-decisions 3.4 have the round in full, including the one place the PO's own
-examples contradict the rule they state (two of eleven have "left"/"right"
-swapped; the stated rule wins).
+decisions 3.4 have the round in full. Two of the PO's eleven examples had
+"left"/"right" swapped against the rule the same report states; the PO
+confirmed the labels were the slip, so the rule holds literally — the side
+of the *drop*, always.
 
 **Dropping onto a block's *interior* slot is deliberately unchanged** —
 that aims at a slot, and `absorbIntoGroup`'s adjacent-only, both-halves-real
