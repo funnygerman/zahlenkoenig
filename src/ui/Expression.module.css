@@ -13,6 +13,12 @@
   overflow: hidden; /* concept 12.5: the field never wraps or scrolls */
 }
 
+/* concept 10.3: "kostenlos, dauerhaft — färbt sich der Rahmen des
+ * Ausdrucks bernstein" — the free, permanent dead-end indicator. */
+.field.deadEnd {
+  border-color: var(--zk-amber);
+}
+
 /* concept 12.4: the group recedes (tinted background), its content comes
  * forward (Chip's own `inGroup` prop handles the chip side of that). */
 .group {
