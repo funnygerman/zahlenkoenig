@@ -37,7 +37,7 @@ function HintIcon() {
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <circle cx="12" cy="12" r="9.5" />
       <path d="M9.3 9.6a2.7 2.7 0 1 1 4 2.35c-.85.5-1.3 1-1.3 2.05" />
-      <circle cx="12" cy="17.2" r=".1" fill="currentColor" stroke="none" />
+      <circle cx="12" cy="17.2" r="1.1" fill="currentColor" stroke="none" />
     </svg>
   )
 }
