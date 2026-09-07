@@ -436,3 +436,50 @@ export function applyBlockDrop(children: RootChildren, index: number, resolved: 
   }
   return wrapped
 }
+
+// --------------------------------------------------- growing past minimum
+// concept 6.2: a group can grow past its initial pair to a third (or
+// fourth) number by absorbing a root-level neighbor it's already
+// connected to.
+
+export type AbsorbSide = 'before' | 'after'
+
+/**
+ * Absorbs the root-level (operand, operator) pair immediately next to the
+ * group at `groupIndex`, on the given side, into that group — as one
+ * atomic step, not as two independent moves. Moving only the operand or
+ * only the operator into the group would strand the other half at the
+ * root: an operand always needs *some* operator beside it and vice versa,
+ * and once anything is fully placed the puzzle's own budget is exactly
+ * tight (concept 15: n numbers, n−1 operators, no spare) — so a stranded
+ * half has nothing left anywhere to plug it with, and the expression
+ * becomes permanently uncompletable. Absorbing the whole pair together
+ * never has that problem: a group's own shape only ever needs to stay an
+ * odd length (concept 2.1), and adding a matched pair keeps it odd.
+ *
+ * Returns null when there's no complete pair to absorb on that side —
+ * missing content, an open gap, or the neighbor being a group itself (a
+ * group can never contain another group, concept section 4).
+ */
+export function absorbIntoGroup(children: RootChildren, groupIndex: number, side: AbsorbSide): (Leaf | Group | null)[] | null {
+  const group = children[groupIndex]
+  if (!group || group.kind !== 'group') return null
+
+  const operatorIndex = side === 'before' ? groupIndex - 1 : groupIndex + 1
+  const operandIndex = side === 'before' ? groupIndex - 2 : groupIndex + 2
+  const operator = children[operatorIndex]
+  const operand = children[operandIndex]
+  if (!operator || operator.kind !== 'operator') return null
+  if (!operand || operand.kind === 'group') return null
+
+  const pair: Leaf[] = side === 'before' ? [operand, operator] : [operator, operand]
+  const newGroup: Group = {
+    ...group,
+    children: side === 'before' ? [...pair, ...group.children] : [...group.children, ...pair],
+  }
+
+  const next = children.slice()
+  next[groupIndex] = newGroup
+  next.splice(Math.min(operatorIndex, operandIndex), 2)
+  return next
+}

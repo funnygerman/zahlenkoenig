@@ -660,3 +660,97 @@ describe('useGame — drag: moving and removing placed chips', () => {
     expect(g2After.children[2]?.id).toBe(idOf(result.current, 1)) // "1" arrived at its new spot
   })
 })
+
+describe('useGame — dragging a neighbor into an adjacent block absorbs the whole connecting pair (concept 6.2)', () => {
+  // The bug this reproduces: build a flat 3-number expression, wrap the
+  // last pair into a block, then drag the *one* leftover chip (whichever
+  // of the connecting operand or operator) into that block. Moving only
+  // that one leaf used to leave its own connector stranded at the root —
+  // an operand with no operator (or vice versa) that nothing could ever
+  // fill again, since the puzzle's own budget was already exactly spent.
+  // Dragging either half now brings *both* halves in together.
+
+  function buildFlatThenWrapLastPair(result: ReturnType<typeof setup>['result']) {
+    // [6, +, 2, ×, 9] -> wrap (2×9), the right pair (concept 6.1's
+    // right-before-left rule), leaving "6" and "+" outside the block.
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapOperator('*'))
+    act(() => result.current.onTapNumber(idOf(result.current, 9)))
+    act(() => result.current.onDrop(
+      { id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } },
+      { zoneId: 'root-2', occupied: true }
+    ))
+  }
+
+  it('dragging the connecting operator into the block absorbs it and its number together', () => {
+    const { result } = setup([6, 2, 9], 999)
+    buildFlatThenWrapLastPair(result)
+
+    const [, plus, group] = result.current.expr.root.children as { id: string; children: { value?: unknown }[] }[]
+    expect(group.children).toHaveLength(3) // (2 × 9) so far
+
+    // drag the leftover "+" into the block's own frontier
+    act(() => result.current.onDrop(
+      { id: plus.id, kind: 'operator', data: { role: 'operator', operator: '+' } },
+      { zoneId: `group-${group.id}-3`, occupied: false }
+    ))
+
+    expect(result.current.expr.root.children).toHaveLength(1) // nothing left at root
+    const [soleGroup] = result.current.expr.root.children as { children: { value?: unknown }[] }[]
+    expect(soleGroup.children.map(c => c?.value)).toEqual([6, '+', 2, '*', 9])
+    expect(result.current.submitEnabled).toBe(true) // never a stranded, uncompletable gap
+  })
+
+  it('dragging the connecting number into the block absorbs it and its operator together', () => {
+    const { result } = setup([6, 2, 9], 999)
+    buildFlatThenWrapLastPair(result)
+
+    const [six, , group] = result.current.expr.root.children as { id: string; children: { value?: unknown }[] }[]
+
+    // drag the leftover "6" into the block's own frontier instead
+    act(() => result.current.onDrop(
+      { id: six.id, kind: 'operand', data: { role: 'number' } },
+      { zoneId: `group-${group.id}-3`, occupied: false }
+    ))
+
+    expect(result.current.expr.root.children).toHaveLength(1)
+    const [soleGroup] = result.current.expr.root.children as { children: { value?: unknown }[] }[]
+    expect(soleGroup.children.map(c => c?.value)).toEqual([6, '+', 2, '*', 9])
+    expect(result.current.submitEnabled).toBe(true)
+  })
+
+  it("refuses (rather than corrupts) a move that would strand an unfillable gap, when the dragged leaf isn't adjacent to the target group", () => {
+    // A 5-number flat expression, fully built (every number and every
+    // operator placed — zero spare of either), with only the *last* pair
+    // wrapped into a block: [6, +, 2, ×, 9, -, group(3, /, 5)]. "6" sits
+    // three positions away from the group — not the group's own connecting
+    // pair — so this isn't the absorb case above; it's a plain, unrelated
+    // move, and with nothing spare left to plug the gap it would leave
+    // behind, it must refuse rather than strand it (concept 6.8: every
+    // gesture is reversible, never a dead end).
+    const { result } = setup([6, 2, 9, 3, 5], 999)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapOperator('*'))
+    act(() => result.current.onTapNumber(idOf(result.current, 9)))
+    act(() => result.current.onTapOperator('-'))
+    act(() => result.current.onTapNumber(idOf(result.current, 3)))
+    act(() => result.current.onTapOperator('/'))
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    act(() => result.current.onDrop(
+      { id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } },
+      { zoneId: 'root-6', occupied: true } // wraps the last pair (3, /, 5)
+    ))
+
+    const before = result.current.expr
+    const [, , , , , , group] = before.root.children as { id: string }[]
+    act(() => result.current.onDrop(
+      { id: idOf(result.current, 6), kind: 'operand', data: { role: 'number' } },
+      { zoneId: `group-${group.id}-3`, occupied: false }
+    ))
+    expect(result.current.expr).toBe(before) // untouched
+  })
+})

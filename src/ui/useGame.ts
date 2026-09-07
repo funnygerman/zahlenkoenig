@@ -13,6 +13,7 @@ import {
   createExpression, createTray, createOperatorLeaf,
   placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   dissolveGroup, nextOpenSurface, resolveBlockDrop, nextBlockTarget, applyBlockDrop, withMinimumShape, isExpressionComplete,
+  absorbIntoGroup,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
 import { evaluate } from '../core/evaluate'
@@ -131,6 +132,36 @@ function groupAt(children: readonly Slot[], groupId: string): Group | null {
 /** The root index of the group with this id, or -1 if there is none. */
 function findGroupIndex(children: readonly Slot[], id: string): number {
   return children.findIndex(c => c !== null && c.kind === 'group' && c.id === id)
+}
+
+/** Which side of the group (if either) a root-level leaf at `leafIndex` is close enough to absorb into — see `absorbIntoGroup`'s own note on why this only ever looks at the immediate connecting pair. */
+function sideOf(leafIndex: number, groupIndex: number): 'before' | 'after' | null {
+  if (leafIndex === groupIndex - 1 || leafIndex === groupIndex - 2) return 'before'
+  if (leafIndex === groupIndex + 1 || leafIndex === groupIndex + 2) return 'after'
+  return null
+}
+
+/**
+ * Whether clearing a moved leaf's old position would leave a gap nothing
+ * could ever fill again — the leaf itself is the only thing that could
+ * plug that exact spot, and it's the one thing that just left (see the
+ * call site's own note). A root-level *trailing* position doesn't count:
+ * `withRootChildren`'s `trimTrailingGaps` removes it outright, so there's
+ * no gap left behind at all.
+ */
+function wouldStrandAGap(
+  expr: ExpressionTree,
+  originLoc: Location,
+  leafKind: 'number' | 'operator',
+  tray: readonly Leaf[],
+  numbersCount: number
+): boolean {
+  if (originLoc.groupId === null && originLoc.index === expr.root.children.length - 1) return false
+  if (leafKind === 'number') {
+    const placedIds = collectPlacedIds(expr.root.children)
+    return tray.every(n => placedIds.has(n.id)) // no unplaced number left to fill the gap
+  }
+  return countPlacedOperators(expr.root.children) >= numbersCount - 1 // operator budget already spent
 }
 
 // ------------------------------------------------------------- tree edits
@@ -385,11 +416,41 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       const existing = findLeaf(e.root.children, item.id)
       const originLoc = existing ? findLocation(e.root.children, item.id) : null
 
+      // A root-level leaf dropped onto (or into) an adjacent group absorbs
+      // the whole connecting (operand, operator) pair into that group in
+      // one atomic step (concept 6.2), not just the one leaf that was
+      // dragged — see absorbIntoGroup's own note on why moving only half
+      // of the pair strands the other half with nothing left to fill it.
+      // This has to run before the generic move/swap logic below, which
+      // only ever moves the single dragged leaf.
+      if (originLoc && originLoc.groupId === null && surface.groupId !== null) {
+        const groupIndex = findGroupIndex(e.root.children, surface.groupId)
+        const side = groupIndex === -1 ? null : sideOf(originLoc.index, groupIndex)
+        if (side) {
+          const absorbed = absorbIntoGroup(e.root.children, groupIndex, side)
+          if (absorbed) return withRootChildren(e, absorbed)
+        }
+      }
+
       if (!target.occupied) {
         // an empty target: place (tray-origin) or move-in-place (board-
         // origin — leave a gap behind, don't delete a paired operator the
         // way removeOperand/removeOperator would; the chip is relocating,
         // not being removed).
+        //
+        // That gap is only ever safe when there's still a spare chip of
+        // the same kind somewhere to eventually fill it — mid-build,
+        // there always is (concept 6.6's own worked example: taking a
+        // number out of a still-incomplete group). Once the puzzle's
+        // budget for that kind is already exactly spent, though (every
+        // number placed, or every operator the puzzle allows), the leaf
+        // being moved is the *only* thing that could ever fill this exact
+        // gap again, and it's the one thing that just left — nothing else
+        // could ever complete the expression from there (concept 6.8 only
+        // promises every gesture has an inverse, not that every gesture
+        // leaves the board completable). Refusing it is the same outcome
+        // as any other invalid drop: the chip bounces back.
+        if (originLoc && wouldStrandAGap(e, originLoc, item.data.role === 'number' ? 'number' : 'operator', tray, numbers.length)) return e
         const leaf: Leaf | undefined = existing ?? (item.data.role === 'number'
           ? tray.find(n => n.id === item.id)
           : (item.data.operator ? createOperatorLeaf(item.data.operator) : undefined))
@@ -430,7 +491,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       }
       return e // swapping between root and a group's interior isn't a supported gesture (concept 6.5 only describes swapping among root-level operands)
     })
-  }, [tray, blocksUsed, blockBudget])
+  }, [tray, blocksUsed, blockBudget, numbers.length])
 
   // ------------------------------------------------------------- submit
 

@@ -261,3 +261,74 @@ describe('Game — growing a group past its minimum shape (concept 6.2: up to th
     expect(document.querySelectorAll('[class*="_group_"]')).toHaveLength(1) // still one block, not two
   })
 })
+
+describe('Game — dragging a neighbor into an adjacent block absorbs it whole, not just the one chip (concept 6.2)', () => {
+  // Reported bug: build a flat expression, wrap part of it into a block,
+  // then drag the *one* leftover chip next to the block into it. Moving
+  // only that chip used to leave its own connector — an operand or
+  // operator with nothing next to it any more — stranded at the root,
+  // permanently unfillable once the puzzle's budget for that kind was
+  // already exactly spent. Dragging either half of the connecting pair
+  // now brings both in together, via real (unmocked-geometry) pointer
+  // drags end to end, same as the tests above.
+  const placed = () => [...document.querySelectorAll<HTMLButtonElement>('button[class*="_chip_"][class*="_field_"]')]
+  const placedText = () => placed().map(b => b.textContent?.trim()).join(' ')
+
+  function pointerEvt(type: string, x: number, y: number) {
+    const e = new Event(type, { bubbles: true, cancelable: true }) as unknown as {
+      pointerId: number; clientX: number; clientY: number
+    }
+    e.pointerId = 1
+    e.clientX = x
+    e.clientY = y
+    return e as unknown as Event
+  }
+  function drag(el: Element, to: { x: number; y: number }) {
+    fireEvent(el, pointerEvt('pointerdown', 0, 0))
+    fireEvent(el, pointerEvt('pointermove', to.x, to.y))
+    fireEvent(el, pointerEvt('pointerup', to.x, to.y))
+  }
+  function mockZoneRects() {
+    const zones = document.querySelectorAll('[class*="_slot_"], [class*="_group_"], [class*="_groupFrontier_"]')
+    zones.forEach((el, i) => {
+      ;(el as HTMLElement).getBoundingClientRect = () => ({
+        left: i * 100, right: i * 100 + 80, top: 500, bottom: 550, width: 80, height: 50, x: i * 100, y: 500,
+        toJSON() { return this },
+      }) as DOMRect
+    })
+    return zones
+  }
+
+  it('dragging the leftover operator into the block absorbs it and its number together', async () => {
+    const user = userEvent.setup()
+    render(<Game />)
+
+    // build 6 + 2 × 9 flat (three of the puzzle's four numbers)
+    await user.click(screen.getAllByText('6', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('+', { selector: 'button' })[0])
+    await user.click(screen.getAllByText('2', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('×', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('9', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    expect(placedText()).toBe('6 + 2 × 9')
+
+    // drag the block chip onto "2" — wraps the right pair (2 × 9), concept 6.1
+    let zones = mockZoneRects()
+    let twoZoneIndex = [...zones].findIndex(z => z.textContent?.trim() === '2')
+    const twoRect = (zones[twoZoneIndex] as HTMLElement).getBoundingClientRect()
+    const blockChip = screen.getAllByRole('button').find(b => b.querySelector('[class*="blockIcon"]'))!
+    drag(blockChip, { x: twoRect.left + 10, y: twoRect.top + 10 })
+    expect(placedText()).toBe('6 + 2 × 9') // same content, now (2×9) is a block
+    expect(document.querySelectorAll('[class*="_group_"]')).toHaveLength(1)
+
+    // drag the leftover "+" (outside the block) into the block's own frontier
+    zones = mockZoneRects()
+    const frontier = document.querySelector('[class*="_groupFrontier_"]')!
+    const frontierRect = frontier.getBoundingClientRect()
+    const rootPlus = screen.getAllByText('+', { selector: 'button' }).find(b => b.className.includes('_field_'))!
+    drag(rootPlus, { x: frontierRect.left + 10, y: frontierRect.top + 10 })
+
+    expect(placedText()).toBe('6 + 2 × 9') // "6" came along too — nothing left outside the block
+    expect(document.querySelectorAll('[class*="_group_"]')).toHaveLength(1) // still just one block
+    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+  })
+})
