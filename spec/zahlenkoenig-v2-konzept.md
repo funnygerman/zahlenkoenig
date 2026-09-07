@@ -694,7 +694,7 @@ Gelöscht wird:
 interface Settings {
   language:   'de' | 'en'
   numbers:    2 | 3 | 4          // wie viele Zahlen
-  ops:        Operator[]         // welche Rechenzeichen, mindestens eines
+  ops:        Operator[]         // welche Rechenzeichen, mindestens zwei (Revision, siehe 15.6)
   band:       0 | 1 | 2          // wie groß das Ziel (Abschnitt 15.5)
   uniqueOnly: boolean            // nur Rätsel mit genau einer Lösung
 }
@@ -1109,11 +1109,10 @@ bei gleichem Zielbereich dieselbe Rätselmenge. Geprüft wurden auch die Auswege
 auf dem Brett sichtbar sind:
 
 1. **wie viele Zahlen** – 2, 3 oder 4
-2. **welche Rechenzeichen** – `+ − × ÷` einzeln, mindestens eines
+2. **welche Rechenzeichen** – `+ − × ÷` einzeln, mindestens zwei (Revision, PO: siehe 15.6)
 3. **wie groß das Ziel** – klein, mittel, groß (15.5)
 
-Kein Kürzel mehr, das man lernen muss. Und der jüngste Spieler gewinnt dabei:
-„nur `+`, zwei Zahlen" ist ein sanfterer Anfang, als A1 ihn je bot.
+Kein Kürzel mehr, das man lernen muss.
 
 ### 15.5 Der Zielbereich wird abgeleitet, nicht festgesetzt
 
@@ -1162,10 +1161,12 @@ Drei Regeln halten sie ehrlich:
 
 - **Sie bleibt offen.** Eine Änderung schließt sie nicht; wer drei Dinge ändern
   will, tippt dreimal. Geschlossen wird durch Tippen daneben oder `Esc`.
-- **Das letzte Rechenzeichen lässt sich nicht abwählen** – aber es wird **nicht
-  ausgegraut**. Es bleibt sichtbar gewählt, der Druck läuft ins Leere, und die
-  Berührung sagt, warum. Ein ausgegrauter Knopf sähe aus, als wäre er unbenutzbar;
-  er ist bloß der letzte.
+- **Unter zwei Rechenzeichen geht es nicht** (Revision, PO) – ursprünglich lag
+  die Grenze bei einem einzigen. Der letzte verbliebene Knopf, dessen Abwahl
+  unter zwei fiele, lässt sich nicht abwählen, wird aber **nicht ausgegraut**.
+  Er bleibt sichtbar gewählt, der Druck läuft ins Leere, und die Berührung
+  sagt, warum. Ein ausgegrauter Knopf sähe aus, als wäre er unbenutzbar; er
+  ist bloß einer von den letzten zwei.
 - **Der Eindeutigkeits-Schalter schaltet sich ab**, wenn es für die Auswahl keine
   eindeutigen Rätsel gibt (15.7), mit sichtbarer Begründung.
 

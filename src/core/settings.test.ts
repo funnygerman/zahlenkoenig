@@ -20,7 +20,15 @@ describe('settings persistence (concept section 11)', () => {
 
   it('sanitizes a corrupt stored value instead of throwing', () => {
     localStorage.setItem('zahlenkoenig:settings-v2', '{"numbers": 7, "ops": ["+", "%"], "band": 9}')
-    expect(loadSettings()).toEqual({ ...DEFAULT_SETTINGS, ops: ['+'] })
+    // "%" is filtered out, leaving only one valid op — below the minimum of
+    // two (concept 15.6, revised), so this falls back the same way an empty
+    // ops array does.
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS)
+  })
+
+  it('falls back to defaults for a value saved before ops required at least two (concept 15.6, revised)', () => {
+    localStorage.setItem('zahlenkoenig:settings-v2', JSON.stringify({ ...DEFAULT_SETTINGS, ops: ['+'] }))
+    expect(loadSettings()).toEqual(DEFAULT_SETTINGS)
   })
 
   it('falls back to defaults on unparseable JSON', () => {

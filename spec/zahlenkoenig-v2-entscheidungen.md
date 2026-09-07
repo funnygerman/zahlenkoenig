@@ -341,12 +341,13 @@ Bestätigung · Aufgeben mit automatischem Wechsel zum nächsten Rätsel.
 | **Zielzahl höchstens 999** | Drei Ziffern passen in den Zielchip mit einer Schriftstufe kleiner, vier nicht. Kostet 148 von 31 527 Rätseln. |
 | **Zeile 1 ist eine Chiphöhe hoch** (PO) | Die Zielzahl ist derselbe Chip wie eine Zahl, das Ausdrucksfeld genauso hoch. Ein doppelt hohes Feld war ein Zwischenstand und wiederholte einen v1-Fehler. |
 | **Letztes Rechenzeichen: gesperrt, nicht ausgegraut** (PO) | Ausgegraut liest sich wie unbenutzbar; es ist bloß das letzte. Es bleibt gewählt, der Druck läuft ins Leere, die Berührung erklärt es. |
+| **Mindestens zwei Rechenzeichen, nicht eines** (Revision, PO — nach v2-Schritt 5) | Widerruft die Zeile darüber: „nur `+`, zwei Zahlen" als sanftester Einstieg war die ursprüngliche Begründung für „mindestens eines"; der PO befand später, mindestens zwei Rechenzeichen ergäben mehr Sinn. Betrifft nur die Auswahl-Untergrenze, nicht die Sperr-Mechanik selbst: die Zeile direkt darüber gilt unverändert weiter, nur dass jetzt die letzten *zwei* verbleibenden Knöpfe gesperrt bleiben statt nur der eine letzte. |
 
 **Verworfen:** Level in jeder Form · E1 mit neuem Merkmal · „zwei Blöcke nötig"
 als Level · „nur eindeutige Rätsel" als Level (93 bzw. 0 Rätsel in den Ecken) ·
 feste Zielbereiche · Rechenzeichen nur paarweise · Stufe als eigener Regler ·
 Zielzahl über 999 · doppelt hohes Ausdrucksfeld · ausgegrautes letztes
-Rechenzeichen.
+Rechenzeichen · genau ein Rechenzeichen als gültige Auswahl.
 
 **Offen:** die Breite der Ausdruckszeile (Abschnitt 17 des Konzepts).
 

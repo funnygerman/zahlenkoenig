@@ -8,7 +8,7 @@ import type { Operator } from './expression'
 export interface Settings {
   language: 'de' | 'en'
   numbers: 2 | 3 | 4
-  ops: Operator[] // at least one, always in canonical +-*/ storage order — see setOps
+  ops: Operator[] // at least two (concept 15.6, revised), always in canonical +-*/ storage order — see setOps
   band: 0 | 1 | 2 // klein · mittel · groß (concept 15.5)
   uniqueOnly: boolean
 }
@@ -35,7 +35,8 @@ function sanitize(candidate: Partial<Settings> | null | undefined): Settings {
   return {
     language: candidate.language === 'en' ? 'en' : 'de',
     numbers: candidate.numbers === 2 || candidate.numbers === 4 ? candidate.numbers : 3,
-    ops: ops.length > 0 ? ops : DEFAULT_SETTINGS.ops,
+    // at least two — also catches a value saved before concept 15.6's revision from "at least one"
+    ops: ops.length >= 2 ? ops : DEFAULT_SETTINGS.ops,
     band: candidate.band === 1 || candidate.band === 2 ? candidate.band : 0,
     uniqueOnly: candidate.uniqueOnly === true,
   }
