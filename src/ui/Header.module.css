@@ -57,31 +57,38 @@
   font-variant-numeric: tabular-nums;
 }
 
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: hsl(var(--hue) 40% 12% / 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gap);
+  z-index: 20;
+}
+
 .panel {
-  position: absolute;
-  left: 0;
-  right: 0;
-  top: calc(100% + 6px);
+  width: min(360px, 100%);
   background: var(--zk-surface);
   border: 1px solid var(--zk-line);
-  border-radius: 14px;
+  border-radius: 16px;
   box-shadow: 0 14px 30px -12px hsl(var(--hue) 40% 20% / 0.3);
-  padding: 11px;
-  z-index: 20;
+  padding: 20px;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 16px;
 }
 
 .row {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
 .label {
-  font-size: 0.64rem;
+  font-size: 0.76rem;
   text-transform: uppercase;
   letter-spacing: 0.08em;
   color: var(--zk-muted);
@@ -90,7 +97,7 @@
 
 .options {
   display: flex;
-  gap: 8px;
+  gap: 10px;
   flex-wrap: wrap;
 }
 
@@ -98,14 +105,14 @@
   border: 1.5px solid var(--zk-line);
   background: var(--zk-surface);
   color: var(--zk-ink);
-  border-radius: 9px;
-  padding: 5px 9px;
+  border-radius: 10px;
+  padding: 8px 13px;
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 6px;
   font: inherit;
-  font-size: 0.76rem;
+  font-size: 0.9rem;
 }
 
 .opt[aria-pressed='true'] {
@@ -122,29 +129,29 @@
 }
 
 .ci {
-  width: 17px;
-  height: 17px;
+  width: 20px;
+  height: 20px;
   border: 1.5px solid currentColor;
   border-radius: 50%;
   display: grid;
   place-items: center;
-  font-size: 0.8rem;
+  font-size: 0.92rem;
   line-height: 1;
 }
 
 .band {
   flex-direction: column;
   align-items: center;
-  gap: 1px;
-  padding: 5px 10px;
+  gap: 2px;
+  padding: 7px 12px;
 }
 
 .bandLabel {
-  font-size: 0.76rem;
+  font-size: 0.9rem;
 }
 
 .bandRange {
-  font-size: 0.63rem;
+  font-size: 0.74rem;
   color: var(--zk-muted);
   font-variant-numeric: tabular-nums;
 }
@@ -152,11 +159,11 @@
 .footer {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 9px;
   cursor: pointer;
   border-top: 1px solid var(--zk-line);
-  padding-top: 9px;
-  font-size: 0.72rem;
+  padding-top: 14px;
+  font-size: 0.84rem;
   color: var(--zk-muted);
 }
 

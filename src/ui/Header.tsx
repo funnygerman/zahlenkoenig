@@ -76,68 +76,74 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
       </button>
 
       {open && (
-        <div id="zk-selection-panel" className={styles.panel}>
-          <div className={styles.row}>
-            <span className={styles.label}>Wie viele Zahlen</span>
-            <div className={styles.options}>
-              {NUMBER_OPTIONS.map(n => (
-                <button
-                  key={n}
-                  type="button"
-                  className={styles.opt}
-                  aria-pressed={settings.numbers === n}
-                  onClick={() => onSetNumbers(n)}
-                >
-                  {Array.from({ length: n }, (_, i) => <i key={i} className={styles.sq} />)}
-                </button>
-              ))}
+        <div className={styles.backdrop} onClick={() => setOpen(false)}>
+          <div
+            id="zk-selection-panel"
+            className={styles.panel}
+            onClick={e => e.stopPropagation()}
+          >
+            <div className={styles.row}>
+              <span className={styles.label}>Wie viele Zahlen</span>
+              <div className={styles.options}>
+                {NUMBER_OPTIONS.map(n => (
+                  <button
+                    key={n}
+                    type="button"
+                    className={styles.opt}
+                    aria-pressed={settings.numbers === n}
+                    onClick={() => onSetNumbers(n)}
+                  >
+                    {Array.from({ length: n }, (_, i) => <i key={i} className={styles.sq} />)}
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className={styles.row}>
-            <span className={styles.label}>Welche Rechenzeichen</span>
-            <div className={styles.options}>
-              {ALL_OPS.map(op => (
-                <button
-                  key={op}
-                  type="button"
-                  className={styles.opt}
-                  aria-pressed={settings.ops.includes(op)}
-                  onClick={() => onToggleOp(op)}
-                >
-                  <span className={styles.ci}>{operatorGlyph(op)}</span>
-                </button>
-              ))}
+            <div className={styles.row}>
+              <span className={styles.label}>Welche Rechenzeichen</span>
+              <div className={styles.options}>
+                {ALL_OPS.map(op => (
+                  <button
+                    key={op}
+                    type="button"
+                    className={styles.opt}
+                    aria-pressed={settings.ops.includes(op)}
+                    onClick={() => onToggleOp(op)}
+                  >
+                    <span className={styles.ci}>{operatorGlyph(op)}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <div className={styles.row}>
-            <span className={styles.label}>Wie groß das Ziel</span>
-            <div className={styles.options}>
-              {ranges.map(([bandLo, bandHi], i) => (
-                <button
-                  key={i}
-                  type="button"
-                  className={cx(styles.opt, styles.band)}
-                  aria-pressed={settings.band === i}
-                  onClick={() => onSetBand(i as Settings['band'])}
-                >
-                  <span className={styles.bandLabel}>{BAND_LABELS[i]}</span>
-                  <span className={styles.bandRange}>{bandLo}–{bandHi}</span>
-                </button>
-              ))}
+            <div className={styles.row}>
+              <span className={styles.label}>Wie groß das Ziel</span>
+              <div className={styles.options}>
+                {ranges.map(([bandLo, bandHi], i) => (
+                  <button
+                    key={i}
+                    type="button"
+                    className={cx(styles.opt, styles.band)}
+                    aria-pressed={settings.band === i}
+                    onClick={() => onSetBand(i as Settings['band'])}
+                  >
+                    <span className={styles.bandLabel}>{BAND_LABELS[i]}</span>
+                    <span className={styles.bandRange}>{bandLo}–{bandHi}</span>
+                  </button>
+                ))}
+              </div>
             </div>
-          </div>
 
-          <label className={styles.footer}>
-            <input
-              type="checkbox"
-              checked={settings.uniqueOnly}
-              disabled={!uniqueAvailable}
-              onChange={e => onSetUniqueOnly(e.target.checked)}
-            />
-            <span>nur Rätsel mit <b>einer</b> Lösung{!uniqueAvailable && ' (für diese Auswahl nicht verfügbar)'}</span>
-          </label>
+            <label className={styles.footer}>
+              <input
+                type="checkbox"
+                checked={settings.uniqueOnly}
+                disabled={!uniqueAvailable}
+                onChange={e => onSetUniqueOnly(e.target.checked)}
+              />
+              <span>nur Rätsel mit <b>einer</b> Lösung{!uniqueAvailable && ' (für diese Auswahl nicht verfügbar)'}</span>
+            </label>
+          </div>
         </div>
       )}
     </div>
