@@ -90,6 +90,34 @@ back in step 2, and step 3 kept that choice rather than revisiting it:
 part of 12.1 that's actually visible, without rewriting either component's
 layout.
 
+**Growing a group past its minimum shape to a third number (concept 6.2)
+is a drag-only gesture, and it was silently un-hittable until a fourth
+device round.** Tapping can't do it at all — the tap-after-a-complete-group
+step is inherently ambiguous (does the next operator tap mean "grow this
+block" or "start the next one beside it", concept 12.5's own worst case,
+`(6+2)×(9−3)`, needs the *second* reading and is exercised by
+`Game.test.tsx`'s tap-only playthrough) — so it stays root-priority for tap,
+unchanged. Drag was supposed to reach it via `useDrag`'s 8px tolerance
+around the group's own zero-width trailing frontier (`Expression.tsx`'s
+`groupFrontier`), and the data layer and the tolerance math were both
+correct in isolation. What broke it: the group's own wrapper is *also*
+registered as a big `operand` drop zone spanning the whole block (concept
+6.5, so dropping a number onto the block swaps with it), and that wrapper
+geometrically *encloses* the frontier's zero-width `operator` zone. The
+"a zone of the other kind squarely inside is a refusal, not a near miss"
+rule (concept 3.2, `useDrag.ts`'s `hitTest`) doesn't distinguish a sibling
+zone (what it was built for — an operand slot next to an operator slot)
+from a container enclosing its own child zone, so it refused every point
+inside the wrapper except the one exact pixel sitting on the frontier's
+own line — no real finger or mouse lands on a single pixel on purpose.
+Fixed in `useDrag.ts` by excluding an other-kind rect from the refusal set
+when it encloses one of the current drag's own same-kind zones
+(`encloses()`), leaving the genuine sibling case untouched. Confirmed with
+real (unmocked) Playwright pointer drags before and after: every offset
+from -15px to +15px around the frontier's true position bounced beforehand,
+and only exactly 0px landed; afterwards the full ±8px tolerance band works,
+matching the design's own stated intent.
+
 **Every open position is a drop target, and tapping fills the next free one
 of its kind.** Concept 6.4 originally made the scaffold slots decorative; the
 product owner overruled that on the second device test, because a chip that can

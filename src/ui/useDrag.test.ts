@@ -318,6 +318,54 @@ describe('useDrag — near misses still hit (the `tolerance` option)', () => {
   })
 })
 
+describe('useDrag — a container zone does not blanket-refuse its own nested zone', () => {
+  // The bug this guards: a group's own wrapper is registered as a big
+  // 'operand' zone spanning the whole block (so dropping a number onto the
+  // block swaps with it) — and that wrapper physically *contains* the
+  // group's own zero-width 'operator' frontier zone (concept 6.2: growing
+  // a group past its minimum shape). Before this fix, the "other kind
+  // squarely inside is a refusal" rule (the test above) fired for *any*
+  // point inside the wrapper, since it's also "inside" the operand zone —
+  // so only the one exact pixel of the frontier's own line ever reached
+  // the tolerance fallback at all; everywhere else within the wrapper was
+  // refused first. A container enclosing its own same-kind child isn't
+  // the sibling case that rule exists for, so it's excluded from the
+  // refusal set.
+  it('a zero-width zone still gets its tolerance even nested inside a same-position other-kind zone', () => {
+    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 8 }))
+    // the group's own wrapper: a wide 'operand' zone (concept 6.5)
+    act(() => result.current.registerZone('root-0', 'operand', true, zoneElement({ left: 20, right: 170, top: 100, bottom: 150 })))
+    // the group's own frontier: a zero-width 'operator' zone nested inside it
+    act(() => result.current.registerZone('group-g1-3', 'operator', false, zoneElement({ left: 158, right: 158, top: 100, bottom: 150 })))
+    const handlers = result.current.dragHandlers({ id: 'tray-op-*', kind: 'operator' })
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(153, 125))) // 5px off the exact line, still inside the wrapper
+    expect(result.current.activeZoneId).toBe('group-g1-3')
+
+    act(() => handlers.onPointerUp(pointerEvent(153, 125)))
+    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, { zoneId: 'group-g1-3', occupied: false })
+  })
+
+  it('a genuine sibling of the other kind still refuses (unchanged from the case above)', () => {
+    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 22 }))
+    act(() => result.current.registerZone('root-3', 'operator', true, zoneElement({ left: 100, right: 124, top: 100, bottom: 164 })))
+    act(() => result.current.registerZone('root-4', 'operand', false, zoneElement({ left: 128, right: 160, top: 100, bottom: 164 })))
+    const handlers = result.current.dragHandlers({ id: 'tray-op-*', kind: 'operator' })
+
+    act(() => handlers.onPointerDown(pointerEvent(0, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(20, 0)))
+    act(() => handlers.onPointerMove(pointerEvent(144, 132))) // dead centre of the operand slot
+    expect(result.current.activeZoneId).toBeNull()
+
+    act(() => handlers.onPointerUp(pointerEvent(144, 132)))
+    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, null)
+  })
+})
+
 describe('useDrag — a slot of the other kind refuses, it does not defer to its neighbour', () => {
   it('a pointer inside a wrong-kind zone hits nothing, even with a matching zone in tolerance range', () => {
     // Letting go on the middle of an empty number slot while dragging an
