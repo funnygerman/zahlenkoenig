@@ -275,6 +275,42 @@ Die Geste erzeugt höchstens ein Paar. Ein Block mit drei Zahlen entsteht, indem
 man zusätzlich Operator und Zahl **hineinzieht** – dieselbe Mechanik wie überall
 sonst. Damit braucht `(7×8+1)×3` keine Sonderregel.
 
+#### Ein Block hat zwei Enden (PO, vierter Gerätetest)
+
+Hineingezogen wird an **einem der beiden Klammerstege**, und der Steg, auf dem
+losgelassen wird, entscheidet, an welchem Ende der Chip landet. Aus
+`(a+b) × c − d` wird durch dasselbe `× c`
+
+| losgelassen auf | Ergebnis |
+|---|---|
+| rechter Steg | `(a + b × c) − d` |
+| linker Steg | `(c × a + b) − d` |
+
+Drei Regeln stecken darin:
+
+- **Der Chip bringt seinen Partner mit.** Wer `c` zieht, zieht das `×`
+  daneben mit, und wer `×` zieht, zieht `c` mit – dasselbe Paar, von beiden
+  Seiten gegriffen. Das ist 6.1s nützliche Überschneidung, nur andersherum
+  gelesen. Der Partner ist stets der Nachbar **auf der dem Block zugewandten
+  Seite**: in `a × (b+c)` gehört zu `a` das `×` rechts davon, in `(b+c) × a`
+  das `×` links davon. Nur so bleibt draußen nichts allein stehen, was
+  nichts mehr neben sich bekommen kann (das Kontingent ist exakt: *n* Zahlen,
+  *n−1* Operatoren).
+- **Die Seite des Ablegens, nicht die Seite der Herkunft.** Ein Chip von
+  links darf am rechten Ende landen und umgekehrt; sonst wäre die Hälfte der
+  erreichbaren Ausdrücke nur über Auflösen und neu Umschließen zu haben.
+- **Entfernung spielt keine Rolle.** In `(a+b) × c − d` ist `− d` zwei
+  Positionen vom Block entfernt und darf trotzdem hinein: `(a + b − d) × c`.
+  Alles dazwischen rückt zusammen. Nicht überquert wird nur ein **zweiter
+  Block** – Verschachtelung bleibt draußen (Abschnitt 4).
+
+Aus der Ablage kommt ein Chip ohne Partner. Er bringt dann eine **offene
+Fläche** für ihn mit: eine Zahl auf den rechten Steg macht aus `(6+2)` ein
+`(6 + 2 ⬚ 9)`, ein Operator auf den linken ein `(⬚ × 6 + 2)`. So lässt sich
+ein Block für drei Zahlen vorbereiten, bevor feststeht, welche hineinkommen.
+Was das Kontingent sprengen würde – eine Fläche, die keine Zahl und kein
+Operator mehr füllen könnte –, wird abgelehnt, und der Chip springt zurück.
+
 ### 6.3 Ein Block zeigt immer sein Minimum
 
 Ein leer gesetzter Block wird als `⬚ ○ ⬚` gezeichnet – Operandenfläche,
@@ -357,18 +393,36 @@ in die Ablage und zurück.
 | Geste | Wirkung |
 |---|---|
 | Rand tippen | Klammern gehen heim, Inhalt bleibt |
-| auf einen anderen Operanden ziehen | die beiden tauschen, Inhalt reist mit |
+| über die Zeile ziehen | die Klammern wandern, der Inhalt bleibt stehen |
 | aus dem Feld ziehen und loslassen | Klammern gehen heim, Inhalt bleibt |
 
-Drei Einträge, zwei mit demselben Ergebnis – das ist der Punkt: **alle
+Drei Einträge, in denen sich nie ein Chip bewegt – das ist der Punkt: **alle
 scheinbar zerstörerischen Gesten laufen auf die harmlose hinaus.**
 
-**Bewegen ist keine neue Regel.** Ein Block ist ein Operand, und für einen
-Operanden auf einer belegten Operandenfläche gilt bereits: tauschen.
-`(6+2) − 9` wird durch Ziehen auf die `9` zu `9 − (6+2)` – ein anderer Ausdruck,
-also eine sinnvolle Geste. Ob der Block zwei oder drei Zahlen enthält, ändert
-nur die Anzahl der Ziele (drei Operanden bieten zwei, zwei Operanden bieten
-eines), nicht die Regel.
+**Bewegen heißt: die Klammern wandern** (PO, vierter Gerätetest). Der Block
+wird über die Zeile gezogen und umschließt am Ziel genauso viele Operanden wie
+vorher – die Zeile selbst liest sich unverändert, nur anders geklammert:
+
+```
+(a × b) + c − d      auf die eigene b ziehen      a × (b + c) − d
+(a × b) + c − d      auf c ziehen                 a × b + (c − d)
+a × (b + c − d)      auf a ziehen                 (a × b + c) − d
+```
+
+Die **eigene Innenfläche ist damit ein gültiges Ziel** – dort liegen ja die
+Positionen einen Schritt weiter rechts. Die Innenfläche eines *anderen* Blocks
+bleibt verboten wie eh und je. Reicht der Block über das Ende der Zeile hinaus,
+öffnen sich die Positionen dazwischen als Lücken (wie bei jedem Ablegen jenseits
+des bisherigen Endes, 6.4); über *n* Zahlen und *n−1* Operatoren hinaus wandert
+er nicht.
+
+Ursprünglich stand hier die Regel „ein Block ist ein Operand, also tauschen":
+`(6+2) − 9` auf die `9` gezogen wurde zu `9 − (6+2)`. Sie ist verworfen (PO,
+vierter Gerätetest). Ein Block, dessen Inhalt mitreist, kann nur mit einem
+anderen Operanden die Plätze tauschen – *anders klammern*, das, was man
+eigentlich will, kostete weiterhin Auflösen und neu Umschließen. Mit der neuen
+Regel ist 6.5s eigenes Beispiel `(6+2)×9` → `6+(2×9)` **eine** Geste statt
+zwei.
 
 ### 6.6 Treffflächen
 
@@ -378,6 +432,12 @@ Band über und unter den Chips. Jeder Steg bekommt eine unsichtbare Trefffläche
 von etwa 22 px Breite über die volle Blockhöhe, nach außen in den Feldabstand
 und nach innen über die Polsterung, ohne je einen Chip zu überlappen. Ein hoher
 schmaler Streifen ist deutlich leichter zu treffen als ein kleines Quadrat.
+
+Derselbe Streifen ist zugleich das **Ablageziel für dieses Ende des Blocks**
+(6.2) und der Griff, an dem der Block selbst gezogen wird (6.5) – drei
+Aufgaben, ein Element, weil sie für den Spieler eine sind: „das linke Ende
+dieses Blocks". Der Block als *Ganzes* ist dagegen keine Fläche mehr; eine
+Fläche über den ganzen Block könnte nicht sagen, welches Ende gemeint ist.
 
 **Ein gestrichelter Platzhalter in der Ablage ist antippbar und holt zurück,
 was ihn verlassen hat** (Abschnitt 5) – aber das gilt nur für Zahlen. Der Block

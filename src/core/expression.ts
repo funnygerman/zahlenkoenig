@@ -483,3 +483,164 @@ export function absorbIntoGroup(children: RootChildren, groupIndex: number, side
   next.splice(Math.min(operatorIndex, operandIndex), 2)
   return next
 }
+
+/**
+ * The two root positions that travel together when a root-level leaf is
+ * drawn into a block: the leaf itself and the slot next to it *on the side
+ * facing the group*. Which one is the operand and which the operator falls
+ * out of the parity — a pair is always `(operand, operator)` with the
+ * operator nearer the block, so the leaf keeps a partner whichever half of
+ * it was grabbed. That is concept 6.1's "nützliche Überschneidung" seen
+ * from the other end: `× c` and `c ×` are the same gesture.
+ *
+ * Returns the index of the pair's first (leftmost) position, or null when
+ * the leaf can't be paired at all: it isn't a root-level leaf, it *is* the
+ * group, or a second group sits between the two (a block can never travel
+ * through another block — concept section 4).
+ *
+ * Unlike `absorbIntoGroup` below, the pair's other half may be an open gap
+ * (or missing entirely, past the end of the row). Moving `⬚ ×` into a
+ * block is how a player prepares a three-number block before deciding
+ * which number goes in it — the gap travels along and stays a gap.
+ */
+export function connectingPair(children: RootChildren, leafIndex: number, groupIndex: number): number | null {
+  const group = children[groupIndex]
+  if (!group || group.kind !== 'group') return null
+  const leaf = children[leafIndex]
+  if (!leaf || leaf.kind === 'group') return null
+  if (leafIndex === groupIndex) return null
+
+  const before = leafIndex < groupIndex
+  const start = before
+    ? (leafIndex % 2 === 0 ? leafIndex : leafIndex - 1)
+    : (leafIndex % 2 === 0 ? leafIndex - 1 : leafIndex)
+  if (start < 0) return null
+
+  const operand = children[start + (before ? 0 : 1)] ?? null
+  const operator = children[start + (before ? 1 : 0)] ?? null
+  if (operand !== null && operand.kind !== 'number') return null
+  if (operator !== null && operator.kind !== 'operator') return null
+
+  // nothing but plain content between the pair and the block it joins
+  const from = before ? start + 2 : groupIndex + 1
+  const to = before ? groupIndex : start
+  for (let i = from; i < to; i++) {
+    const between = children[i]
+    if (between !== null && between !== undefined && between.kind === 'group') return null
+  }
+  return start
+}
+
+/** Splices a pair into a group's children at the given end (concept 6.2). A group's own length stays odd either way, so the invariant holds. */
+function withPair(group: Group, side: AbsorbSide, operand: Leaf | null, operator: Leaf | null): Group {
+  return {
+    ...group,
+    children: side === 'before'
+      ? [operand, operator, ...group.children]
+      : [...group.children, operator, operand],
+  }
+}
+
+/**
+ * Draws the root-level leaf at `leafIndex` into the group at `groupIndex`,
+ * together with its `connectingPair` partner, and inserts the pair at the
+ * given end of the block — **the end the player dropped on**, which is not
+ * necessarily the side the leaf came from (PO, fourth device round). `(a+b)
+ * × c` with `× c` dropped on the block's left edge is `(c × a + b)`: the
+ * pair is what the leaf brings along, the drop tells it where to go.
+ *
+ * Distance doesn't matter either: in `(a+b) × c − d`, `− d` is two
+ * positions away from the block and still joins it — everything between
+ * simply closes up. What can't be crossed is another block.
+ */
+export function absorbPairIntoGroup(
+  children: RootChildren,
+  groupIndex: number,
+  leafIndex: number,
+  side: AbsorbSide
+): (Leaf | Group | null)[] | null {
+  const start = connectingPair(children, leafIndex, groupIndex)
+  if (start === null) return null
+  const group = children[groupIndex] as Group
+  const before = leafIndex < groupIndex
+  const operand = (children[start + (before ? 0 : 1)] ?? null) as Leaf | null
+  const operator = (children[start + (before ? 1 : 0)] ?? null) as Leaf | null
+
+  const next = children.slice()
+  next[groupIndex] = withPair(group, side, operand, operator)
+  next.splice(start, 2)
+  return next
+}
+
+/**
+ * Adds a single tray chip to one end of a block, with an open slot for the
+ * partner it doesn't have yet (concept 6.2, PO's "damit er den Block schon
+ * für drei Zahlen vorbereiten kann"). A number arrives with an empty
+ * operator slot beside it, an operator with an empty number slot — the
+ * same shape `absorbPairIntoGroup` moves, just assembled from the tray
+ * rather than from the row. The caller checks the puzzle's budget: this
+ * function only knows shapes.
+ */
+export function insertLeafIntoGroup(
+  children: RootChildren,
+  groupIndex: number,
+  side: AbsorbSide,
+  leaf: Leaf
+): (Leaf | Group | null)[] | null {
+  const group = children[groupIndex]
+  if (!group || group.kind !== 'group') return null
+  const operand = leaf.kind === 'number' ? leaf : null
+  const operator = leaf.kind === 'operator' ? leaf : null
+  const next = children.slice()
+  next[groupIndex] = withPair(group, side, operand, operator)
+  return next
+}
+
+/**
+ * Moves an already-placed block to a new position over the row, keeping
+ * its own length: the brackets slide, the content stays where it is
+ * (concept 6.5, revised — PO, fourth device round). `(a × b) + c − d`
+ * dropped on `c` is `a × b + (c − d)`; dropped on its own `b` it is
+ * `a × (b + c) − d`. Content never travels with the block any more, so a
+ * player re-brackets by moving the brackets rather than by dissolving and
+ * wrapping again.
+ *
+ * `anchor` is a position in the *flattened* row (the row as it reads with
+ * this block's own brackets taken off); an operator position anchors the
+ * pair it belongs to, exactly as it does for a fresh block (concept 6.1's
+ * "nützliche Überschneidung"). `maxLength` caps how far right the block
+ * can reach — 2n−1 positions is everything an n-number puzzle can ever
+ * hold (concept 6.4) — and positions the row hasn't grown into yet open as
+ * gaps, the same way `placeAt` opens them.
+ *
+ * Returns null when the move is impossible or changes nothing: no block
+ * there, another block inside the span it would enclose (concept section
+ * 4), or the block ending up exactly where it started.
+ */
+export function moveGroup(
+  children: RootChildren,
+  groupIndex: number,
+  anchor: number,
+  maxLength: number
+): (Leaf | Group | null)[] | null {
+  const group = children[groupIndex]
+  if (!group || group.kind !== 'group') return null
+  const span = group.children.length
+
+  const flat: (Leaf | Group | null)[] = children.slice()
+  flat.splice(groupIndex, 1, ...group.children)
+
+  const limit = Math.max(0, maxLength - span)
+  let start = anchor % 2 === 0 ? anchor : anchor - 1
+  start = Math.min(start, limit % 2 === 0 ? limit : limit - 1)
+  start = Math.max(0, start)
+  if (start === groupIndex) return null // already there
+
+  while (flat.length < start + span) flat.push(null)
+  const enclosed = flat.slice(start, start + span)
+  if (enclosed.some(c => c !== null && c.kind === 'group')) return null
+
+  const next = flat.slice()
+  next.splice(start, span, { ...group, children: enclosed as (Leaf | null)[] })
+  return next
+}

@@ -153,6 +153,62 @@ budget still refuses rather than corrupts) and end-to-end in
 app: dragging either half of the connecting pair into an adjacent block
 now always yields the *whole* thing wrapped, submit-ready.
 
+**A block has two ends, and each bracket edge is one of them.** The fourth
+device round reported two things that turned out to be one: an operator let
+go on the *left* of a block vanished, while the right worked; and a number
+let go on a block ended up with its operator on the far side of the
+bracket, outside it. Both came from the block being registered as a single
+wide `operand` zone spanning the whole thing — an operator found no
+operator-kind zone in reach at all (no zone means concept 5's
+"herausziehen", so the chip was removed), a number found that zone and got
+6.5's old swap rule. And a single zone can't say *which end* was meant,
+which is the whole content of the gesture. The bracket edges are the zones
+now (`Expression.tsx`'s `blockZoneId`, `useDrag`'s new `'both'` zone kind —
+a number and an operator mean the same thing there), the wrapper is not a
+zone any more, and a chip dropped on one brings its connecting partner
+along (`absorbPairIntoGroup`: the neighbour on the side facing the block,
+so nothing is left outside with nothing to pair with) and lands at the end
+it was dropped on, however far away it started. From the tray a chip has no
+partner, so it brings an open slot for one (`insertLeafIntoGroup`), which
+is how a block is prepared for a third number; `withinBudget` refuses the
+drop that would open a slot the puzzle can never fill. Concept 6.2 and
+decisions 3.4 have the round in full, including the one place the PO's own
+examples contradict the rule they state (two of eleven have "left"/"right"
+swapped; the stated rule wins).
+
+**Dropping onto a block's *interior* slot is deliberately unchanged** —
+that aims at a slot, and `absorbIntoGroup`'s adjacent-only, both-halves-real
+rule still guards it against stranding. The edges are the pair gesture; the
+slots stay what they were.
+
+**Moving a placed block now moves the brackets, not the content** (concept
+6.5, revised by the PO in the same round — the old "a block is an operand,
+so swap" row is gone). `moveGroup` re-encloses the same number of positions
+at the drop anchor over the flattened row, so `(a×b)+c−d` dropped on `c` is
+`a×b+(c−d)` and dropped on its own `b` is `a×(b+c)−d`; the block's own
+interior is a valid target for the block itself (that's where the positions
+one step over live), another block's never is. Concept 6.5's own worked
+example, `(6+2)×9` → `6+(2×9)`, is one gesture now instead of two.
+
+**A refusal is not a removal** (`useDrag`'s `DropOutcome`). Concept 3.2
+makes a surface of the other kind a refusal rather than a near miss, but
+that refusal was reported to the board as "no zone", which the board reads
+as dragging the chip off the field — so releasing an operator 2px past the
+bracket edge, on the number inside the block, deleted it. That is the same
+"it removes the operator" from the report, one drop position over. `null`
+now means only a release clear of the board; `'refused'` bounces.
+
+**The geometry here was checked in a real browser, not only in jsdom**
+(Playwright, real pointer events, 390px wide) — the whole point of the round
+is where a finger lands relative to a 16px strip, and jsdom has no layout.
+The left edge hits across an 11px band (its own width); left of that is the
+dragged chip's own slot, right of it the first chip inside the block, and
+every offset in that direction used to lose the chip. `Game.test.tsx`'s new
+`layoutField()` mirrors the real stylesheet's rects — padding, and bracket
+edges that overlap the outermost chip by a few px — rather than the flat
+non-overlapping row `mockZoneRects` invents; all six new drag tests were run
+against the pre-fix code first and fail there with the reported symptoms.
+
 **Every open position is a drop target, and tapping fills the next free one
 of its kind.** Concept 6.4 originally made the scaffold slots decorative; the
 product owner overruled that on the second device test, because a chip that can

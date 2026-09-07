@@ -9,7 +9,7 @@
 
 import { useCallback, useEffect } from 'react'
 import { useGame } from './useGame'
-import { useDrag, type DragItem, type DropTarget } from './useDrag'
+import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import { Tray } from './Tray'
 import { Expression } from './Expression'
 import { Chip } from './Chip'
@@ -102,7 +102,7 @@ export function Board({ numbers, target, ops, onSolved }: BoardProps) {
     else if (role === 'operator' && operator) game.onTapOperator(operator)
   }, [game])
 
-  const handleDrop = useCallback((item: DragItem<DragPayload>, target: DropTarget | null) => {
+  const handleDrop = useCallback((item: DragItem<DragPayload>, target: DropOutcome) => {
     game.onDrop({ id: item.id, kind: item.kind, data: item.data! }, target)
   }, [game])
 

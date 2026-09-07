@@ -35,6 +35,16 @@ import { useCallback, useRef, useState, type PointerEvent as ReactPointerEvent, 
 
 export type DragKind = 'operand' | 'operator'
 
+/**
+ * What a registered zone accepts. `'both'` is the block's own two bracket
+ * edges (concept 6.2/6.5, PO's fourth device round): dropping a number or
+ * an operator there means the same thing — "into this block, on this side"
+ * — so the zone can't be typed by the chip it takes. Nothing else uses it,
+ * and a `'both'` zone is never part of the other-kind refusal set below:
+ * there is no kind it refuses.
+ */
+export type ZoneKind = DragKind | 'both'
+
 export interface DragItem<T = unknown> {
   id: string
   kind: DragKind
@@ -48,11 +58,27 @@ export interface DropTarget {
   occupied: boolean
 }
 
+/**
+ * Where a drag ended. A zone, or one of two ways of ending nowhere, which
+ * are emphatically not the same thing:
+ *
+ * - `null` — released clear of the board: concept 5's "herausziehen", the
+ *   gesture that takes a chip back off the field.
+ * - `'refused'` — released *on* the board, squarely inside a surface of the
+ *   other kind (an operator let go on a number's slot). Concept 3.2 calls
+ *   that a refusal rather than a near miss, so the hit test reaches no
+ *   further; but a refusal is a miss, not a removal, and treating it as
+ *   `null` is what made an operator dropped a few px inside a block
+ *   *vanish* (PO, fourth device round — the reported "it removes the
+ *   operator"). A refused chip bounces back instead.
+ */
+export type DropOutcome = DropTarget | 'refused' | null
+
 export interface UseDragOptions<T = unknown> {
   /** Released without crossing the threshold — concept 5: the exact inverse of placing. */
   onTap: (item: DragItem<T>) => void
-  /** Released after crossing the threshold. `target` is null when released outside every zone of a matching kind — concept 5: "herausziehen" (remove). */
-  onDrop: (item: DragItem<T>, target: DropTarget | null) => void
+  /** Released after crossing the threshold — see `DropOutcome` for what a missing zone means. */
+  onDrop: (item: DragItem<T>, target: DropOutcome) => void
   /** Pointer movement, in px, before a press counts as a drag rather than a tap (concept 5.1). */
   threshold?: number
   /**
@@ -78,7 +104,7 @@ export interface DragHandlers {
 
 export interface UseDragResult<T = unknown> {
   /** Call from a zone's ref callback: `ref={el => registerZone('root-2', 'operand', false, el)}`. Pass `el = null` to deregister (e.g. on unmount). */
-  registerZone: (zoneId: string, kind: DragKind, occupied: boolean, el: HTMLElement | null) => void
+  registerZone: (zoneId: string, kind: ZoneKind, occupied: boolean, el: HTMLElement | null) => void
   /** Spread onto a chip: `<div {...dragHandlers({ id, kind })}>`. */
   dragHandlers: (item: DragItem<T>) => DragHandlers
   /** Attach to the ghost element the caller renders while `isDragging`. */
@@ -95,7 +121,7 @@ export interface UseDragResult<T = unknown> {
 
 interface ZoneEntry {
   el: HTMLElement
-  kind: DragKind
+  kind: ZoneKind
   occupied: boolean
 }
 
@@ -127,6 +153,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
   const startRef = useRef<{ x: number; y: number } | null>(null)
   const draggingRef = useRef(false) // synchronous mirror of isDragging — pointermove needs it before the next render
   const activeZoneIdRef = useRef<string | null>(null)
+  const refusedRef = useRef(false) // the last hit test landed inside a surface of the other kind — see DropOutcome
 
   const sourceElRef = useRef<HTMLElement | null>(null)
 
@@ -135,7 +162,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
   const [activeZoneId, setActiveZoneId] = useState<string | null>(null)
   const [draggingItem, setDraggingItem] = useState<DragItem<T> | null>(null)
 
-  const registerZone = useCallback((zoneId: string, kind: DragKind, occupied: boolean, el: HTMLElement | null) => {
+  const registerZone = useCallback((zoneId: string, kind: ZoneKind, occupied: boolean, el: HTMLElement | null) => {
     if (el) zonesRef.current.set(zoneId, { el, kind, occupied })
     else zonesRef.current.delete(zoneId)
   }, [])
@@ -151,7 +178,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
   // the operator 20px away and replaced that one instead — aiming at a
   // slot and hitting its neighbour. Tolerance is for the space between
   // slots, never for crossing one.
-  const hitTest = useCallback((x: number, y: number): MeasuredZone | null => {
+  const hitTest = useCallback((x: number, y: number): MeasuredZone | 'refused' | null => {
     let nearest: MeasuredZone | null = null
     let nearestDistance = Infinity
     for (const zone of measuredRef.current) {
@@ -165,7 +192,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
         nearest = zone
       }
     }
-    if (otherKindRef.current.some(rect => contains(rect, x, y))) return null
+    if (otherKindRef.current.some(rect => contains(rect, x, y))) return 'refused'
     return nearestDistance <= tolerance ? nearest : null
   }, [tolerance])
 
@@ -175,6 +202,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
     startRef.current = null
     draggingRef.current = false
     activeZoneIdRef.current = null
+    refusedRef.current = false
     measuredRef.current = []
     otherKindRef.current = []
     setIsDragging(false)
@@ -223,7 +251,7 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
         const otherKindCandidates: DOMRect[] = []
         for (const [zoneId, zone] of zonesRef.current) {
           const rect = zone.el.getBoundingClientRect()
-          if (zone.kind === item.kind) measuredRef.current.push({ zoneId, occupied: zone.occupied, rect })
+          if (zone.kind === item.kind || zone.kind === 'both') measuredRef.current.push({ zoneId, occupied: zone.occupied, rect })
           else otherKindCandidates.push(rect)
         }
         // An other-kind rect that fully encloses one of this drag's own
@@ -257,7 +285,8 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
       moveGhost(e.clientX, e.clientY)
 
       const hit = hitTest(e.clientX, e.clientY)
-      const zoneId = hit?.zoneId ?? null
+      refusedRef.current = hit === 'refused'
+      const zoneId = hit === 'refused' || hit === null ? null : hit.zoneId
       if (zoneId !== activeZoneIdRef.current) {
         activeZoneIdRef.current = zoneId
         setActiveZoneId(zoneId)
@@ -270,8 +299,9 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
       const wasDragging = draggingRef.current
       const hitZoneId = activeZoneIdRef.current
       const hitOccupied = measuredRef.current.find(z => z.zoneId === hitZoneId)?.occupied ?? false
+      const refused = refusedRef.current
       reset()
-      if (wasDragging) onDrop(draggedItem, hitZoneId ? { zoneId: hitZoneId, occupied: hitOccupied } : null)
+      if (wasDragging) onDrop(draggedItem, hitZoneId ? { zoneId: hitZoneId, occupied: hitOccupied } : refused ? 'refused' : null)
       else onTap(draggedItem)
     },
 

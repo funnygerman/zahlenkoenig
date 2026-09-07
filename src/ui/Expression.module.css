@@ -100,6 +100,14 @@
   margin-left: calc(var(--fg) * -1);
 }
 
+/* The same "you are about to drop here" mark for a bracket edge (concept
+ * 3.1), which is a tall thin strip rather than a chip: an outline around a
+ * 2px-wide element reads as noise, a solid accent wash along the edge reads
+ * as "this end of the block". */
+.activeEdge {
+  background: var(--zk-accent-soft);
+}
+
 /* concept 3.1: "gestrichelte Fläche in Akzentfarbe", only visible during a drag. */
 .activeZone {
   outline: 1.5px dashed var(--zk-accent);

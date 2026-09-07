@@ -754,3 +754,301 @@ describe('useGame — dragging a neighbor into an adjacent block absorbs the who
     expect(result.current.expr).toBe(before) // untouched
   })
 })
+
+// ---------------------------------------------------------------------------
+// The fourth device round (PO): drag-and-drop onto a block that already
+// holds two numbers. Every scenario below is one the PO listed by hand, in
+// their own notation — a = the first number, b the second and so on, with
+// the block sitting at the front, in the middle or at the end of a
+// four-number row.
+
+describe('useGame — a chip dropped on a block’s end joins the block there (concept 6.2, PO 4th round)', () => {
+  /** Builds `numbers` flat in the given order, then wraps a span into a block via a drag of the tray block chip onto `wrapAt`. */
+  function build(result: ReturnType<typeof setup>['result'], plan: Array<number | Operator>) {
+    for (const step of plan) {
+      if (typeof step === 'number') act(() => result.current.onTapNumber(idOf(result.current, step)))
+      else act(() => result.current.onTapOperator(step))
+    }
+  }
+
+  function wrap(result: ReturnType<typeof setup>['result'], rootIndex: number) {
+    act(() => result.current.onDrop(
+      { id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } },
+      { zoneId: `root-${rootIndex}`, occupied: true }
+    ))
+  }
+
+  const shape = (result: ReturnType<typeof setup>['result']) =>
+    result.current.expr.root.children.map(c =>
+      c === null ? null : c.kind === 'group' ? c.children.map(gc => gc?.value ?? null) : c.value
+    )
+
+  const blockId = (result: ReturnType<typeof setup>['result']) =>
+    (result.current.expr.root.children.find(c => c !== null && c.kind === 'group') as { id: string }).id
+
+  /** Root index of the placed leaf with this value (root level only). */
+  const rootIndexOf = (result: ReturnType<typeof setup>['result'], value: unknown) =>
+    result.current.expr.root.children.findIndex(c => c !== null && c.kind !== 'group' && c.value === value)
+
+  function drop(
+    result: ReturnType<typeof setup>['result'],
+    value: number | Operator,
+    side: 'before' | 'after'
+  ) {
+    const index = rootIndexOf(result, value)
+    const leaf = result.current.expr.root.children[index] as { id: string }
+    act(() => result.current.onDrop(
+      {
+        id: leaf.id,
+        kind: typeof value === 'number' ? 'operand' : 'operator',
+        data: typeof value === 'number' ? { role: 'number' } : { role: 'operator', operator: value },
+      },
+      { zoneId: `block-${side}-${blockId(result)}`, occupied: true }
+    ))
+  }
+
+  // ------------------------------------------------- (a + b) × c − d
+  function frontBlock() {
+    const s = setup([1, 2, 3, 4], 999)
+    build(s.result, [1, '+', 2, '*', 3, '-', 4])
+    wrap(s.result, 0) // (1+2) × 3 − 4
+    expect(shape(s.result)).toEqual([[1, '+', 2], '*', 3, '-', 4])
+    return s
+  }
+
+  it('(a+b) × c − d: "× c" to the right → (a + b × c) − d', () => {
+    const { result } = frontBlock()
+    drop(result, '*', 'after')
+    expect(shape(result)).toEqual([[1, '+', 2, '*', 3], '-', 4])
+  })
+
+  it('(a+b) × c − d: "× c" to the left → (c × a + b) − d', () => {
+    const { result } = frontBlock()
+    drop(result, '*', 'before')
+    expect(shape(result)).toEqual([[3, '*', 1, '+', 2], '-', 4])
+  })
+
+  it('(a+b) × c − d: grabbing "c" rather than "×" is the same gesture', () => {
+    const { result } = frontBlock()
+    drop(result, 3, 'after')
+    expect(shape(result)).toEqual([[1, '+', 2, '*', 3], '-', 4])
+  })
+
+  it('(a+b) × c − d: "− d" to the right → (a + b − d) × c', () => {
+    const { result } = frontBlock()
+    drop(result, 4, 'after')
+    expect(shape(result)).toEqual([[1, '+', 2, '-', 4], '*', 3])
+  })
+
+  it('(a+b) × c − d: "− d" to the left → (d − a + b) × c', () => {
+    const { result } = frontBlock()
+    drop(result, '-', 'before')
+    expect(shape(result)).toEqual([[4, '-', 1, '+', 2], '*', 3])
+  })
+
+  // ------------------------------------------------- a × (b + c) − d
+  function middleBlock() {
+    const s = setup([1, 2, 3, 4], 999)
+    build(s.result, [1, '*', 2, '+', 3, '-', 4])
+    wrap(s.result, 2) // 1 × (2+3) − 4
+    expect(shape(s.result)).toEqual([1, '*', [2, '+', 3], '-', 4])
+    return s
+  }
+
+  it('a × (b+c) − d: "a ×" to the left → (a × b + c) − d', () => {
+    const { result } = middleBlock()
+    drop(result, 1, 'before')
+    expect(shape(result)).toEqual([[1, '*', 2, '+', 3], '-', 4])
+  })
+
+  it('a × (b+c) − d: "a ×" to the right → (b + c × a) − d', () => {
+    const { result } = middleBlock()
+    drop(result, 1, 'after')
+    expect(shape(result)).toEqual([[2, '+', 3, '*', 1], '-', 4])
+  })
+
+  it('a × (b+c) − d: "− d" to the right → a × (b + c − d)', () => {
+    const { result } = middleBlock()
+    drop(result, 4, 'after')
+    expect(shape(result)).toEqual([1, '*', [2, '+', 3, '-', 4]])
+  })
+
+  // ------------------------------------------------- a + b × (c − d)
+  function endBlock() {
+    const s = setup([1, 2, 3, 4], 999)
+    build(s.result, [1, '+', 2, '*', 3, '-', 4])
+    wrap(s.result, 4) // 1 + 2 × (3−4)
+    expect(shape(s.result)).toEqual([1, '+', 2, '*', [3, '-', 4]])
+    return s
+  }
+
+  it('a + b × (c−d): "b ×" to the left → a + (b × c − d)', () => {
+    const { result } = endBlock()
+    drop(result, 2, 'before')
+    expect(shape(result)).toEqual([1, '+', [2, '*', 3, '-', 4]])
+  })
+
+  it('a + b × (c−d): "b ×" to the right → a + (c − d × b)', () => {
+    const { result } = endBlock()
+    drop(result, 2, 'after')
+    expect(shape(result)).toEqual([1, '+', [3, '-', 4, '*', 2]])
+  })
+
+  it('a + b × (c−d): "a +" travels past "b ×" to the block’s left end → b × (a + c − d)', () => {
+    const { result } = endBlock()
+    drop(result, 1, 'before')
+    expect(shape(result)).toEqual([2, '*', [1, '+', 3, '-', 4]])
+  })
+
+  it('every one of these keeps the puzzle finishable: four numbers, three operators, no stranded gap', () => {
+    const { result } = frontBlock()
+    drop(result, '*', 'before')
+    drop(result, 4, 'after') // (c × a + b − d) — everything in one block
+    expect(shape(result)).toEqual([[3, '*', 1, '+', 2, '-', 4]])
+    expect(result.current.submitEnabled).toBe(true)
+  })
+})
+
+describe('useGame — a tray chip dropped on a block’s end brings an open slot for its partner (concept 6.2, PO 4th round)', () => {
+  const shape = (result: ReturnType<typeof setup>['result']) =>
+    result.current.expr.root.children.map(c =>
+      c === null ? null : c.kind === 'group' ? c.children.map(gc => gc?.value ?? null) : c.value
+    )
+  const blockId = (result: ReturnType<typeof setup>['result']) =>
+    (result.current.expr.root.children.find(c => c !== null && c.kind === 'group') as { id: string }).id
+
+  function blockOfTwo() {
+    const s = setup([1, 2, 3, 4], 999)
+    act(() => s.result.current.onTapBlock())
+    act(() => s.result.current.onTapNumber(idOf(s.result.current, 1)))
+    act(() => s.result.current.onTapOperator('+'))
+    act(() => s.result.current.onTapNumber(idOf(s.result.current, 2)))
+    expect(shape(s.result)).toEqual([[1, '+', 2]])
+    return s
+  }
+
+  it('a number from the tray joins with an empty operator slot beside it — the block is now a three-number block', () => {
+    const { result } = blockOfTwo()
+    act(() => result.current.onDrop(
+      { id: idOf(result.current, 3), kind: 'operand', data: { role: 'number', origin: 'tray' } },
+      { zoneId: `block-after-${blockId(result)}`, occupied: true }
+    ))
+    expect(shape(result)).toEqual([[1, '+', 2, null, 3]])
+    // and the row still accounts for exactly what is left: one number, one operator
+    expect(result.current.scaffoldOperands).toBe(1)
+    expect(result.current.scaffoldOperators).toBe(1)
+  })
+
+  it('an operator from the tray joins with an empty number slot beside it', () => {
+    const { result } = blockOfTwo()
+    act(() => result.current.onDrop(
+      { id: 'tray-op-*', kind: 'operator', data: { role: 'operator', operator: '*', origin: 'tray' } },
+      { zoneId: `block-before-${blockId(result)}`, occupied: true }
+    ))
+    expect(shape(result)).toEqual([[null, '*', 1, '+', 2]])
+  })
+
+  it('refuses the chip that would open a slot the puzzle can never fill', () => {
+    // A two-number puzzle: one block, one operator, and no room for more.
+    const s = setup([1, 2], 3)
+    act(() => s.result.current.onTapBlock())
+    act(() => s.result.current.onTapNumber(idOf(s.result.current, 1)))
+    act(() => s.result.current.onTapOperator('+'))
+    act(() => s.result.current.onTapNumber(idOf(s.result.current, 2)))
+    const before = s.result.current.expr
+    act(() => s.result.current.onDrop(
+      { id: 'tray-op-*', kind: 'operator', data: { role: 'operator', operator: '*', origin: 'tray' } },
+      { zoneId: `block-after-${blockId(s.result)}`, occupied: true }
+    ))
+    expect(s.result.current.expr).toBe(before) // untouched — the chip bounces back
+  })
+})
+
+describe('useGame — moving a placed block moves the brackets, not the content (concept 6.5, revised, PO 4th round)', () => {
+  const shape = (result: ReturnType<typeof setup>['result']) =>
+    result.current.expr.root.children.map(c =>
+      c === null ? null : c.kind === 'group' ? c.children.map(gc => gc?.value ?? null) : c.value
+    )
+  const blockId = (result: ReturnType<typeof setup>['result']) =>
+    (result.current.expr.root.children.find(c => c !== null && c.kind === 'group') as { id: string }).id
+
+  /** [1, ×, 2, +, 3, −, 4] with the first pair wrapped: (a × b) + c − d */
+  function frontBlock() {
+    const s = setup([1, 2, 3, 4], 999)
+    for (const step of [1, '*', 2, '+', 3, '-', 4] as Array<number | Operator>) {
+      if (typeof step === 'number') act(() => s.result.current.onTapNumber(idOf(s.result.current, step)))
+      else act(() => s.result.current.onTapOperator(step))
+    }
+    act(() => s.result.current.onDrop(
+      { id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } },
+      { zoneId: 'root-0', occupied: true }
+    ))
+    expect(shape(s.result)).toEqual([[1, '*', 2], '+', 3, '-', 4])
+    return s
+  }
+
+  function moveBlockTo(result: ReturnType<typeof setup>['result'], zoneId: string) {
+    act(() => result.current.onDrop(
+      { id: blockId(result), kind: 'operand', data: { role: 'block', origin: 'field' } },
+      { zoneId, occupied: true }
+    ))
+  }
+
+  it('(a × b) + c − d → a × (b + c) − d, dropped on the block’s own second number', () => {
+    const { result } = frontBlock()
+    moveBlockTo(result, `group-${blockId(result)}-2`)
+    expect(shape(result)).toEqual([1, '*', [2, '+', 3], '-', 4])
+  })
+
+  it('(a × b) + c − d → a × b + (c − d), dropped on "c"', () => {
+    const { result } = frontBlock()
+    moveBlockTo(result, 'root-2')
+    expect(shape(result)).toEqual([1, '*', 2, '+', [3, '-', 4]])
+  })
+
+  it('and back again: a × b + (c − d) → (a × b) + c − d', () => {
+    const { result } = frontBlock()
+    moveBlockTo(result, 'root-2')
+    moveBlockTo(result, 'root-0')
+    expect(shape(result)).toEqual([[1, '*', 2], '+', 3, '-', 4])
+  })
+
+  it('a three-number block keeps all three when it slides', () => {
+    const { result } = frontBlock()
+    // grow it to (a × b + c) first, by dropping "+ c" on its right end
+    const plus = result.current.expr.root.children[1] as { id: string }
+    act(() => result.current.onDrop(
+      { id: plus.id, kind: 'operator', data: { role: 'operator', operator: '+' } },
+      { zoneId: `block-after-${blockId(result)}`, occupied: true }
+    ))
+    expect(shape(result)).toEqual([[1, '*', 2, '+', 3], '-', 4])
+    moveBlockTo(result, `group-${blockId(result)}-2`)
+    expect(shape(result)).toEqual([1, '*', [2, '+', 3, '-', 4]])
+  })
+
+  it('the content never travels with the block any more — the row reads the same before and after', () => {
+    const { result } = frontBlock()
+    const readingOf = () => result.current.expr.root.children.flatMap(c =>
+      c === null ? [null] : c.kind === 'group' ? c.children.map(gc => gc?.value ?? null) : [c.value]
+    )
+    const before = readingOf()
+    moveBlockTo(result, 'root-2')
+    expect(readingOf()).toEqual(before)
+  })
+})
+
+describe('useGame — a refused drop bounces (concept 3.2 + concept 5: a refusal is not "herausziehen")', () => {
+  it('leaves the tree untouched, where a null target would have removed the chip', () => {
+    const { result } = setup([3, 7], 10)
+    const id3 = idOf(result.current, 3)
+    act(() => result.current.onTapNumber(id3))
+    const before = result.current.expr
+
+    act(() => result.current.onDrop({ id: id3, kind: 'operand', data: { role: 'number' } }, 'refused'))
+    expect(result.current.expr).toBe(before)
+    expect(result.current.trayNumbers.find(n => n.id === id3)!.used).toBe(true)
+
+    act(() => result.current.onDrop({ id: id3, kind: 'operand', data: { role: 'number' } }, null))
+    expect(result.current.trayNumbers.find(n => n.id === id3)!.used).toBe(false) // null still removes
+  })
+})

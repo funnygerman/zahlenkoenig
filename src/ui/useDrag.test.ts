@@ -1,6 +1,6 @@
 import { describe, it, expect, vi } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
-import { useDrag, type DragItem, type DropTarget } from './useDrag'
+import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import type { PointerEvent as ReactPointerEvent } from 'react'
 
 // A minimal stand-in for a React pointer event: the hook only ever reads
@@ -82,7 +82,7 @@ describe('useDrag — tap vs drag (concept 5.1: 6px threshold)', () => {
 
 describe('useDrag — drop targets and zone kind matching (concept 3.1)', () => {
   it('reports the zone under the pointer at release, with its occupied flag', () => {
-    const onTap = vi.fn(), onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onTap = vi.fn(), onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap, onDrop }))
 
     act(() => result.current.registerZone('root-2', 'operand', true, zoneElement({ left: 50, right: 70, top: 50, bottom: 70 })))
@@ -121,7 +121,9 @@ describe('useDrag — drop targets and zone kind matching (concept 3.1)', () => 
     expect(result.current.activeZoneId).toBeNull()
 
     act(() => handlers.onPointerUp(pointerEvent(10, 10)))
-    expect(onDrop).toHaveBeenCalledWith({ id: 'num-3', kind: 'operand' }, null)
+    // 'refused', not null: released *on* the board, just on the wrong kind
+    // of surface. Null is reserved for "herausziehen" — see DropOutcome.
+    expect(onDrop).toHaveBeenCalledWith({ id: 'num-3', kind: 'operand' }, 'refused')
   })
 
   it('zones are measured once, at the threshold crossing — moving a zone afterwards has no effect on this drag', () => {
@@ -264,7 +266,7 @@ describe('useDrag — near misses still hit (the `tolerance` option)', () => {
   const ZONE = { left: 100, right: 132, top: 100, bottom: 132 }
 
   it('a release just outside a zone still lands in it', () => {
-    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 28 }))
     act(() => result.current.registerZone('root-0', 'operand', false, zoneElement(ZONE)))
     const handlers = result.current.dragHandlers(ITEM)
@@ -279,7 +281,7 @@ describe('useDrag — near misses still hit (the `tolerance` option)', () => {
   })
 
   it('a zero-width zone is reachable — the frontier of a full group renders nothing', () => {
-    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 28 }))
     act(() => result.current.registerZone('group-g1-3', 'operand', false, zoneElement({ left: 200, right: 200, top: 100, bottom: 132 })))
     const handlers = result.current.dragHandlers(ITEM)
@@ -291,7 +293,7 @@ describe('useDrag — near misses still hit (the `tolerance` option)', () => {
   })
 
   it('beyond the tolerance it is still a real "herausziehen" (concept 5)', () => {
-    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 28 }))
     act(() => result.current.registerZone('root-0', 'operand', false, zoneElement(ZONE)))
     const handlers = result.current.dragHandlers(ITEM)
@@ -332,7 +334,7 @@ describe('useDrag — a container zone does not blanket-refuse its own nested zo
   // the sibling case that rule exists for, so it's excluded from the
   // refusal set.
   it('a zero-width zone still gets its tolerance even nested inside a same-position other-kind zone', () => {
-    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 8 }))
     // the group's own wrapper: a wide 'operand' zone (concept 6.5)
     act(() => result.current.registerZone('root-0', 'operand', true, zoneElement({ left: 20, right: 170, top: 100, bottom: 150 })))
@@ -350,7 +352,7 @@ describe('useDrag — a container zone does not blanket-refuse its own nested zo
   })
 
   it('a genuine sibling of the other kind still refuses (unchanged from the case above)', () => {
-    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 22 }))
     act(() => result.current.registerZone('root-3', 'operator', true, zoneElement({ left: 100, right: 124, top: 100, bottom: 164 })))
     act(() => result.current.registerZone('root-4', 'operand', false, zoneElement({ left: 128, right: 160, top: 100, bottom: 164 })))
@@ -362,7 +364,7 @@ describe('useDrag — a container zone does not blanket-refuse its own nested zo
     expect(result.current.activeZoneId).toBeNull()
 
     act(() => handlers.onPointerUp(pointerEvent(144, 132)))
-    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, null)
+    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, 'refused')
   })
 })
 
@@ -372,7 +374,7 @@ describe('useDrag — a slot of the other kind refuses, it does not defer to its
     // operator used to reach past it to the operator 20px away and replace
     // that one — aiming at a slot and hitting its neighbour. Tolerance is
     // for the space between slots, not for crossing one.
-    const onDrop = vi.fn<(item: DragItem, target: DropTarget | null) => void>()
+    const onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
     const { result } = renderHook(() => useDrag({ onTap: vi.fn(), onDrop, tolerance: 22 }))
     act(() => result.current.registerZone('root-3', 'operator', true, zoneElement({ left: 100, right: 124, top: 100, bottom: 164 })))
     act(() => result.current.registerZone('root-4', 'operand', false, zoneElement({ left: 128, right: 160, top: 100, bottom: 164 })))
@@ -384,7 +386,7 @@ describe('useDrag — a slot of the other kind refuses, it does not defer to its
     expect(result.current.activeZoneId).toBeNull()
 
     act(() => handlers.onPointerUp(pointerEvent(144, 132)))
-    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, null)
+    expect(onDrop).toHaveBeenCalledWith({ id: 'tray-op-*', kind: 'operator' }, 'refused')
   })
 
   it('the gap between two slots still resolves to the nearer one', () => {
