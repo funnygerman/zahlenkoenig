@@ -156,6 +156,58 @@ describe('Game — dragging a placed block (concept 6.5: "ein Block ist ein Oper
 
   const placed = () => [...document.querySelectorAll<HTMLButtonElement>('button[class*="_chip_"][class*="_field_"]')]
   const placedText = () => placed().map(b => b.textContent?.trim()).join(' ')
+  /** What is inside the brackets right now — the other half of "did the block move or did its content?". */
+  const inGroupText = () => [...document.querySelectorAll('[class*="inGroup"]')].map(b => b.textContent?.trim()).join(' ')
+
+  /**
+   * Rects the way the real stylesheet lays them out, not the flat
+   * non-overlapping row `mockZoneRects` invents: a block's wrapper spans
+   * its content plus padding, and each bracket edge is a ~22px strip at one
+   * end of it that overlaps the outermost chip by a few px (concept 6.6,
+   * Expression.module.css). The overlaps are the whole point — a drop on a
+   * bracket edge has to reach the edge and not the chip behind it.
+   */
+  const CHIP = 32, GAP = 4, PAD = 12, EDGE = 16
+  function setRect(el: Element, left: number, right: number) {
+    ;(el as HTMLElement).getBoundingClientRect = () => ({
+      left, right, top: 100, bottom: 150, width: right - left, height: 50, x: left, y: 100,
+      toJSON() { return this },
+    }) as DOMRect
+  }
+  function layoutField() {
+    const field = document.querySelector('div[class*="_field_"]')!
+    let x = 0
+    for (const child of field.children) {
+      if (!child.className.includes('_group_')) {
+        setRect(child, x, x + CHIP)
+        x += CHIP + GAP
+        continue
+      }
+      const start = x
+      x += PAD
+      for (const gc of child.children) {
+        if (gc.getAttribute('aria-label') === 'Klammer auflösen') continue
+        // the frontier is a zero-width line hard against the last chip
+        // (Expression.module.css cancels the row gap for it), which is
+        // exactly where the right bracket edge's strip begins
+        if (gc.className.includes('_groupFrontier_')) { setRect(gc, x - GAP, x - GAP); continue }
+        setRect(gc, x, x + CHIP)
+        x += CHIP + GAP
+      }
+      x = x - GAP + PAD
+      setRect(child, start, x)
+      const edges = child.querySelectorAll('[aria-label="Klammer auflösen"]')
+      setRect(edges[0], start, start + EDGE)
+      setRect(edges[1], x - EDGE, x)
+      x += GAP
+    }
+  }
+  /** The middle of one bracket edge of the (single) block on the board. */
+  function edgeCentre(side: 'left' | 'right') {
+    const edges = document.querySelectorAll('[aria-label="Klammer auflösen"]')
+    const rect = edges[side === 'left' ? 0 : 1].getBoundingClientRect()
+    return { x: (rect.left + rect.right) / 2, y: 125 }
+  }
 
   it('dragging the bracket edge out of the field dissolves the block, content stays (concept 6.8)', async () => {
     const user = userEvent.setup()
@@ -178,7 +230,13 @@ describe('Game — dragging a placed block (concept 6.5: "ein Block ist ein Oper
     expect(blockChip).toBeEnabled() // the block budget freed up again
   })
 
-  it('dragging the block onto another operand swaps them, content travels with it (concept 6.5)', async () => {
+  it('dragging the block over the row moves the brackets, not the content (concept 6.5, revised)', async () => {
+    // The PO's fourth device round replaced 6.5's swap rule: a block that
+    // travels with its content can only ever trade places with another
+    // operand, and re-bracketing — the thing a player actually wants — took
+    // a dissolve and a fresh wrap. Now the brackets slide over the row and
+    // the row itself never changes. `(6+2) × 9` dropped on its own `2` is
+    // `6 + (2 × 9)`: 6.5's own worked example, in one gesture.
     const user = userEvent.setup()
     render(<Game />)
 
@@ -190,17 +248,16 @@ describe('Game — dragging a placed block (concept 6.5: "ein Block ist ein Oper
     await user.click(screen.getAllByText('×', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
     await user.click(screen.getAllByText('9', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
     expect(placedText()).toBe('6 + 2 × 9') // (6+2) × 9, brackets excluded from the text query on purpose
+    expect(inGroupText()).toBe('6 + 2')
 
-    const zones = mockZoneRects()
-    const nineZoneIndex = [...zones].findIndex(z => z.textContent?.includes('9'))
-    expect(nineZoneIndex).toBeGreaterThan(-1)
-    const nineRect = (zones[nineZoneIndex] as HTMLElement).getBoundingClientRect()
-
+    layoutField()
+    const two = [...document.querySelectorAll('[class*="_slot_"]')].find(el => el.textContent?.trim() === '2')!
+    const twoRect = two.getBoundingClientRect()
     const edge = screen.getAllByRole('button', { name: 'Klammer auflösen' })[0]
-    drag(edge, { x: nineRect.left + 10, y: nineRect.top + 10 })
+    drag(edge, { x: (twoRect.left + twoRect.right) / 2, y: 125 })
 
-    expect(placedText()).toBe('9 × 6 + 2') // 9 × (6+2): the pair swapped root positions
-    expect(document.querySelector('[class*="_group_"]')).not.toBeNull() // still a block, content intact
+    expect(placedText()).toBe('6 + 2 × 9') // the row reads exactly as before
+    expect(inGroupText()).toBe('2 × 9') // only the brackets moved: 6 + (2 × 9)
   })
 })
 
@@ -330,5 +387,173 @@ describe('Game — dragging a neighbor into an adjacent block absorbs it whole, 
     expect(placedText()).toBe('6 + 2 × 9') // "6" came along too — nothing left outside the block
     expect(document.querySelectorAll('[class*="_group_"]')).toHaveLength(1) // still just one block
     expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+  })
+})
+
+describe('Game — a chip dropped on a block’s bracket edge joins the block there (concept 6.2, PO 4th round)', () => {
+  // Reported after the fourth device round, with a block already holding
+  // two numbers: "if I move the operator onto the left side of the block it
+  // removes the operator; the right side works" and "if I move the number,
+  // that number and its operator end up on the other side of the block —
+  // outside it".
+  //
+  // Both are the same missing thing seen twice. The block's own wrapper was
+  // one wide *operand* zone spanning the whole block, so an operator
+  // released on the left half of a block found no operator-kind zone within
+  // reach at all and counted as "dragged out of the field" (concept 5) —
+  // it vanished. A number found the wrapper, which meant 6.5's old rule:
+  // swap the block and the number, which puts the number and its operator
+  // outside the block, on the far side. Neither gesture could say *which
+  // end* of the block was meant, because one zone can't.
+  //
+  // The two bracket edges are now that zone, one per end, and take a chip
+  // of either kind. Real (unmocked) pointer drags, with the rects laid out
+  // the way the stylesheet actually lays them out — overlaps and all.
+  const placed = () => [...document.querySelectorAll<HTMLButtonElement>('button[class*="_chip_"][class*="_field_"]')]
+  const placedText = () => placed().map(b => b.textContent?.trim()).join(' ')
+  const inGroupText = () => [...document.querySelectorAll('[class*="inGroup"]')].map(b => b.textContent?.trim()).join(' ')
+
+  function pointerEvt(type: string, x: number, y: number) {
+    const e = new Event(type, { bubbles: true, cancelable: true }) as unknown as {
+      pointerId: number; clientX: number; clientY: number
+    }
+    e.pointerId = 1
+    e.clientX = x
+    e.clientY = y
+    return e as unknown as Event
+  }
+  function drag(el: Element, to: { x: number; y: number }) {
+    fireEvent(el, pointerEvt('pointerdown', 0, 0))
+    fireEvent(el, pointerEvt('pointermove', to.x, to.y))
+    fireEvent(el, pointerEvt('pointerup', to.x, to.y))
+  }
+
+  const CHIP = 32, GAP = 4, PAD = 12, EDGE = 16
+  function setRect(el: Element, left: number, right: number) {
+    ;(el as HTMLElement).getBoundingClientRect = () => ({
+      left, right, top: 100, bottom: 150, width: right - left, height: 50, x: left, y: 100,
+      toJSON() { return this },
+    }) as DOMRect
+  }
+  function layoutField() {
+    const field = document.querySelector('div[class*="_field_"]')!
+    let x = 0
+    for (const child of field.children) {
+      if (!child.className.includes('_group_')) {
+        setRect(child, x, x + CHIP)
+        x += CHIP + GAP
+        continue
+      }
+      const start = x
+      x += PAD
+      for (const gc of child.children) {
+        if (gc.getAttribute('aria-label') === 'Klammer auflösen') continue
+        // the frontier is a zero-width line hard against the last chip
+        // (Expression.module.css cancels the row gap for it), which is
+        // exactly where the right bracket edge's strip begins
+        if (gc.className.includes('_groupFrontier_')) { setRect(gc, x - GAP, x - GAP); continue }
+        setRect(gc, x, x + CHIP)
+        x += CHIP + GAP
+      }
+      x = x - GAP + PAD
+      setRect(child, start, x)
+      const edges = child.querySelectorAll('[aria-label="Klammer auflösen"]')
+      setRect(edges[0], start, start + EDGE)
+      setRect(edges[1], x - EDGE, x)
+      x += GAP
+    }
+  }
+  function edgeCentre(side: 'left' | 'right') {
+    const edges = document.querySelectorAll('[aria-label="Klammer auflösen"]')
+    const rect = edges[side === 'left' ? 0 : 1].getBoundingClientRect()
+    return { x: (rect.left + rect.right) / 2, y: 125 }
+  }
+
+  /** 6 + 2 × 9 flat, then the tray's block chip dropped on the "2" — wrapping (2 × 9) and leaving "6 +" outside it. */
+  async function boardWithBlock() {
+    const user = userEvent.setup()
+    render(<Game />)
+    await user.click(screen.getAllByText('6', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('+', { selector: 'button' })[0])
+    await user.click(screen.getAllByText('2', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('×', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('9', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    layoutField()
+    const two = [...document.querySelectorAll('[class*="_slot_"]')].find(el => el.textContent?.trim() === '2')!
+    const twoRect = two.getBoundingClientRect()
+    const blockChip = screen.getAllByRole('button').find(b => b.querySelector('[class*="blockIcon"]'))!
+    drag(blockChip, { x: (twoRect.left + twoRect.right) / 2, y: 125 })
+    expect(inGroupText()).toBe('2 × 9')
+    layoutField()
+  }
+
+  const fieldChip = (text: string) =>
+    screen.getAllByText(text, { selector: 'button' }).find(b => b.className.includes('_field_'))!
+
+  it('an operator on the LEFT edge joins the block on the left — it used to vanish instead', async () => {
+    await boardWithBlock()
+    drag(fieldChip('+'), edgeCentre('left'))
+
+    expect(placedText()).toBe('6 + 2 × 9') // nothing lost — the "+" is still on the board
+    expect(inGroupText()).toBe('6 + 2 × 9') // and its "6" came along, inside the block
+    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+  })
+
+  it('the same operator on the RIGHT edge joins the block on the right — the side of the drop decides', async () => {
+    await boardWithBlock()
+    drag(fieldChip('+'), edgeCentre('right'))
+
+    expect(inGroupText()).toBe('2 × 9 + 6')
+    expect(screen.getByRole('status')).toHaveTextContent('(2 × 9 + 6)')
+  })
+
+  it('a number on the RIGHT edge joins the block too — it used to trade places with the whole block', async () => {
+    await boardWithBlock()
+    drag(fieldChip('6'), edgeCentre('right'))
+
+    expect(inGroupText()).toBe('2 × 9 + 6') // inside, not swapped to the far side of the brackets
+    expect(screen.getByRole('status')).toHaveTextContent('(2 × 9 + 6)')
+  })
+
+  it('a number on the LEFT edge joins on the left, and the block is then the whole expression', async () => {
+    await boardWithBlock()
+    drag(fieldChip('6'), edgeCentre('left'))
+
+    expect(inGroupText()).toBe('6 + 2 × 9')
+    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+  })
+
+  it('an operator let go a few px too far, on a number inside the block, bounces back instead of vanishing', async () => {
+    // The other half of the same report. Concept 3.2 makes a surface of the
+    // other kind a refusal rather than a near miss — but a refusal was
+    // reported as "no zone at all", which the board reads as concept 5's
+    // "herausziehen" and removes the chip. Missing the edge by 2px cost you
+    // the operator.
+    await boardWithBlock()
+    const two = [...document.querySelectorAll('[class*="_slot_"]')].find(el => el.textContent?.trim() === '2')!
+    const twoRect = two.getBoundingClientRect()
+    drag(fieldChip('+'), { x: (twoRect.left + twoRect.right) / 2, y: 125 })
+
+    expect(placedText()).toBe('6 + 2 × 9') // the "+" is still on the board
+    expect(inGroupText()).toBe('2 × 9') // and nothing moved
+  })
+
+  it('a tray chip on an edge brings an open slot with it, so a block can be prepared for a third number', async () => {
+    const user = userEvent.setup()
+    render(<Game />)
+    const blockChip = screen.getAllByRole('button').find(b => b.querySelector('[class*="blockIcon"]'))!
+    await user.click(blockChip)
+    await user.click(screen.getAllByText('6', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    await user.click(screen.getAllByText('+', { selector: 'button' })[0])
+    await user.click(screen.getAllByText('2', { selector: 'button' }).find(b => !(b as HTMLButtonElement).disabled)!)
+    expect(inGroupText()).toBe('6 + 2')
+
+    layoutField()
+    const trayNine = screen.getAllByText('9', { selector: 'button' }).find(b => !b.className.includes('_field_'))!
+    drag(trayNine, edgeCentre('right'))
+
+    expect(inGroupText()).toBe('6 + 2 9') // (6 + 2 ⬚ 9): the empty operator slot came with it
+    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 9)') // 9.2's line skips open gaps
+    expect(screen.getByText('=', { selector: 'button' })).toBeDisabled() // still a slot to fill
   })
 })

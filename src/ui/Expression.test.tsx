@@ -1,7 +1,7 @@
 import { describe, it, expect, vi } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
-import { Expression, rootZoneId, groupZoneId, parseZoneId } from './Expression'
+import { Expression, rootZoneId, groupZoneId, blockZoneId, parseZoneId } from './Expression'
 import { createExpression, createOperatorLeaf, type Group, type NumberLeaf, type Slot, type Expression as ExpressionTree } from '../core/expression'
 
 function num(value: number, source: number): NumberLeaf {
@@ -16,11 +16,16 @@ const noop = () => {}
 
 describe('zone id helpers', () => {
   it('round-trip root ids', () => {
-    expect(parseZoneId(rootZoneId(3))).toEqual({ groupId: null, index: 3 })
+    expect(parseZoneId(rootZoneId(3))).toEqual({ target: 'root', groupId: null, index: 3 })
   })
 
   it('round-trip group ids, including group ids that contain dashes', () => {
-    expect(parseZoneId(groupZoneId('group-7', 1))).toEqual({ groupId: 'group-7', index: 1 })
+    expect(parseZoneId(groupZoneId('group-7', 1))).toEqual({ target: 'group', groupId: 'group-7', index: 1 })
+  })
+
+  it("round-trip a block's own two ends", () => {
+    expect(parseZoneId(blockZoneId('group-7', 'before'))).toEqual({ target: 'block', groupId: 'group-7', side: 'before' })
+    expect(parseZoneId(blockZoneId('group-7', 'after'))).toEqual({ target: 'block', groupId: 'group-7', side: 'after' })
   })
 
   it('returns null for a foreign zone id (e.g. a tray zone)', () => {
@@ -161,6 +166,21 @@ describe('Expression — drop zone registration (concept 3.1)', () => {
     expect(ids).toContain(groupZoneId('g1', 0))
     expect(ids).toContain(groupZoneId('g1', 1))
     expect(ids).toContain(groupZoneId('g1', 2))
+  })
+
+  it("registers each bracket edge as that end of the block, for a chip of either kind (concept 6.2)", () => {
+    // The edges are the block's ends, and a chip dropped on one joins the
+    // block there — a number and an operator mean the same thing on the
+    // same spot, so the zone takes 'both'. The block's own wrapper is no
+    // longer a zone at all: one zone spanning the whole block would swallow
+    // both edges and leave the side undecidable.
+    const registerZone = vi.fn()
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    render(<Expression expr={exprOf([g])} onTapLeaf={noop} onDissolveGroup={noop} registerZone={registerZone} />)
+    const calls = new Map(registerZone.mock.calls.filter(([, , , el]) => el !== null).map(([zoneId, kind]) => [zoneId, kind]))
+    expect(calls.get(blockZoneId('g1', 'before'))).toBe('both')
+    expect(calls.get(blockZoneId('g1', 'after'))).toBe('both')
+    expect(calls.has(rootZoneId(0))).toBe(false)
   })
 
   it("registers a group's own trailing frontier, so a third number can join it via drag (concept 6.2)", () => {

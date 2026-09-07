@@ -190,6 +190,56 @@ sicher, eine Suche kann nur falsch liegen · `scale` für die Weiche
 zweckentfremden · `wrapGroup` im Kern auffüllen lassen (bräche die in 6.9
 getestete Umkehrbarkeit von wrap/dissolve).
 
+### 3.4 Ein Block hat zwei Enden (vierter Gerätetest)
+
+„Ziehe ich den Operator auf die **linke** Seite des Blocks, verschwindet er.
+Rechts funktioniert es. Ziehe ich eine **Zahl** darauf, landen Zahl und
+Operator auf der anderen Seite des Blocks – aber außerhalb."
+
+Zwei Befunde, eine Ursache: **der Block war eine einzige Fläche.** Sein
+Rahmen war als eine breite *Operanden*-Fläche über die volle Blockbreite
+angemeldet (6.5s alte Tauschregel). Damit
+
+- fand ein **Operator**, links losgelassen, überhaupt keine Operator-Fläche in
+  Reichweite – kein Ziel heißt „aus dem Feld gezogen" (Abschnitt 5), und der
+  Chip war weg;
+- fand eine **Zahl** genau diese Fläche und löste die Tauschregel aus: Block
+  und Zahl tauschen die Plätze, die Zahl steht danach mit ihrem Operator auf
+  der anderen Seite der Klammer – außen.
+
+Und selbst wenn beide getroffen hätten: **eine Fläche kann nicht sagen, welches
+Ende gemeint ist.** Die Seite ist aber genau das, was der Spieler mit der Geste
+meint.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Die beiden Klammerstege sind die Ablageziele des Blocks, je eines pro Ende** (PO) | Sie sind ohnehin da, ohnehin 22px breit über die volle Höhe (6.6) und ohnehin der Griff des Blocks. Ein Steg ist für den Spieler „dieses Ende" – dieselbe Sache, die die Ablage-Geste meint. Sie nehmen **beide Chiparten** an: Zahl und Operator bedeuten an derselben Stelle dasselbe („hier hinein"), die Fläche lässt sich also nicht nach Art typisieren (`useDrag`s `'both'`). |
+| **Der Rahmen des Blocks ist keine Fläche mehr** | Eine Fläche über den ganzen Block verschluckt beide Stege und macht die Seite unentscheidbar. Was zwischen den Chips unbedeckt bleibt, sind ein paar px Flex-Abstand – die überbrückt die Toleranz wie überall sonst. |
+| **Der gezogene Chip bringt seinen Partner mit, und zwar den zur Blockseite hin** (Konzept 6.2) | Das Kontingent ist exakt (*n* Zahlen, *n−1* Operatoren): ginge nur der eine Chip hinein, bliebe draußen einer stehen, für den es nie wieder einen Nachbarn gibt. Welcher Partner, folgt aus der Parität, nicht aus einer neuen Regel – es ist 6.1s nützliche Überschneidung von der anderen Seite gelesen. |
+| **Die Seite des **Ablegens** entscheidet, nicht die der Herkunft** (PO) | Sonst wäre die Hälfte der erreichbaren Ausdrücke (`(c × a + b) − d` aus `(a+b) × c − d`) nur über Auflösen und neu Umschließen zu haben. In zwei Beispielen des PO stand „rechts", wo nach dieser Regel „links" gehört (`a + b × (c−d)`, „a+ nach rechts" ⇒ `b × (a + c − d)`); sie waren zunächst als Beschriftungsdreher gelesen und der PO hat das auf Nachfrage bestätigt („I wrote it wrong. I meant move a+ to the left"). Die Regel gilt also wörtlich: die Seite des Ablegens, immer. |
+| **Entfernung spielt keine Rolle, ein zweiter Block schon** | `− d` in `(a+b) × c − d` ist zwei Positionen entfernt und soll trotzdem hineinkönnen (PO). Verschachtelung bleibt draußen, also wird ein Block nie überquert. |
+| **Ein Chip aus der Ablage bringt eine offene Fläche für den fehlenden Partner mit** (PO: „damit er den Block schon für drei Zahlen vorbereiten kann") | Dieselbe Form, nur aus der Ablage zusammengesetzt statt aus der Zeile. Was das Kontingent sprengen würde, wird abgelehnt – die Prüfung zählt Flächen, nicht Chips (`withinBudget`). |
+| **Einen Block bewegen heißt: die Klammern wandern** (PO, Konzept 6.5) | Ersetzt die Tauschregel. Ein Block, dessen Inhalt mitreist, kann nur Plätze tauschen; *anders klammern* – das, was man eigentlich will – kostete weiterhin zwei Gesten. Der Block behält seine Länge, die eigene Innenfläche wird dabei zum gültigen Ziel (dort liegen die Positionen einen Schritt weiter), die eines fremden Blocks nicht. |
+| **Eine Absage ist kein Herausziehen** (`DropOutcome`) | Die zweite Hälfte desselben Befunds: Konzept 3.2 macht eine Fläche der anderen Art zur *Absage*; gemeldet wurde sie aber als „gar keine Fläche", und das heißt auf dem Brett „herausgezogen" (Abschnitt 5) – der Chip war weg. Am Gerät nachgemessen: 2px neben dem Steg, auf der Zahl im Block, kostete den Operator. Eine Absage lässt den Chip jetzt zurückspringen; nur ein Loslassen **außerhalb** des Bretts entfernt noch etwas. |
+
+**Am echten Browser nachgemessen** (Playwright, echte Zeigerereignisse, 390px
+breit), weil die Geometrie hier die eigentliche Frage ist: der linke Steg
+trifft über eine Spanne von 11px (seine eigene Breite, ~0,18 × Zellgröße);
+links davon liegt die eigene Fläche des gezogenen Chips, rechts davon die erste
+Zahl im Block – vorher verlor jeder Punkt rechts des Stegs den Chip, jetzt
+springt er zurück. Alle vom PO aufgezählten Fälle wurden so durchgespielt,
+nicht nur in jsdom: `(a+b) × c − d` mit `× c` und `− d` auf beide Stege, der
+Block über die ganze Zeile, und zwei Blöcke nebeneinander.
+
+**Verworfen:** den Blockrahmen als Fläche behalten und die Seite aus der
+Zeigerposition ableiten (die Spielschicht bekäme Geometrie, die sie sonst nie
+sieht) · zwei unsichtbare Hälften über den Block legen (dieselbe Wirkung wie
+die Stege, aber zwei zusätzliche Elemente und eine Überlappung mit jedem Chip)
+· die Seite aus der Herkunft des Chips ableiten (die Hälfte der Ausdrücke wäre
+unerreichbar) · beim Ablegen auf einer Innenfläche des Blocks ebenfalls das
+Paar einziehen (dort zielt man auf *diese* Fläche; das Paar bleibt die
+Bedeutung der Stege) · die Tauschregel für Blöcke behalten (siehe oben).
+
 ---
 
 ## 4. Fortschritt und Rückmeldung

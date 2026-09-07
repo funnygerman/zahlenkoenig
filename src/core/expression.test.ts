@@ -3,7 +3,8 @@ import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   wrapGroup, dissolveGroup, dropZones, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop,
-  nextBlockTarget, applyBlockDrop, absorbIntoGroup,
+  nextBlockTarget, applyBlockDrop, absorbIntoGroup, connectingPair, absorbPairIntoGroup,
+  insertLeafIntoGroup, moveGroup,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
 } from './expression'
@@ -572,5 +573,191 @@ describe('absorbIntoGroup (concept 6.2: growing a block past two numbers by abso
     const result = absorbIntoGroup(children, 2, 'before')!
     const group = result[0] as Group
     expect(group.children).toHaveLength(6) // 4 + 2
+  })
+})
+
+// The fourth device round's report, in fixtures. Letters read better than
+// digits for a structural test, so a=1, b=2, c=3, d=4 throughout, and the
+// three shapes are exactly the ones the PO listed: a block at the front, in
+// the middle and at the end of a four-number row.
+const a = () => num(1, 0)
+const b = () => num(2, 1)
+const c = () => num(3, 2)
+const d = () => num(4, 3)
+function grp(...children: (Slot & object | null)[]): Group {
+  return { id: 'g1', kind: 'group', children: children as Group['children'] }
+}
+
+describe('connectingPair (concept 6.1 seen from the other end: a leaf and the partner it brings along)', () => {
+  it('an operand takes the operator on the side facing the block, not the one behind it', () => {
+    // (a+b) × c − d: "c" faces the block leftwards, so it brings "×", not "−"
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c(), createOperatorLeaf('-'), d()]
+    expect(connectingPair(children, 2, 0)).toBe(1) // the pair sits at root 1..2
+    expect(connectingPair(children, 4, 0)).toBe(3) // "d" brings "−"
+  })
+
+  it('an operator and its operand are the same pair — either half may be grabbed (concept 6.1)', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c()]
+    expect(connectingPair(children, 1, 0)).toBe(connectingPair(children, 2, 0))
+  })
+
+  it('on the block’s left, the operand is the outer half and the operator the inner one', () => {
+    // a × (b+c): "a" brings "×", which stands between it and the block
+    const children: Slot[] = [a(), createOperatorLeaf('*'), grp(b(), createOperatorLeaf('+'), c())]
+    expect(connectingPair(children, 0, 2)).toBe(0)
+    expect(connectingPair(children, 1, 2)).toBe(0)
+  })
+
+  it('an open gap is a valid half — that is how a block is prepared for a third number', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), null]
+    expect(connectingPair(children, 1, 0)).toBe(1)
+  })
+
+  it('refuses to travel through a second block (concept section 4)', () => {
+    const g2: Group = { id: 'g2', kind: 'group', children: [c(), createOperatorLeaf('-'), d()] }
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), g2, createOperatorLeaf('+'), num(5, 4)]
+    expect(connectingPair(children, 4, 0)).toBeNull()
+  })
+
+  it('refuses the block itself, and anything that is not a root-level leaf', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c()]
+    expect(connectingPair(children, 0, 0)).toBeNull()
+    expect(connectingPair(children, 9, 0)).toBeNull()
+  })
+})
+
+describe('absorbPairIntoGroup (concept 6.2, PO 4th round: the drop decides the side, the leaf decides the pair)', () => {
+  it('(a+b) × c − d: "× c" onto the block’s right end → (a + b × c) − d', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(absorbPairIntoGroup(children, 0, 1, 'after')!)).toEqual([[1, '+', 2, '*', 3], '-', 4])
+  })
+
+  it('(a+b) × c − d: the same pair onto the block’s LEFT end → (c × a + b) − d', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(absorbPairIntoGroup(children, 0, 1, 'before')!)).toEqual([[3, '*', 1, '+', 2], '-', 4])
+  })
+
+  it('grabbing the number instead of its operator is the same gesture', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(absorbPairIntoGroup(children, 0, 2, 'after')!)).toEqual(flat(absorbPairIntoGroup(children, 0, 1, 'after')!))
+  })
+
+  it('(a+b) × c − d: "− d", two positions away, still joins → (a + b − d) × c', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(absorbPairIntoGroup(children, 0, 4, 'after')!)).toEqual([[1, '+', 2, '-', 4], '*', 3])
+    expect(flat(absorbPairIntoGroup(children, 0, 3, 'before')!)).toEqual([[4, '-', 1, '+', 2], '*', 3])
+  })
+
+  it('a × (b+c) − d: "a ×" onto the left end → (a × b + c) − d, onto the right end → (b + c × a) − d', () => {
+    const children: Slot[] = [a(), createOperatorLeaf('*'), grp(b(), createOperatorLeaf('+'), c()), createOperatorLeaf('-'), d()]
+    expect(flat(absorbPairIntoGroup(children, 2, 0, 'before')!)).toEqual([[1, '*', 2, '+', 3], '-', 4])
+    expect(flat(absorbPairIntoGroup(children, 2, 0, 'after')!)).toEqual([[2, '+', 3, '*', 1], '-', 4])
+  })
+
+  it('a × (b+c) − d: "− d" joins from the far side → a × (b + c − d)', () => {
+    const children: Slot[] = [a(), createOperatorLeaf('*'), grp(b(), createOperatorLeaf('+'), c()), createOperatorLeaf('-'), d()]
+    expect(flat(absorbPairIntoGroup(children, 2, 4, 'after')!)).toEqual([1, '*', [2, '+', 3, '-', 4]])
+  })
+
+  it('a + b × (c−d): "b ×" onto the left end → a + (b × c − d), onto the right → a + (c − d × b)', () => {
+    const children: Slot[] = [a(), createOperatorLeaf('+'), b(), createOperatorLeaf('*'), grp(c(), createOperatorLeaf('-'), d())]
+    expect(flat(absorbPairIntoGroup(children, 4, 2, 'before')!)).toEqual([1, '+', [2, '*', 3, '-', 4]])
+    expect(flat(absorbPairIntoGroup(children, 4, 2, 'after')!)).toEqual([1, '+', [3, '-', 4, '*', 2]])
+  })
+
+  it('a + b × (c−d): "a +" travels past "b ×" → b × (a + c − d)', () => {
+    const children: Slot[] = [a(), createOperatorLeaf('+'), b(), createOperatorLeaf('*'), grp(c(), createOperatorLeaf('-'), d())]
+    expect(flat(absorbPairIntoGroup(children, 4, 0, 'before')!)).toEqual([2, '*', [1, '+', 3, '-', 4]])
+    expect(flat(absorbPairIntoGroup(children, 4, 0, 'after')!)).toEqual([2, '*', [3, '-', 4, '+', 1]])
+  })
+
+  it('an open gap travels along as a gap — the block is prepared, not filled', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), null]
+    const result = absorbPairIntoGroup(children, 0, 1, 'after')!
+    expect(flat(result)).toEqual([[1, '+', 2, '*', null]])
+  })
+
+  it('keeps the root alternating, whichever end and whichever direction', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c(), createOperatorLeaf('-'), d()]
+    for (const leafIndex of [1, 2, 3, 4]) {
+      for (const side of ['before', 'after'] as const) {
+        checkInvariant(absorbPairIntoGroup(children, 0, leafIndex, side)!)
+      }
+    }
+  })
+})
+
+describe('insertLeafIntoGroup (concept 6.2: a tray chip joins a block with an open slot for its partner)', () => {
+  it('a number arrives with an empty operator slot beside it, on the dropped side', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b())]
+    expect(flat(insertLeafIntoGroup(children, 0, 'after', c())!)).toEqual([[1, '+', 2, null, 3]])
+    expect(flat(insertLeafIntoGroup(children, 0, 'before', c())!)).toEqual([[3, null, 1, '+', 2]])
+  })
+
+  it('an operator arrives with an empty number slot beside it', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b())]
+    expect(flat(insertLeafIntoGroup(children, 0, 'after', createOperatorLeaf('*'))!)).toEqual([[1, '+', 2, '*', null]])
+    expect(flat(insertLeafIntoGroup(children, 0, 'before', createOperatorLeaf('*'))!)).toEqual([[null, '*', 1, '+', 2]])
+  })
+
+  it('returns null when there is no block at that index', () => {
+    expect(insertLeafIntoGroup([a()], 0, 'after', c())).toBeNull()
+  })
+})
+
+describe('moveGroup (concept 6.5, revised: the brackets slide, the content stays)', () => {
+  const MAX = 7 // a four-number puzzle: 2n − 1 positions
+
+  it('(a × b) + c − d → a × (b + c) − d, dropped on the block’s own second number', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('*'), b()), createOperatorLeaf('+'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(moveGroup(children, 0, 2, MAX)!)).toEqual([1, '*', [2, '+', 3], '-', 4])
+  })
+
+  it('(a × b) + c − d → a × b + (c − d), dropped on "c"', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('*'), b()), createOperatorLeaf('+'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(moveGroup(children, 0, 4, MAX)!)).toEqual([1, '*', 2, '+', [3, '-', 4]])
+  })
+
+  it('a × (b + c − d) → (a × b + c) − d: a three-number block keeps all three', () => {
+    const children: Slot[] = [a(), createOperatorLeaf('*'), grp(b(), createOperatorLeaf('+'), c(), createOperatorLeaf('-'), d())]
+    expect(flat(moveGroup(children, 2, 0, MAX)!)).toEqual([[1, '*', 2, '+', 3], '-', 4])
+  })
+
+  it('(a × b + c) − d → a × (b + c − d), the same move back', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('*'), b(), createOperatorLeaf('+'), c()), createOperatorLeaf('-'), d()]
+    expect(flat(moveGroup(children, 0, 2, MAX)!)).toEqual([1, '*', [2, '+', 3, '-', 4]])
+  })
+
+  it('an operator position anchors the pair it belongs to (concept 6.1’s "nützliche Überschneidung")', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('*'), b()), createOperatorLeaf('+'), c(), createOperatorLeaf('-'), d()]
+    expect(flat(moveGroup(children, 0, 3, MAX)!)).toEqual(flat(moveGroup(children, 0, 2, MAX)!))
+  })
+
+  it('opens the positions it reaches into, and never reaches past the puzzle’s own end', () => {
+    // (a+b) × c, dropped on "c": the block wants two operands, and the
+    // fourth number of a four-number puzzle is still to come.
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), c()]
+    expect(flat(moveGroup(children, 0, 4, MAX)!)).toEqual([1, '+', 2, '*', [3, null, null]])
+    // dropped far past the end: clamped to the last position the block fits
+    expect(flat(moveGroup(children, 0, 40, MAX)!)).toEqual([1, '+', 2, '*', [3, null, null]])
+  })
+
+  it('never encloses a second block (concept section 4)', () => {
+    const g2: Group = { id: 'g2', kind: 'group', children: [c(), createOperatorLeaf('-'), d()] }
+    const children: Slot[] = [grp(a(), createOperatorLeaf('+'), b()), createOperatorLeaf('*'), g2]
+    expect(moveGroup(children, 0, 2, MAX)).toBeNull()
+  })
+
+  it('returns null when the block would land exactly where it already is', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('*'), b()), createOperatorLeaf('+'), c(), createOperatorLeaf('-'), d()]
+    expect(moveGroup(children, 0, 0, MAX)).toBeNull()
+  })
+
+  it('keeps the row alternating wherever it lands', () => {
+    const children: Slot[] = [grp(a(), createOperatorLeaf('*'), b()), createOperatorLeaf('+'), c(), createOperatorLeaf('-'), d()]
+    for (const anchor of [0, 1, 2, 3, 4, 5, 6]) {
+      const moved = moveGroup(children, 0, anchor, MAX)
+      if (moved) checkInvariant(moved)
+    }
   })
 })

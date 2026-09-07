@@ -51,6 +51,10 @@ html, body {
   --zk-ink: hsl(var(--hue) 30% 18%);
   --zk-muted: hsl(var(--hue) 14% 58%);
   --zk-accent: hsl(var(--hue) 62% 42%);
+  /* the same accent as a wash — a bracket edge marked as the drop target
+   * (concept 3.1/6.2) is a tall thin strip, and it has to read as stronger
+   * than the block's own tint (--zk-group-bg) sitting right behind it. */
+  --zk-accent-soft: hsl(var(--hue) 62% 42% / .28);
   --zk-amber: hsl(38 78% 46%);
   --zk-group-bg: hsl(var(--hue) 48% 42% / .17);
   --zk-group-chip: hsl(var(--hue) 30% 100%);

@@ -13,7 +13,7 @@ import {
   createExpression, createTray, createOperatorLeaf,
   placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   dissolveGroup, nextOpenSurface, resolveBlockDrop, nextBlockTarget, applyBlockDrop, withMinimumShape, isExpressionComplete,
-  absorbIntoGroup,
+  absorbIntoGroup, absorbPairIntoGroup, insertLeafIntoGroup, moveGroup,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
 import { evaluate } from '../core/evaluate'
@@ -90,6 +90,30 @@ function countPlacedOperators(children: readonly Slot[]): number {
     else if (c.kind === 'operator') placed += 1
   }
   return placed
+}
+
+/**
+ * Whether a candidate tree still fits the puzzle: n operand positions and
+ * n − 1 operator positions is everything an n-number puzzle can ever hold
+ * (concept 6.4), placed and open alike. Only the gestures that *create* an
+ * open slot need to ask — dropping a lone tray chip into a block brings an
+ * empty partner slot in with it (concept 6.2), and one slot too many is a
+ * position nothing could ever fill.
+ */
+function withinBudget(children: readonly Slot[], numbersCount: number): boolean {
+  let operands = 0
+  let operators = 0
+  for (let i = 0; i < children.length; i++) {
+    const c = children[i]
+    if (c !== null && c.kind === 'group') {
+      operands += Math.ceil(c.children.length / 2)
+      operators += Math.floor(c.children.length / 2)
+      continue
+    }
+    if (i % 2 === 0) operands += 1
+    else operators += 1
+  }
+  return operands <= numbersCount && operators <= numbersCount - 1
 }
 
 interface Location {
@@ -362,7 +386,13 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // from), and a field-origin one carries the id of the actual placed
   // Group, which never collides with `tray-block`.
 
-  const onDrop = useCallback((item: GameDropItem, target: GameDropTarget | null) => {
+  const onDrop = useCallback((item: GameDropItem, target: GameDropTarget | 'refused' | null) => {
+    // Released on the board but on a surface of the other kind (useDrag's
+    // `DropOutcome`): the chip bounces back. Only a release clear of the
+    // board removes anything — dropping an operator a few px inside a
+    // block used to delete it, which is half of what the fourth device
+    // round reported as "it removes the operator".
+    if (target === 'refused') return
     if (!target) {
       if (item.data.role === 'block' && item.data.origin === 'field') {
         // "aus dem Feld ziehen und loslassen" (concept 6.5's table): the
@@ -384,25 +414,70 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
 
     const parsed = parseZoneId(target.zoneId)
     if (!parsed) return
+
+    // ------------------------------------------- released on a block's end
+    // The two bracket edges are the block's own ends (Expression.tsx's
+    // `blockZoneId`). A chip let go there joins the block on *that* side,
+    // whichever side of the block it came from (concept 6.2, PO's fourth
+    // device round: "the side of drag-and-drop is important"). A chip
+    // already on the board brings its connecting partner along, so nothing
+    // is left stranded outside; a chip from the tray brings an open slot
+    // for the partner it doesn't have yet, which is how a block is
+    // prepared for a third number before that number exists.
+    if (parsed.target === 'block') {
+      const { groupId, side } = parsed
+      setExpr(e => {
+        if (item.data.role === 'block') return e // a block never goes inside a block (concept section 4)
+        const groupIndex = findGroupIndex(e.root.children, groupId)
+        if (groupIndex === -1) return e
+
+        const originLoc = findLocation(e.root.children, item.id)
+        if (originLoc) {
+          // moving one of a block's own chips to the block's own edge would
+          // mean taking it out of the row it isn't in — nothing to absorb.
+          if (originLoc.groupId !== null) return e
+          const absorbed = absorbPairIntoGroup(e.root.children, groupIndex, originLoc.index, side)
+          return absorbed ? withRootChildren(e, absorbed) : e
+        }
+
+        const leaf: Leaf | undefined = item.data.role === 'number'
+          ? tray.find(n => n.id === item.id)
+          : (item.data.operator ? createOperatorLeaf(item.data.operator) : undefined)
+        if (!leaf) return e
+        const inserted = insertLeafIntoGroup(e.root.children, groupIndex, side, leaf)
+        if (!inserted) return e
+        const next = withRootChildren(e, inserted)
+        return withinBudget(next.root.children, numbers.length) ? next : e
+      })
+      return
+    }
+
     const surface: Surface = { groupId: parsed.groupId, index: parsed.index, kind: item.kind }
 
     setExpr(e => {
       if (item.data.role === 'block' && item.data.origin === 'field') {
-        // Moving an already-placed block (concept 6.5: "ein Block ist ein
-        // Operand") follows the same rule any operand on an occupied
-        // operand surface already does: swap. An empty target just relocates
-        // it — same treatment a dragged leaf gets a few lines down.
-        if (surface.groupId !== null) return e // a group can't hold another group
+        // Moving an already-placed block moves the *brackets*, not the
+        // content: the row reads exactly as before, with a different part
+        // of it enclosed (concept 6.5, revised — PO, fourth device round).
+        // `(a×b) + c − d` dropped on `c` is `a×b + (c−d)`; dropped on its
+        // own `b` it is `a × (b+c) − d`. The block's own interior is
+        // therefore a legitimate target for the block itself — it is where
+        // the positions one step to the right live — while another block's
+        // interior stays refused, as ever.
         const originIndex = findGroupIndex(e.root.children, item.id)
         if (originIndex === -1) return e
-        if (surface.index === originIndex) return e
-        if (!target.occupied) {
-          const group = e.root.children[originIndex] as Group
-          let next = withRootChildren(e, placeAt(e.root.children, surface.index, group))
-          next = withRootChildren(next, fillGap(next.root.children, originIndex, null))
-          return next
+        const group = e.root.children[originIndex] as Group
+        const span = group.children.length
+        let anchor: number
+        if (parsed.target === 'root') {
+          anchor = parsed.index <= originIndex ? parsed.index : parsed.index + span - 1
+        } else if (parsed.groupId === group.id) {
+          anchor = originIndex + parsed.index
+        } else {
+          return e // another block's interior — a block never goes inside a block
         }
-        return withRootChildren(e, swapSlots(e.root.children, originIndex, surface.index))
+        const moved = moveGroup(e.root.children, originIndex, anchor, 2 * numbers.length - 1)
+        return moved ? withRootChildren(e, moved) : e
       }
 
       if (item.data.role === 'block') {
