@@ -69,12 +69,13 @@
 }
 
 .panel {
-  width: min(360px, 100%);
+  width: fit-content;
+  max-width: 100%;
   background: var(--zk-surface);
   border: 1px solid var(--zk-line);
   border-radius: 16px;
   box-shadow: 0 14px 30px -12px hsl(var(--hue) 40% 20% / 0.3);
-  padding: 20px;
+  padding: 24px 28px;
   display: flex;
   flex-direction: column;
   gap: 16px;
