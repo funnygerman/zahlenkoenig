@@ -269,8 +269,23 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   const tray = useMemo(() => createTray(numbers), [numbers])
   const blockBudget = Math.floor(numbers.length / 2)
 
-  const [expr, setExpr] = useState<ExpressionTree>(createExpression)
+  const [expr, setExprState] = useState<ExpressionTree>(createExpression)
   const [status, setStatus] = useState<GameStatus>('idle')
+
+  /**
+   * Every change to the tree goes through here so that a "wrong" verdict
+   * doesn't outlive the expression it was about: the readout turns red on
+   * a wrong submit (concept 9.2) and stayed red while the player took the
+   * chips apart and rebuilt them, marking an expression that was never
+   * submitted. Only 'wrong' is cleared — a 'correct' one has Board's own
+   * 1200ms timer (concept 12.8) hanging off it, and clearing that on the
+   * next tap would strand the player on a solved board with no next
+   * puzzle.
+   */
+  const setExpr = useCallback((updater: (current: ExpressionTree) => ExpressionTree) => {
+    setExprState(updater)
+    setStatus(s => (s === 'wrong' ? 'idle' : s))
+  }, [])
 
   const placedIds = useMemo(() => collectPlacedIds(expr.root.children), [expr])
   const blocksUsed = useMemo(() => countGroups(expr.root.children), [expr])
@@ -282,6 +297,31 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     [tray, placedIds]
   )
   const blockDisabled = blocksUsed >= blockBudget
+
+  // concept 9.1: `=` stays dimmed "solange nicht alle Zahlen gesetzt sind
+  // oder noch eine Lücke offen ist" — two conditions, and only the second
+  // one was being asked. A structurally complete expression can leave
+  // numbers in the tray (a single placed chip is complete, concept 2.1
+  // gives the root no minimum length), so a puzzle whose target happens to
+  // equal one of its own numbers — measured at about one in four of the
+  // three-number puzzles drawn — could be "solved" by tapping that one
+  // chip and pressing `=`. The dimmed button is also the only place the
+  // rule "jede Zahl genau einmal" is stated at all (concept 11's table:
+  // "Alle Zahlen müssen verwendet werden | entfällt – `=` bleibt
+  // gedimmt").
+  const allNumbersPlaced = trayNumbers.every(n => n.used)
+  const submittable = complete && allNumbersPlaced
+
+  // The same fact from the operator's side: n numbers take exactly n − 1
+  // operators, so once they are all placed a tap on a tray operator has
+  // nowhere to go and `placeOperator` returns the tree unchanged. The chip
+  // said nothing about that and looked exactly as it had a moment before —
+  // a chip that does nothing when tapped, which is the block chip's own
+  // case (concept 4: "Ist das Kontingent ausgeschöpft, deaktiviert sich
+  // der Chip"). It is *muted*, not `disabled`, because dragging one onto a
+  // placed operator to replace it stays possible and a disabled button
+  // receives no pointer events at all.
+  const operatorsMuted = countPlacedOperators(expr.root.children) >= numbers.length - 1
 
   // concept 6.4: the field shows, from the start, how many chips this
   // puzzle still needs — "ein Gerüst ist damit in der Anzahl immer
@@ -335,6 +375,20 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       return withRootChildren(e, applyBlockDrop(e.root.children, index, resolved))
     })
   }, [])
+
+  /**
+   * The same placement at a *named* root position — what a block dragged
+   * there does (concept 6.1), and what the hint needs: its continuation
+   * decides where the block belongs, and `nextBlockTarget`'s "first
+   * eligible position" is only right for a tap (see HintMove's own note).
+   */
+  const placeBlockAt = useCallback((index: number) => {
+    setExpr(e => {
+      const resolved = resolveBlockDrop(e.root.children, index)
+      if (!resolved) return e
+      return withRootChildren(e, applyBlockDrop(e.root.children, index, resolved))
+    })
+  }, [setExpr])
 
   // -------------------------------------------------------- tap handlers
 
@@ -572,9 +626,9 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // ------------------------------------------------------------- submit
 
   const onSubmit = useCallback(() => {
-    if (!complete) return
+    if (!submittable) return
     setStatus(result === target ? 'correct' : 'wrong')
-  }, [complete, result, target])
+  }, [submittable, result, target])
 
   // -------------------------------------------------------------- hints
   // concept 10.3: a hint press is exactly one of the taps a player could
@@ -583,14 +637,14 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // already call. core/hints.ts decides *what* the next move is; this only
   // decides how to apply it, the same split as onTapNumber/onTapBlock above.
   const applyHintMove = useCallback((move: HintMove) => {
-    if (move.kind === 'block') { placeBlock(); return }
+    if (move.kind === 'block') { placeBlockAt(move.index); return }
     if (move.kind === 'number') {
       const leaf = tray.find(n => n.id === move.leafId)
       if (leaf) placeNumber(leaf)
       return
     }
     placeOperator(move.op)
-  }, [tray, placeNumber, placeOperator, placeBlock])
+  }, [tray, placeNumber, placeOperator, placeBlockAt])
 
   return {
     expr,
@@ -600,7 +654,8 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     scaffoldOperators,
     blockDisabled,
     operators: ops,
-    submitEnabled: complete,
+    operatorsMuted,
+    submitEnabled: submittable,
     status,
     result,
     onTapNumber,

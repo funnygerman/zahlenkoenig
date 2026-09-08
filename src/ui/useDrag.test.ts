@@ -18,9 +18,14 @@ function pointerEvent(x: number, y: number, pointerId = 1, currentTarget = sourc
   } as unknown as ReactPointerEvent<HTMLElement>
 }
 
-function sourceElement(): HTMLElement {
+function sourceElement(rect?: Partial<DOMRect>): HTMLElement {
   const el = document.createElement('button')
   el.setPointerCapture = vi.fn()
+  // jsdom has no layout: a source chip only has a rectangle if a test
+  // gives it one (needed for the "released where you picked it up" rule).
+  if (rect) el.getBoundingClientRect = () => ({
+    left: 0, right: 0, top: 0, bottom: 0, width: 0, height: 0, x: 0, y: 0, toJSON() { return this }, ...rect,
+  })
   return el
 }
 
@@ -34,7 +39,7 @@ function zoneElement(rect: Partial<DOMRect>): HTMLElement {
 
 const ITEM: DragItem = { id: 'num-3', kind: 'operand' }
 
-describe('useDrag — tap vs drag (concept 5.1: 6px threshold)', () => {
+describe('useDrag — tap vs drag (concept 5.1, threshold raised to 10px)', () => {
   it('pointerdown then pointerup with no movement is a tap', () => {
     const onTap = vi.fn(), onDrop = vi.fn()
     const { result } = renderHook(() => useDrag({ onTap, onDrop }))
@@ -77,6 +82,70 @@ describe('useDrag — tap vs drag (concept 5.1: 6px threshold)', () => {
     expect(onTap).not.toHaveBeenCalled()
     expect(onDrop).toHaveBeenCalledTimes(1)
     expect(result.current.isDragging).toBe(false) // reset after release
+  })
+})
+
+// A finger tap is not a still tap: Android's touch slop is 8dp, the
+// browsers' click slop about 10px, and every one of those pixels used to
+// turn a tray tap into a drag that landed on no zone and therefore did
+// nothing at all — the PO's "clicking on a number or operator did nothing,
+// I had to click several times".
+describe('useDrag — a tap that wanders is still a tap', () => {
+  it('8px of finger jitter stays under the threshold', () => {
+    const onTap = vi.fn(), onDrop = vi.fn()
+    const { result } = renderHook(() => useDrag({ onTap, onDrop }))
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100)))
+    act(() => handlers.onPointerMove(pointerEvent(106, 105))) // ~7.8px
+    act(() => handlers.onPointerUp(pointerEvent(106, 105)))
+
+    expect(onTap).toHaveBeenCalledWith(ITEM)
+    expect(onDrop).not.toHaveBeenCalled()
+  })
+
+  it('a longer wander that ends back on the same chip, over no zone, is a tap too', () => {
+    const onTap = vi.fn(), onDrop = vi.fn()
+    const { result } = renderHook(() => useDrag({ onTap, onDrop }))
+    const chip = sourceElement({ left: 90, right: 130, top: 90, bottom: 130 })
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100, 1, chip)))
+    act(() => handlers.onPointerMove(pointerEvent(118, 100, 1, chip))) // a real drag: 18px
+    expect(result.current.isDragging).toBe(true)
+    act(() => handlers.onPointerUp(pointerEvent(118, 100, 1, chip))) // still inside the chip
+
+    expect(onTap).toHaveBeenCalledWith(ITEM)
+    expect(onDrop).not.toHaveBeenCalled()
+  })
+
+  it('but a release clear of the chip is still "herausziehen", not a tap', () => {
+    const onTap = vi.fn(), onDrop = vi.fn()
+    const { result } = renderHook(() => useDrag({ onTap, onDrop }))
+    const chip = sourceElement({ left: 90, right: 130, top: 90, bottom: 130 })
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100, 1, chip)))
+    act(() => handlers.onPointerMove(pointerEvent(300, 300, 1, chip)))
+    act(() => handlers.onPointerUp(pointerEvent(300, 300, 1, chip)))
+
+    expect(onDrop).toHaveBeenCalledWith(ITEM, null)
+    expect(onTap).not.toHaveBeenCalled()
+  })
+
+  it('and a release on a real zone stays a drop, wherever it started', () => {
+    const onTap = vi.fn(), onDrop = vi.fn<(item: DragItem, target: DropOutcome) => void>()
+    const { result } = renderHook(() => useDrag({ onTap, onDrop }))
+    act(() => result.current.registerZone('root-0', 'operand', false, zoneElement({ left: 90, right: 130, top: 90, bottom: 130 })))
+    const chip = sourceElement({ left: 90, right: 130, top: 90, bottom: 130 })
+    const handlers = result.current.dragHandlers(ITEM)
+
+    act(() => handlers.onPointerDown(pointerEvent(100, 100, 1, chip)))
+    act(() => handlers.onPointerMove(pointerEvent(118, 100, 1, chip)))
+    act(() => handlers.onPointerUp(pointerEvent(118, 100, 1, chip)))
+
+    expect(onDrop).toHaveBeenCalledWith(ITEM, { zoneId: 'root-0', occupied: false })
+    expect(onTap).not.toHaveBeenCalled()
   })
 })
 

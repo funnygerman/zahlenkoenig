@@ -146,6 +146,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
       <Tray
         numberSlots={game.trayNumbers}
         blockDisabled={game.blockDisabled}
+        operatorsMuted={game.operatorsMuted}
         operators={game.operators}
         submitEnabled={game.submitEnabled}
         onTapNumber={game.onTapNumber}

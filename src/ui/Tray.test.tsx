@@ -264,3 +264,34 @@ describe('Tray — drag wiring (concept 5.1)', () => {
     expect(onTapNumber).toHaveBeenCalledWith('n0')
   })
 })
+
+describe('Tray — operator chips when the operator budget is spent', () => {
+  const renderTray = (operatorsMuted: boolean, onTapOperator = noop) =>
+    render(
+      <Tray
+        numberSlots={numberSlots([5, 9])}
+        blockDisabled={false}
+        operatorsMuted={operatorsMuted}
+        operators={['+', '-']}
+        submitEnabled={false}
+        onTapNumber={noop} onTapBlock={noop} onTapOperator={onTapOperator} onSubmit={noop}
+      />
+    )
+
+  it('dims them, so a chip that can do nothing does not look ready', () => {
+    renderTray(true)
+    for (const op of ['+', '−']) {
+      expect(screen.getByRole('button', { name: op }).className).toMatch(/muted/)
+    }
+  })
+
+  it('leaves them alone while operators can still be placed', () => {
+    renderTray(false)
+    expect(screen.getByRole('button', { name: '+' }).className).not.toMatch(/muted/)
+  })
+
+  it('keeps them enabled buttons: dragging one onto a placed operator still replaces it', () => {
+    renderTray(true)
+    expect(screen.getByRole('button', { name: '+' })).toBeEnabled()
+  })
+})

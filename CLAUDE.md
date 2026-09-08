@@ -43,6 +43,19 @@ filled crown), then work through 19's manifest/icons/offline requirements
 alongside the animation and landscape work 16's own table groups into this
 one step.
 
+### Two open questions from the bug-fix round
+
+Both are real gaps found by a scripted browser pass, both need a product
+decision before anyone writes code for them, and neither is a regression —
+they have been true since the feature was built. Do them before, after or
+alongside step 6, but don't fix them silently: the fix shape depends on the
+answer.
+
+| Frage | Was fehlt, und was zu entscheiden ist |
+|---|---|
+| **Tastaturbedienung** | The chips are real `<button>`s and take focus, but pressing Enter or Space does nothing: `onClick` is dropped wherever the drag handlers are wired (`Tray.tsx`, `Expression.tsx` — a plain `onClick` alongside `useDrag` double-fires on a real tap, see `NumberCell`'s own note), and `useDrag` listens to pointer events only. Concept 5 states the opposite intent — tapping "hält aber Sechsjährige, **Tastaturbedienung** und Screenreader im Spiel". The mechanical fix is small (an `onKeyDown` for Enter/Space in `useDrag`'s handler set, which can't double-fire because a keyboard press produces no pointer event), but the product question isn't: what does keyboard-only *placement* mean for a game whose second half is dragging, and how far should it go — placing and returning only, or a full keyboard path to a bracket? |
+| **Ein negatives Ergebnis zeigt gar kein Ergebnis** | `evaluate` returns `null` for a negative final result (concept 8: "das Endergebnis muss ≥ 0 sein"), so the notation line shows bare notation with no `= …` — a finished expression looks unfinished, while `=` is live and turns it red. Concept 9.2 wants the line to show "das eigene Ergebnis" precisely so a wrong answer teaches something. Decide what it should read: `… = −3` (contradicting the ≥ 0 rule the evaluator enforces), a neutral marker, or nothing at all as now. |
+
 **If asked to "implement next step" with nothing more specific, this is the
 step** — but start with the two blockers above, not the animation/PWA work
 itself. Before ending your turn: if concept section 16's stated result for
@@ -58,6 +71,87 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
+
+**A bug-fix round after step 5 (PO play-testing plus a scripted browser
+pass) changed four things about how the game feels, and each of them is
+worth knowing before touching the code they live in.**
+
+*A tap that moves is still a tap.* `useDrag`'s threshold was concept 5.1's
+own 6px, which is below what a finger does — Android's touch slop is 8dp,
+the browsers' click slop about 10px — so an ordinary tap became a
+millimetre-long drag, was released over no drop zone, and did nothing at
+all (a tray chip bounces back). That is the PO's "clicking on a number or
+an operator did nothing, I had to click several times", and a scripted
+pass confirmed the cliff is exact: 5px works, 6px is dead, on every
+draggable surface. The threshold is 10px now *and* a drag that hit no zone
+but was released back inside the chip it started from is reported as a
+tap. Both are needed: the threshold alone only moves the cliff.
+
+*The generator remembers.* An immediate repeat was not a flaw in the draw
+but the absence of memory in it: the thinnest selection (two numbers, ×÷,
+band klein) has 19 puzzles in its whole search space, so one draw in
+nineteen returns the one still on screen. `core/history.ts` keeps the last
+30 played (its own LocalStorage key) and `nextPuzzle` takes that window;
+where the window is larger than the pool it falls back to the *least
+recently played* candidate rather than throwing or picking blind, which
+makes those selections cycle their pool (16–17 puzzles between sightings)
+instead of repeating at random. **The bank was not brought back, and
+shouldn't be**: a bank has exactly the same repeat behaviour without a
+memory, and the pools it would ship are the ones measured here.
+
+*The draw also asks the puzzle to need the operators the player picked.*
+`reachable()` reports `minDistinctOps` and the draw prefers candidates that
+need `min(#operators, n − 1)` of them, after preferring unseen ones. It
+prefers rather than requires, for two exhaustively measured reasons: with
+{+,−} or {×,÷} selected **no puzzle can need both operators at any number
+count** (the bracket turns one into the other: `a−(b−c) = a−b+c`,
+`a÷(b÷c) = a·c÷b`), and where mixing is possible it is sometimes scarce
+enough that requiring it would trade this bug for the repeat one
+("4 Zahlen, +−÷, mittel" would go from 3405 puzzles to 30). What it asks
+for drops by one every few draws, which is what keeps the impossible case
+cheap.
+
+*Four silent no-ops were removed, and one crash.* `=` accepted an
+expression that left numbers in the tray (concept 9.1 asks for two
+conditions and only the gap was checked), so a puzzle whose target equals
+one of its own numbers — about one three-number puzzle in four — was won
+by tapping a single chip. A "wrong" verdict outlived the expression it
+judged. An operator chip whose budget was spent looked live and did
+nothing (it is muted now — *muted*, not `disabled`, because dragging one
+onto a placed operator to replace it is a real gesture and a disabled
+button gets no pointer events). And `useSettings` only re-checked
+`uniqueOnly` in `toggleOp`, so carrying it across a change of the *number
+count* could reach a selection whose search space has no unique-solution
+puzzle at all ('3-3'/'4-3' in `puzzles.ts`'s table, from two numbers with
++− and uniqueOnly on): `nextPuzzle` then exhausts its attempts and throws,
+which unmounts the app — and the impossible combination is persisted, so
+every reload throws again. One `reconcile()` runs after every change and
+once on load now. The same file no longer resets the band on a settings
+change (PO: it is the player's own choice, and concept 15.5 gives every
+selection all three bands).
+
+*Two hint bugs, both from the Restlöser mishandling a board it had itself
+half-built.* `completions` stopped as soon as the tray ran out and threw
+away every board position further right, so a board reading `⬚ ÷ 5 + 7`
+with one 5 left produced the single candidate `5` — a dead-end verdict one
+tap from the solution — and, with the tray empty, *every* completed
+expression came back as unreachable, which is why the dead-end border used
+to sit around correct answers. And a `HintMove` of kind `block` carried no
+position, so `applyHintMove` placed it where a *tap* would
+(`nextBlockTarget`'s first eligible position): for `2 × (1+3)` from a board
+reading `2 ×` it wrapped the `2` instead, leaving a board the hint could
+never finish. The move names its index now and `useGame.placeBlockAt`
+honours it — the placement a block *dragged* there makes, which is a
+gesture the player has; only the tap path can't choose a position, and it
+is unchanged. This qualifies the "a hint move is expressed as a tap"
+paragraph below: the *number* and *operator* moves still are, the block
+move is a drag.
+
+Two findings from that pass were left alone deliberately, because the fix
+shape depends on a product decision rather than on the code: chips are
+focusable but keyboard-inert, and an expression whose result is negative
+shows no `= …` at all. Both are written up as open questions under "Next
+v2 step" above.
 
 **Step 5 deleted v1 outright rather than leaving it running alongside v2 —
 a product-owner decision (this section always flagged it as one), not a

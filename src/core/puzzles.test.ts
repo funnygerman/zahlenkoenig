@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'vitest'
-import { nextPuzzle, uniqueOnlyAvailable, type Operator, type PuzzleSettings } from './puzzles'
+import { bandRanges, nextPuzzle, puzzleSignature, uniqueOnlyAvailable, type Operator, type Puzzle, type PuzzleSettings } from './puzzles'
+import { reachable } from './solver'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 
@@ -157,5 +158,179 @@ describe('single-operator arithmetic sanity (2 numbers)', () => {
 describe('nextPuzzle — throws on a selection with no band data', () => {
   it('rejects an empty operator list rather than looping forever', () => {
     expect(() => nextPuzzle({ numbers: 4, ops: [], band: 0, uniqueOnly: false })).toThrow()
+  })
+})
+
+// An immediate repeat isn't a flaw in the draw, it's what a memoryless
+// draw does: the thinnest selection here (two numbers, × and ÷, band
+// klein) has 19 puzzles in its entire search space, so one in nineteen
+// draws lands on the one still on screen. `recent` is what fixes it — and
+// since the window (history.ts's 30) is *larger* than that pool, this is
+// also the case where the loop has to give up on "unseen" and fall back
+// to the least recently played candidate instead of throwing.
+describe('nextPuzzle — draws around the puzzles just played', () => {
+  const THIN: PuzzleSettings = { numbers: 2, ops: ['*', '/'], band: 0, uniqueOnly: false }
+
+  function play(settings: PuzzleSettings, rounds: number, window: number) {
+    const signatures: string[] = []
+    let recent: string[] = []
+    for (let i = 0; i < rounds; i++) {
+      const puzzle = nextPuzzle(settings, recent)
+      const signature = puzzleSignature(puzzle)
+      expect(puzzle.numbers).toHaveLength(settings.numbers)
+      signatures.push(signature)
+      recent = [...recent.filter(s => s !== signature), signature].slice(-window)
+    }
+    return signatures
+  }
+
+  it('never repeats immediately, even when the window is bigger than the pool', () => {
+    const played = play(THIN, 200, 30)
+    const immediate = played.filter((s, i) => i > 0 && s === played[i - 1])
+    expect(immediate).toEqual([])
+  })
+
+  it('keeps at least ten other puzzles between two sightings of the same one', () => {
+    const played = play(THIN, 200, 30)
+    const tooSoon = played.filter((s, i) => played.slice(Math.max(0, i - 10), i).includes(s))
+    expect(tooSoon).toEqual([])
+  })
+
+  it('does the same for a selection with a large pool', () => {
+    const played = play({ numbers: 3, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false }, 100, 30)
+    const immediate = played.filter((s, i) => i > 0 && s === played[i - 1])
+    expect(immediate).toEqual([])
+  })
+
+  // Enumerated, not sampled: the draw is nowhere near uniform (it picks
+  // numbers first, then a target among that draw's own in-band hits), so a
+  // rare pool member can go missing from even a few hundred draws — and a
+  // pool with one member missing from `recent` is exactly what these two
+  // cases must not be handed by accident.
+  function wholePool(settings: PuzzleSettings): string[] {
+    const [lo, hi] = bandRanges(settings.numbers, settings.ops)[settings.band]
+    const out: string[] = []
+    const walk = (start: number, numbers: number[]) => {
+      if (numbers.length === settings.numbers) {
+        for (const e of reachable(numbers, settings.ops)) {
+          if (e.target >= lo && e.target <= hi && (!settings.uniqueOnly || e.uniqueSolution)) {
+            out.push(puzzleSignature({ numbers, target: e.target }))
+          }
+        }
+        return
+      }
+      for (let v = start; v <= 9; v++) walk(v, [...numbers, v])
+    }
+    walk(1, [])
+    return out
+  }
+
+  it('has 19 puzzles in its whole search space — small enough for a blind draw to repeat one in nineteen times', () => {
+    expect(wholePool(THIN)).toHaveLength(19)
+  })
+
+  it('goes looking for the one puzzle left when the window covers everything else', () => {
+    // A preference, not a guarantee: the draw picks numbers at random and
+    // gives up after `recencyAttempts` draws that turned up nothing new,
+    // so the one unseen puzzle is what comes back almost always rather
+    // than always — the rest of the time it's the least recently played
+    // one, which is 18 puzzles ago here.
+    const pool = wholePool(THIN)
+    const wanted = pool[0]
+    const recent = pool.filter(s => s !== wanted)
+    const drawn = Array.from({ length: 20 }, () => puzzleSignature(nextPuzzle(THIN, recent)))
+    expect(drawn.filter(s => s === wanted).length).toBeGreaterThanOrEqual(15)
+  })
+
+  it('still returns a valid puzzle when every puzzle in the pool is in the window', () => {
+    const pool = wholePool(THIN)
+    for (let i = 0; i < 5; i++) {
+      const puzzle = nextPuzzle(THIN, pool)
+      expect(pool).toContain(puzzleSignature(puzzle)) // in band, right numbers — it had to repeat, and repeated something real
+    }
+  })
+
+  it('an empty window is the plain draw — same puzzles, no error', () => {
+    for (let i = 0; i < 20; i++) {
+      const puzzle = nextPuzzle(THIN, [])
+      expect(puzzle.numbers).toHaveLength(2)
+    }
+  })
+})
+
+// "If I select fewer operators, often only one of them is actually used"
+// (PO). The generator only ever asked whether a target was *reachable*
+// under the selected operators — never whether reaching it needs more than
+// one of them — so `5+5+5+5 = 20` was a perfectly good puzzle for a player
+// who had asked for + and ×.
+describe('nextPuzzle — a puzzle that needs the operators the player picked', () => {
+  function distinctOpsNeeded(puzzle: Puzzle, ops: Operator[]): number {
+    return reachable(puzzle.numbers, ops).find(e => e.target === puzzle.target)!.minDistinctOps
+  }
+
+  function share(settings: PuzzleSettings, rounds: number, needs: (d: number) => boolean) {
+    let hits = 0
+    for (let i = 0; i < rounds; i++) {
+      if (needs(distinctOpsNeeded(nextPuzzle(settings), settings.ops))) hits += 1
+    }
+    return hits / rounds
+  }
+
+  it('three numbers with + and ×: a solution needs both, not one repeated', () => {
+    for (const band of [0, 1, 2] as const) {
+      expect(share({ numbers: 3, ops: ['+', '*'], band, uniqueOnly: false }, 40, d => d >= 2)).toBeGreaterThanOrEqual(0.9)
+    }
+  })
+
+  it('four numbers with all four operators: a solution needs three of them', () => {
+    expect(share({ numbers: 4, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false }, 25, d => d >= 3)).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('holds under uniqueOnly too', () => {
+    expect(share({ numbers: 3, ops: ['+', '*'], band: 1, uniqueOnly: true }, 25, d => d >= 2)).toBeGreaterThanOrEqual(0.9)
+  })
+
+  // Exhaustively true, not a sampling artefact: with only + and −, or only
+  // × and ÷, *no* puzzle needs both operators at any number count — the
+  // bracket turns one into the other (a−(b−c) = a−b+c, a÷(b÷c) = a·c÷b).
+  // The preference has to be a preference for that reason alone.
+  it('two numbers can only ever use one operator — one position, whatever is selected', () => {
+    for (let i = 0; i < 20; i++) {
+      const puzzle = nextPuzzle({ numbers: 2, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false })
+      expect(distinctOpsNeeded(puzzle, ['+', '-', '*', '/'])).toBe(1)
+    }
+  })
+
+  it('+ and − alone: no puzzle can need both, and asking for one does not starve the draw', () => {
+    for (const numbers of [3, 4] as const) {
+      for (let i = 0; i < 10; i++) {
+        const puzzle = nextPuzzle({ numbers, ops: ['+', '-'], band: 1, uniqueOnly: false })
+        expect(puzzle.numbers).toHaveLength(numbers)
+        expect(distinctOpsNeeded(puzzle, ['+', '-'])).toBe(1)
+      }
+    }
+  })
+
+  it('× and ÷ alone: the same', () => {
+    for (let i = 0; i < 10; i++) {
+      const puzzle = nextPuzzle({ numbers: 3, ops: ['*', '/'], band: 1, uniqueOnly: false })
+      expect(distinctOpsNeeded(puzzle, ['*', '/'])).toBe(1)
+    }
+  })
+
+  it('still keeps its other promises — the band, and no immediate repeat', () => {
+    const settings: PuzzleSettings = { numbers: 3, ops: ['+', '*'], band: 2, uniqueOnly: false }
+    const [lo, hi] = bandRanges(3, ['+', '*'])[2]
+    let recent: string[] = []
+    let previous = ''
+    for (let i = 0; i < 60; i++) {
+      const puzzle = nextPuzzle(settings, recent)
+      expect(puzzle.target).toBeGreaterThanOrEqual(lo)
+      expect(puzzle.target).toBeLessThanOrEqual(hi)
+      const signature = puzzleSignature(puzzle)
+      expect(signature).not.toBe(previous)
+      previous = signature
+      recent = [...recent.filter(s => s !== signature), signature].slice(-30)
+    }
   })
 })

@@ -45,6 +45,8 @@ export interface TrayProps {
   operatorColumns?: number
   /** the block budget (concept 4: floor(n/2)) is used up — the chip disables rather than disappearing. */
   blockDisabled: boolean
+  /** all n − 1 operator positions are filled, so a tap on an operator has nowhere to go — the chips dim but stay draggable (a drag onto a placed operator still replaces it). */
+  operatorsMuted?: boolean
   /** always shown in ×÷+− order (concept 12.1), whichever the puzzle's settings enabled. */
   operators: Operator[]
   submitEnabled: boolean
@@ -97,6 +99,7 @@ export function Tray({
   numberColumns = 4,
   operatorColumns = 4,
   blockDisabled,
+  operatorsMuted = false,
   operators,
   submitEnabled,
   onTapNumber,
@@ -131,6 +134,7 @@ export function Tray({
               key={op}
               variant="operator"
               operator={op}
+              muted={operatorsMuted}
               onClick={dragHandlers ? undefined : () => onTapOperator(op)}
               {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op, origin: 'tray' } }) : undefined)}
             />

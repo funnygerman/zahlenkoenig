@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { reachable } from './solver'
+import { reachable, type Operator } from './solver'
 
 function targetsOf(numbers: number[], ops: ('+' | '-' | '*' | '/')[]) {
   return new Map(reachable(numbers, ops).map(e => [e.target, e.uniqueSolution]))
@@ -72,5 +72,50 @@ describe('reachable — basic arithmetic', () => {
   it('never returns a target below 1', () => {
     const t = targetsOf([1, 1, 1, 1], ['+', '-', '*', '/'])
     for (const target of t.keys()) expect(target).toBeGreaterThanOrEqual(1)
+  })
+})
+
+// The fewest distinct operators any one solution needs. Every case below
+// is checked by hand in its own comment — the point of the field is that a
+// player who selects several operators is not handed puzzles that one
+// operator alone solves (PO).
+describe('reachable — minDistinctOps', () => {
+  const entry = (numbers: number[], ops: Operator[], target: number) =>
+    reachable(numbers, ops).find(e => e.target === target)
+
+  it('is 1 when one operator, repeated, reaches the target', () => {
+    // 5+5+5+5 = 20 — the '×' in the selection is never needed.
+    expect(entry([5, 5, 5, 5], ['+', '*'], 20)?.minDistinctOps).toBe(1)
+  })
+
+  it('is 2 when every solution mixes two operators', () => {
+    // [1,2,3] under {+,×}: 6 = 1+2+3 = 1×2×3 (one operator), while
+    // 5 = 1×2+3, 7 = 1+2×3, 8 = (1+3)×2 and 9 = (1+2)×3 each need both.
+    const all = reachable([1, 2, 3], ['+', '*'])
+    expect(all.map(e => [e.target, e.minDistinctOps]).sort((a, b) => a[0] - b[0]))
+      .toEqual([[5, 2], [6, 1], [7, 2], [8, 2], [9, 2]])
+  })
+
+  it('is 2 for concept 12.5’s own worst case, whose textbook solution uses three', () => {
+    // (6+2)×(9−3) = 48 uses +, − and ×, but 6×9 − 2×3 = 48 uses only two,
+    // and the minimum is what this reports.
+    expect(entry([6, 2, 9, 3], ['+', '-', '*', '/'], 48)?.minDistinctOps).toBe(2)
+  })
+
+  it('is 1 for two numbers, whatever is selected — there is only one operator slot', () => {
+    for (const e of reachable([3, 7], ['+', '-', '*', '/'])) expect(e.minDistinctOps).toBe(1)
+  })
+
+  it('is 1 throughout when only one operator is selected', () => {
+    for (const e of reachable([6, 2, 9, 3], ['*'])) expect(e.minDistinctOps).toBe(1)
+  })
+
+  it('never exceeds n − 1, and is never below 1', () => {
+    for (const numbers of [[3, 7], [1, 2, 3], [6, 2, 9, 3]]) {
+      for (const e of reachable(numbers, ['+', '-', '*', '/'])) {
+        expect(e.minDistinctOps).toBeGreaterThanOrEqual(1)
+        expect(e.minDistinctOps).toBeLessThanOrEqual(numbers.length - 1)
+      }
+    }
   })
 })

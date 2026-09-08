@@ -33,6 +33,18 @@
   cursor: default;
 }
 
+/* A chip that cannot act right now says so, rather than looking exactly
+ * as it did a moment ago and doing nothing when tapped: the block chip
+ * once its ⌊n/2⌋ budget is spent (concept 4: "deaktiviert sich der Chip,
+ * statt zu verschwinden" — it had `cursor: default` and nothing else), and
+ * an operator chip once all n − 1 operator positions are filled (`muted`,
+ * which keeps the chip draggable — see useGame's `operatorsMuted`).
+ * `.submit` keeps its own disabled colours, one line below. */
+.chip:disabled:not(.submit),
+.chip.muted {
+  opacity: .38;
+}
+
 .square {
   border-radius: var(--radius);
 }
