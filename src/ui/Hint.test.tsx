@@ -68,3 +68,27 @@ describe('Board — the dead-end border (concept 10.3: "kostenlos, dauerhaft")',
     expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
   })
 })
+
+// The two hint failures a browser QA pass found, at the level where they
+// were actually visible: pressing the button.
+describe('Board — the hint never walks the board into a dead end', () => {
+  it('finishes a puzzle whose solution needs the bracket at the end, 2 × (1 + 3)', () => {
+    const ref = createRef<BoardHandle>()
+    render(<Board ref={ref} numbers={[2, 1, 3]} target={8} ops={PUZZLE.ops} />)
+
+    // 1 pulse press + at most 3 numbers + 2 operators + 1 block
+    for (let i = 0; i < 10; i++) press(ref)
+
+    expect(screen.getByRole('status').textContent).toMatch(/= 8$/)
+    expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
+  })
+
+  it('leaves no dead-end border on the solution it just laid out', () => {
+    const ref = createRef<BoardHandle>()
+    render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
+    for (let i = 0; i < 12; i++) press(ref)
+
+    expect(screen.getByRole('status').textContent).toMatch(/= 48$/)
+    expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
+  })
+})

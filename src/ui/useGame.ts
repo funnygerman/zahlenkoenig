@@ -376,6 +376,20 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     })
   }, [])
 
+  /**
+   * The same placement at a *named* root position — what a block dragged
+   * there does (concept 6.1), and what the hint needs: its continuation
+   * decides where the block belongs, and `nextBlockTarget`'s "first
+   * eligible position" is only right for a tap (see HintMove's own note).
+   */
+  const placeBlockAt = useCallback((index: number) => {
+    setExpr(e => {
+      const resolved = resolveBlockDrop(e.root.children, index)
+      if (!resolved) return e
+      return withRootChildren(e, applyBlockDrop(e.root.children, index, resolved))
+    })
+  }, [setExpr])
+
   // -------------------------------------------------------- tap handlers
 
   const onTapNumber = useCallback((id: string) => {
@@ -623,14 +637,14 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // already call. core/hints.ts decides *what* the next move is; this only
   // decides how to apply it, the same split as onTapNumber/onTapBlock above.
   const applyHintMove = useCallback((move: HintMove) => {
-    if (move.kind === 'block') { placeBlock(); return }
+    if (move.kind === 'block') { placeBlockAt(move.index); return }
     if (move.kind === 'number') {
       const leaf = tray.find(n => n.id === move.leafId)
       if (leaf) placeNumber(leaf)
       return
     }
     placeOperator(move.op)
-  }, [tray, placeNumber, placeOperator, placeBlock])
+  }, [tray, placeNumber, placeOperator, placeBlockAt])
 
   return {
     expr,

@@ -29,7 +29,18 @@ import {
 import { evaluate } from './evaluate'
 
 export type HintMove =
-  | { kind: 'block' }
+  /**
+   * A block, at the root position the continuation needs it at. The
+   * position is part of the move because a *tap* can't choose one —
+   * `nextBlockTarget` always takes the first eligible position — and the
+   * continuation's block is frequently somewhere else: `2 × (1+3)` from a
+   * board already reading `2 ×` needs it at index 2, and placing it at 0
+   * instead wrapped the `2` into `(2) ×` and left a board the hint could
+   * never finish. A player reaches that position by dragging the block
+   * chip there (concept 6.1), so it is still one gesture, just not the
+   * tap-shaped one.
+   */
+  | { kind: 'block'; index: number }
   | { kind: 'number'; leafId: string }
   | { kind: 'operator'; op: Operator }
 
@@ -102,7 +113,16 @@ function completions(
   blockBudget: number
 ): (Leaf | Group | null)[][] {
   function go(index: number, acc: (Leaf | Group | null)[], remaining: readonly NumberLeaf[], blocksLeft: number): (Leaf | Group | null)[][] {
-    if (remaining.length === 0 && acc.length > 0 && acc.length % 2 === 1) return [acc.slice()]
+    // Done only when there is nothing left to place *and* nothing left of
+    // the board to walk past. Without the first condition this stopped at
+    // the moment the tray ran out and returned whatever it had built so
+    // far, throwing away every position of `fixed` further right: for a
+    // board reading `⬚ ÷ 5 + 7` with one 5 in the tray, the only candidate
+    // considered was `5` — so a board one tap from solved was reported as
+    // a dead end, and so was every *completed* expression, the correct
+    // ones included (with an empty tray, the candidate was the first
+    // operand alone).
+    if (index >= fixed.length && remaining.length === 0 && acc.length > 0 && acc.length % 2 === 1) return [acc.slice()]
 
     const existing = index < fixed.length ? fixed[index] : undefined
 
@@ -177,7 +197,7 @@ function diffMoves(fixed: readonly Slot[], resolved: readonly (Leaf | Group | nu
     }
 
     if (target.kind === 'group') {
-      moves.push({ kind: 'block' })
+      moves.push({ kind: 'block', index: i })
       for (const child of target.children) if (child !== null) pushLeafMove(moves, child)
     } else {
       pushLeafMove(moves, target)

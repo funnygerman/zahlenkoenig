@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { computeHint, isStuck, type HintMove } from './hints'
 import {
   createExpression, createTray, createOperatorLeaf,
-  nextOpenSurface, nextBlockTarget, resolveBlockDrop, applyBlockDrop, placeAt, trimTrailingGaps, withMinimumShape,
+  nextOpenSurface, resolveBlockDrop, applyBlockDrop, placeAt, trimTrailingGaps, withMinimumShape,
   type Expression, type Group, type NumberLeaf, type Operator,
 } from './expression'
 import { evaluate } from './evaluate'
@@ -14,7 +14,9 @@ import { evaluate } from './evaluate'
 // hint hands back are ones a real tap sequence could actually make.
 function applyMove(expr: Expression, move: HintMove, tray: readonly NumberLeaf[]): Expression {
   if (move.kind === 'block') {
-    const index = nextBlockTarget(expr.root.children)
+    // the position the hint named, not nextBlockTarget's tap position —
+    // mirroring useGame's `placeBlockAt`.
+    const index = move.index
     const resolved = resolveBlockDrop(expr.root.children, index)
     if (!resolved) throw new Error('hint proposed an unresolvable block tap')
     const children = applyBlockDrop(expr.root.children, index, resolved)
@@ -117,5 +119,92 @@ describe('computeHint — performance sanity (concept 10.1: "der Suchraum winzig
     const start = performance.now()
     computeHint(createExpression(), tray, 48, ALL_OPS, 4)
     expect(performance.now() - start).toBeLessThan(2000)
+  })
+})
+
+// Three findings from a browser QA pass, all of them cases where the
+// Restlöser looked at a board it had itself half-built and reported a dead
+// end (or walked into one).
+describe('computeHint — a continuation that keeps the whole board, not just its first operand', () => {
+  function rootOf(children: (NumberLeaf | Group | ReturnType<typeof createOperatorLeaf> | null)[]): Expression {
+    return { root: { id: 'root', kind: 'group', children } }
+  }
+
+  it('an open gap in front of placed content is not a dead end', () => {
+    // 5 ÷ 5 + 7 = 8, with the leading 5 taken back out: the board reads
+    // "⬚ ÷ 5 + 7" and putting that 5 back is the whole solution. The
+    // Restlöser stopped as soon as the tray ran out and only ever
+    // considered the candidate "5", which evaluates to 5, not 8 — so it
+    // called a one-tap-from-solved board unsolvable.
+    const tray = createTray([5, 5, 7])
+    const expr = rootOf([null, createOperatorLeaf('/'), tray[1], createOperatorLeaf('+'), tray[2]])
+    const hint = computeHint(expr, tray, 8, ALL_OPS, 3)
+    expect(hint).not.toBeNull()
+    expect(hint!.moves).toEqual([{ kind: 'number', leafId: tray[0].id }])
+    expect(isStuck(expr, tray, 8, ALL_OPS, 3)).toBe(false)
+  })
+
+  it('a finished, correct expression is not a dead end either', () => {
+    // Same cause seen from the other end: with the tray empty the search
+    // returned the first operand alone as the only candidate, so every
+    // completed expression — the correct one included — was reported as
+    // "target no longer reachable" and drew the dead-end border around a
+    // right answer.
+    const tray = createTray([9, 1, 5])
+    const expr = rootOf([tray[0], createOperatorLeaf('+'), tray[1], createOperatorLeaf('-'), tray[2]])
+    const hint = computeHint(expr, tray, 5, ALL_OPS, 3)
+    expect(hint).not.toBeNull()
+    expect(hint!.moves).toEqual([]) // nothing left to place
+  })
+
+  it('a finished but wrong expression still is one — nothing can be added to fix it', () => {
+    const tray = createTray([9, 1, 5])
+    const expr = rootOf([tray[0], createOperatorLeaf('+'), tray[1], createOperatorLeaf('-'), tray[2]])
+    expect(computeHint(expr, tray, 7, ALL_OPS, 3)).toBeNull()
+  })
+
+  it('an open gap that nothing in the tray can fill is a dead end', () => {
+    const tray = createTray([9, 1, 5])
+    const expr = rootOf([null, createOperatorLeaf('+'), tray[1], createOperatorLeaf('-'), tray[2], createOperatorLeaf('+'), tray[0]])
+    // every number is placed except the one the gap needs — and it isn't
+    // one: the gap can never be filled, whatever the target.
+    expect(computeHint(expr, tray, 5, ALL_OPS, 3)).toBeNull()
+  })
+})
+
+describe('computeHint — the block goes where the continuation needs it (concept 10.3)', () => {
+  it('names the position, so a block that belongs at the end does not wrap the front', () => {
+    // 2 × (1 + 3) = 8, from a board that already reads "2 ×". The block
+    // move carried no position and was applied wherever a *tap* would land
+    // it — the first eligible root position, i.e. around the 2 — leaving
+    // "(2) ×" and a board the hint could then never finish.
+    const tray = createTray([2, 1, 3])
+    const expr: Expression = { root: { id: 'root', kind: 'group', children: [tray[0], createOperatorLeaf('*')] } }
+    const hint = computeHint(expr, tray, 8, ALL_OPS, 3)
+    expect(hint).not.toBeNull()
+    expect(hint!.moves[0]).toEqual({ kind: 'block', index: 2 })
+
+    const solved = playOut(expr, hint!.moves, tray)
+    expect(evaluate(solved)).toBe(8)
+  })
+
+  it('names a position that really holds the block once the move is applied', () => {
+    // 9 × (6+2) = 72 — the search tries a bare leaf before a block at each
+    // position, so the block lands second here, not first. Whatever
+    // position it names, that is where the group must end up.
+    const tray = createTray([6, 2, 9])
+    const hint = computeHint(createExpression(), tray, 72, ALL_OPS, 3)
+    expect(hint).not.toBeNull()
+
+    let expr = createExpression()
+    for (const move of hint!.moves) {
+      expr = applyMove(expr, move, tray)
+      if (move.kind === 'block') {
+        const slot = expr.root.children[move.index]
+        expect(slot).not.toBeNull()
+        expect(slot!.kind).toBe('group')
+      }
+    }
+    expect(evaluate(expr)).toBe(72)
   })
 })
