@@ -43,6 +43,19 @@ filled crown), then work through 19's manifest/icons/offline requirements
 alongside the animation and landscape work 16's own table groups into this
 one step.
 
+### Two open questions from the bug-fix round
+
+Both are real gaps found by a scripted browser pass, both need a product
+decision before anyone writes code for them, and neither is a regression —
+they have been true since the feature was built. Do them before, after or
+alongside step 6, but don't fix them silently: the fix shape depends on the
+answer.
+
+| Frage | Was fehlt, und was zu entscheiden ist |
+|---|---|
+| **Tastaturbedienung** | The chips are real `<button>`s and take focus, but pressing Enter or Space does nothing: `onClick` is dropped wherever the drag handlers are wired (`Tray.tsx`, `Expression.tsx` — a plain `onClick` alongside `useDrag` double-fires on a real tap, see `NumberCell`'s own note), and `useDrag` listens to pointer events only. Concept 5 states the opposite intent — tapping "hält aber Sechsjährige, **Tastaturbedienung** und Screenreader im Spiel". The mechanical fix is small (an `onKeyDown` for Enter/Space in `useDrag`'s handler set, which can't double-fire because a keyboard press produces no pointer event), but the product question isn't: what does keyboard-only *placement* mean for a game whose second half is dragging, and how far should it go — placing and returning only, or a full keyboard path to a bracket? |
+| **Ein negatives Ergebnis zeigt gar kein Ergebnis** | `evaluate` returns `null` for a negative final result (concept 8: "das Endergebnis muss ≥ 0 sein"), so the notation line shows bare notation with no `= …` — a finished expression looks unfinished, while `=` is live and turns it red. Concept 9.2 wants the line to show "das eigene Ergebnis" precisely so a wrong answer teaches something. Decide what it should read: `… = −3` (contradicting the ≥ 0 rule the evaluator enforces), a neutral marker, or nothing at all as now. |
+
 **If asked to "implement next step" with nothing more specific, this is the
 step** — but start with the two blockers above, not the animation/PWA work
 itself. Before ending your turn: if concept section 16's stated result for
@@ -134,15 +147,11 @@ is unchanged. This qualifies the "a hint move is expressed as a tap"
 paragraph below: the *number* and *operator* moves still are, the block
 move is a drag.
 
-Two findings from that pass were left alone deliberately, and are open
-questions for the PO rather than bugs with an obvious fix: chips are
-focusable but keyboard-inert (`onClick` is dropped wherever drag handlers
-are wired, and `useDrag` listens to pointer events only — concept 5's own
-"hält aber Sechsjährige, Tastaturbedienung und Screenreader im Spiel"
-wants otherwise), and an expression whose result is negative shows no `=
-…` in the notation line at all, because `evaluate` returns `null` for it
-(concept 8: "das Endergebnis muss ≥ 0 sein"), so a finished expression can
-look unfinished.
+Two findings from that pass were left alone deliberately, because the fix
+shape depends on a product decision rather than on the code: chips are
+focusable but keyboard-inert, and an expression whose result is negative
+shows no `= …` at all. Both are written up as open questions under "Next
+v2 step" above.
 
 **Step 5 deleted v1 outright rather than leaving it running alongside v2 —
 a product-owner decision (this section always flagged it as one), not a
