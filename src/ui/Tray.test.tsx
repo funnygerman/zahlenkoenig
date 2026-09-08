@@ -22,7 +22,8 @@ describe('Tray — right-aligned numbers (concept 12.1/12.3)', () => {
     )
     expect(screen.getAllByText('5')).toHaveLength(1)
     expect(screen.getAllByText('9')).toHaveLength(1)
-    expect(document.querySelectorAll('[class*="emptyCell"]')).toHaveLength(2)
+    const numberRowEmptyCells = document.querySelectorAll('[class*="row"]:first-child [class*="emptyCell"]')
+    expect(numberRowEmptyCells).toHaveLength(2)
     expect(document.querySelectorAll('[class*="placeholder"]')).toHaveLength(0)
     // 2 numbers, 1 block, 1 operator, 1 submit — no placeholder buttons for
     // the two missing number slots
@@ -30,12 +31,12 @@ describe('Tray — right-aligned numbers (concept 12.1/12.3)', () => {
     expect(buttons).toHaveLength(2 + 1 + 1 + 1)
   })
 
-  it('a 4-number puzzle needs no padding', () => {
+  it('a 4-number puzzle needs no number-row padding', () => {
     render(
       <Tray
         numberSlots={numberSlots([1, 2, 3, 4])}
         blockDisabled={false}
-        operators={['+']}
+        operators={['*', '/', '+', '-']}
         submitEnabled={false}
         onTapNumber={noop} onTapBlock={noop} onTapOperator={noop} onSubmit={noop}
       />
@@ -77,6 +78,33 @@ describe('Tray — operators (concept 12.1: fixed × ÷ + − order, only enable
     )
     const opButtons = screen.getAllByRole('button').filter(b => ['+', '−', '×', '÷'].includes(b.textContent ?? ''))
     expect(opButtons.map(b => b.textContent)).toEqual(['+', '−'])
+  })
+
+  it('pads a puzzle with fewer than 4 operators with empty cells on the left, keeping the block chip under "=" (mirrors the number row)', () => {
+    render(
+      <Tray
+        numberSlots={numberSlots([1, 2])}
+        blockDisabled={false}
+        operators={['+']}
+        submitEnabled={false}
+        onTapNumber={noop} onTapBlock={noop} onTapOperator={noop} onSubmit={noop}
+      />
+    )
+    // 1 operator enabled of 4 possible columns -> 3 empty cells pad the left
+    expect(document.querySelectorAll('[class*="emptyCell"]')).toHaveLength(2 + 3)
+  })
+
+  it('all 4 operators enabled needs no padding', () => {
+    render(
+      <Tray
+        numberSlots={numberSlots([1, 2, 3, 4])}
+        blockDisabled={false}
+        operators={['*', '/', '+', '-']}
+        submitEnabled={false}
+        onTapNumber={noop} onTapBlock={noop} onTapOperator={noop} onSubmit={noop}
+      />
+    )
+    expect(document.querySelectorAll('[class*="emptyCell"]')).toHaveLength(0)
   })
 
   it('tapping an operator reports which one', async () => {

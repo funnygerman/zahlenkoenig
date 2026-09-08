@@ -1,10 +1,13 @@
 // The tray/palette (concept 12.1's rows 2-3): numbers and "=" on one row,
 // operators and the block chip on the next (PO: swapped from entwurf.html's
 // own arrangement, which pairs the block with the numbers instead — a
-// deliberate departure, not an oversight). Numbers are right-aligned — with
-// fewer than 4 numbers the left cells are simply empty ("nichts", concept
-// 12.3), never a placeholder, so a 3-number puzzle can't be mistaken for a
-// 4-number one with a chip already placed.
+// deliberate departure, not an oversight). Both rows are right-aligned — with
+// fewer than 4 numbers, or fewer than 4 operators enabled, the left cells are
+// simply empty ("nichts", concept 12.3), never a placeholder, so a puzzle
+// with fewer numbers or operators can't be mistaken for one with a chip
+// already placed. This keeps the block chip in the same column as "=" (the
+// row's own permanent rightmost chip) regardless of how many operators are
+// enabled, matching how a number chip's column position doesn't shift either.
 //
 // This owns its own two-row flex layout rather than assuming Game.tsx's
 // eventual 5-column grid (concept 12.1) — Game.tsx doesn't exist yet (v2
@@ -38,6 +41,8 @@ export interface TrayProps {
   numberSlots: TrayNumberSlot[]
   /** how many number columns to pad to on the left with empty ("nichts") cells — concept 12.1's grid is 4 wide. */
   numberColumns?: number
+  /** how many operator columns to pad to on the left with empty cells, mirroring the number row — concept 12.1's grid is 4 wide. */
+  operatorColumns?: number
   /** the block budget (concept 4: floor(n/2)) is used up — the chip disables rather than disappearing. */
   blockDisabled: boolean
   /** always shown in ×÷+− order (concept 12.1), whichever the puzzle's settings enabled. */
@@ -90,6 +95,7 @@ function NumberCell({ slot, onTap, drag, pulsing }: { slot: TrayNumberSlot; onTa
 export function Tray({
   numberSlots,
   numberColumns = 4,
+  operatorColumns = 4,
   blockDisabled,
   operators,
   submitEnabled,
@@ -101,6 +107,7 @@ export function Tray({
   pulsingIds,
 }: TrayProps) {
   const emptyCount = Math.max(0, numberColumns - numberSlots.length)
+  const emptyOperatorCount = Math.max(0, operatorColumns - operators.length)
 
   return (
     <div className={styles.tray}>
@@ -114,6 +121,9 @@ export function Tray({
         <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
       </div>
       <div className={styles.row}>
+        {Array.from({ length: emptyOperatorCount }, (_, i) => (
+          <div key={`empty-op-${i}`} className={styles.emptyCell} aria-hidden="true" />
+        ))}
         {(['*', '/', '+', '-'] as Operator[])
           .filter(op => operators.includes(op))
           .map(op => (
