@@ -199,8 +199,29 @@ const MAX_ATTEMPTS = 500
 // budget is needed — the thin pools are all two-number selections, while
 // no four-number selection has a pool anywhere near the window, so its
 // budget is never spent in the first place.
-function recencyAttempts(numbers: PuzzleSettings['numbers']): number {
-  return numbers === 4 ? 40 : 250
+function preferenceAttempts(numbers: PuzzleSettings['numbers']): number {
+  return numbers === 4 ? 25 : 250
+}
+
+/**
+ * How many of the selected operators a puzzle should ideally *need* — the
+ * most any single solution could use, which is one per operator position:
+ * 1 for two numbers (there is only one position, so the whole question is
+ * moot), 2 for three numbers, and up to 3 for four.
+ *
+ * A preference, never a requirement. Measured exhaustively over the whole
+ * search space: with `{+,−}` or `{×,÷}` selected, *no* puzzle at any number
+ * count needs both operators — the bracket turns one into the other
+ * (`a−(b−c) = a−b+c`, `a÷(b÷c) = a·c÷b`), so 550 of 550 three-number `+−`
+ * puzzles and 297 of 297 `×÷` ones are single-operator by construction.
+ * And where mixing is possible it is sometimes scarce: `3 Zahlen, +÷,
+ * groß` has 20 mixing puzzles against 201 in total. Insisting would either
+ * be impossible or would shrink some selections to a pool small enough to
+ * bring the repeats back (`4 Zahlen, +−÷, mittel` goes from 3405 puzzles
+ * to 30). So the draw asks for this and settles for less.
+ */
+function preferredDistinctOps(settings: PuzzleSettings): number {
+  return Math.min(settings.ops.length, settings.numbers - 1)
 }
 
 /**
@@ -231,15 +252,19 @@ export function nextPuzzle(settings: PuzzleSettings, recent: readonly string[] =
   }
 
   // Where each remembered puzzle sits in the window: 0 is the one played
-  // longest ago, the last index is the one just played. Used only when the
-  // draw has to give up on finding something unseen — then the oldest
-  // sighting wins, which walks a starved selection round its own little
-  // pool in roughly least-recently-played order instead of picking from it
-  // blind (and handing back the puzzle that is still on screen).
+  // longest ago, the last index is the one just played, -1 is one the
+  // player hasn't seen at all. A draw's candidates are ranked on two
+  // things, in this order: unseen beats seen (and among seen ones, longest
+  // ago wins — that walks a starved selection round its own little pool in
+  // least-recently-played order instead of handing back the puzzle still
+  // on screen), then how many operators the puzzle actually needs.
   const seenAt = new Map(recent.map((signature, i) => [signature, i]))
-  const recencyBudget = recencyAttempts(settings.numbers)
-  let oldest: { puzzle: Puzzle; rank: number } | null = null
-  let spentOnRecency = 0
+  const wantedMix = preferredDistinctOps(settings)
+  const budget = preferenceAttempts(settings.numbers)
+  const relaxEvery = Math.max(1, Math.ceil(budget / 3))
+  let asking = wantedMix
+  let best: { puzzle: Puzzle; rank: number; mix: number } | null = null
+  let spentOnPreferences = 0
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const numbers = randomNumbers(settings.numbers)
@@ -248,19 +273,32 @@ export function nextPuzzle(settings: PuzzleSettings, recent: readonly string[] =
     )
     if (candidates.length === 0) continue
 
-    const fresh = candidates.filter(e => !avoid.has(puzzleSignature({ numbers, target: e.target })))
-    if (fresh.length > 0) return { numbers, target: pickRandom(fresh).target }
-
     for (const e of candidates) {
-      const rank = seenAt.get(puzzleSignature({ numbers, target: e.target }))!
-      if (!oldest || rank < oldest.rank) oldest = { puzzle: { numbers, target: e.target }, rank }
+      const rank = seenAt.get(puzzleSignature({ numbers, target: e.target })) ?? -1
+      const mix = Math.min(e.minDistinctOps, wantedMix)
+      if (!best || rank < best.rank || (rank === best.rank && mix > best.mix)) {
+        best = { puzzle: { numbers, target: e.target }, rank, mix }
+      }
     }
-    // `oldest` is set: every candidate of this draw is in the window, so
-    // the loop above just ranked at least one of them.
-    if (++spentOnRecency >= recencyBudget && oldest) return oldest.puzzle
+    // Unseen and using everything it is currently asking for: nothing
+    // better exists, so stop drawing. Anything less is kept as the best so
+    // far and the loop tries again — bounded, because both preferences are
+    // sometimes unsatisfiable (see `preferredDistinctOps`), and a puzzle
+    // the player has seen once is a far better outcome than none at all.
+    //
+    // What it asks for drops by one operator every `relaxEvery` draws,
+    // which is what keeps the unsatisfiable case cheap: `4 Zahlen, +−÷,
+    // groß` has no three-operator puzzle at all, so a fixed target would
+    // spend the whole budget on every single draw (measured: 110ms per
+    // puzzle) before settling for the two-operator one it could have had
+    // in a third of that.
+    if (best!.rank === -1 && best!.mix >= asking) return best!.puzzle
+    spentOnPreferences += 1
+    if (spentOnPreferences >= budget) return best!.puzzle
+    if (asking > 1 && spentOnPreferences % relaxEvery === 0) asking -= 1
   }
 
-  if (oldest) return oldest.puzzle
+  if (best) return best.puzzle
 
   throw new Error(
     `nextPuzzle: no candidate found after ${MAX_ATTEMPTS} attempts for ${settings.numbers} numbers, ` +

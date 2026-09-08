@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { bandRanges, nextPuzzle, puzzleSignature, uniqueOnlyAvailable, type Operator, type PuzzleSettings } from './puzzles'
+import { bandRanges, nextPuzzle, puzzleSignature, uniqueOnlyAvailable, type Operator, type Puzzle, type PuzzleSettings } from './puzzles'
 import { reachable } from './solver'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
@@ -254,6 +254,83 @@ describe('nextPuzzle — draws around the puzzles just played', () => {
     for (let i = 0; i < 20; i++) {
       const puzzle = nextPuzzle(THIN, [])
       expect(puzzle.numbers).toHaveLength(2)
+    }
+  })
+})
+
+// "If I select fewer operators, often only one of them is actually used"
+// (PO). The generator only ever asked whether a target was *reachable*
+// under the selected operators — never whether reaching it needs more than
+// one of them — so `5+5+5+5 = 20` was a perfectly good puzzle for a player
+// who had asked for + and ×.
+describe('nextPuzzle — a puzzle that needs the operators the player picked', () => {
+  function distinctOpsNeeded(puzzle: Puzzle, ops: Operator[]): number {
+    return reachable(puzzle.numbers, ops).find(e => e.target === puzzle.target)!.minDistinctOps
+  }
+
+  function share(settings: PuzzleSettings, rounds: number, needs: (d: number) => boolean) {
+    let hits = 0
+    for (let i = 0; i < rounds; i++) {
+      if (needs(distinctOpsNeeded(nextPuzzle(settings), settings.ops))) hits += 1
+    }
+    return hits / rounds
+  }
+
+  it('three numbers with + and ×: a solution needs both, not one repeated', () => {
+    for (const band of [0, 1, 2] as const) {
+      expect(share({ numbers: 3, ops: ['+', '*'], band, uniqueOnly: false }, 40, d => d >= 2)).toBeGreaterThanOrEqual(0.9)
+    }
+  })
+
+  it('four numbers with all four operators: a solution needs three of them', () => {
+    expect(share({ numbers: 4, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false }, 25, d => d >= 3)).toBeGreaterThanOrEqual(0.8)
+  })
+
+  it('holds under uniqueOnly too', () => {
+    expect(share({ numbers: 3, ops: ['+', '*'], band: 1, uniqueOnly: true }, 25, d => d >= 2)).toBeGreaterThanOrEqual(0.9)
+  })
+
+  // Exhaustively true, not a sampling artefact: with only + and −, or only
+  // × and ÷, *no* puzzle needs both operators at any number count — the
+  // bracket turns one into the other (a−(b−c) = a−b+c, a÷(b÷c) = a·c÷b).
+  // The preference has to be a preference for that reason alone.
+  it('two numbers can only ever use one operator — one position, whatever is selected', () => {
+    for (let i = 0; i < 20; i++) {
+      const puzzle = nextPuzzle({ numbers: 2, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false })
+      expect(distinctOpsNeeded(puzzle, ['+', '-', '*', '/'])).toBe(1)
+    }
+  })
+
+  it('+ and − alone: no puzzle can need both, and asking for one does not starve the draw', () => {
+    for (const numbers of [3, 4] as const) {
+      for (let i = 0; i < 10; i++) {
+        const puzzle = nextPuzzle({ numbers, ops: ['+', '-'], band: 1, uniqueOnly: false })
+        expect(puzzle.numbers).toHaveLength(numbers)
+        expect(distinctOpsNeeded(puzzle, ['+', '-'])).toBe(1)
+      }
+    }
+  })
+
+  it('× and ÷ alone: the same', () => {
+    for (let i = 0; i < 10; i++) {
+      const puzzle = nextPuzzle({ numbers: 3, ops: ['*', '/'], band: 1, uniqueOnly: false })
+      expect(distinctOpsNeeded(puzzle, ['*', '/'])).toBe(1)
+    }
+  })
+
+  it('still keeps its other promises — the band, and no immediate repeat', () => {
+    const settings: PuzzleSettings = { numbers: 3, ops: ['+', '*'], band: 2, uniqueOnly: false }
+    const [lo, hi] = bandRanges(3, ['+', '*'])[2]
+    let recent: string[] = []
+    let previous = ''
+    for (let i = 0; i < 60; i++) {
+      const puzzle = nextPuzzle(settings, recent)
+      expect(puzzle.target).toBeGreaterThanOrEqual(lo)
+      expect(puzzle.target).toBeLessThanOrEqual(hi)
+      const signature = puzzleSignature(puzzle)
+      expect(signature).not.toBe(previous)
+      previous = signature
+      recent = [...recent.filter(s => s !== signature), signature].slice(-30)
     }
   })
 })
