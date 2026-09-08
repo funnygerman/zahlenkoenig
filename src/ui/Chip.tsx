@@ -48,6 +48,13 @@ export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>,
   ghost?: boolean
   /** highlighted for the hint's first press (concept 10.3). */
   pulsing?: boolean
+  /**
+   * Dimmed like a disabled chip, but still a live button: a tap does
+   * nothing (there is nowhere for it to go) while a drag from it is still
+   * a real gesture. `disabled` can't express that — a disabled button
+   * receives no pointer events at all, so it couldn't be dragged either.
+   */
+  muted?: boolean
   children?: ReactNode
 }
 
@@ -56,7 +63,7 @@ function cx(...parts: Array<string | false | undefined>): string {
 }
 
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
-  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, pulsing = false, className, children, disabled, ...rest },
+  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, pulsing = false, muted = false, className, children, disabled, ...rest },
   ref
 ) {
   // Only the operator chip is round; the block is a normal square chip
@@ -73,6 +80,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
     placeholder && styles.placeholder,
     ghost && styles.ghostSlot,
     pulsing && styles.pulsing,
+    muted && styles.muted,
     className
   )
 

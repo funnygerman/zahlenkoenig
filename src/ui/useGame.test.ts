@@ -76,11 +76,19 @@ describe('useGame — tap-to-place and tap-to-return (concept 5)', () => {
     expect(result.current.submitEnabled).toBe(false)
   })
 
-  it('a single placed number with nothing else is a "complete" expression (root has no minimum length, concept 2.1)', () => {
+  it('a single placed number with nothing else is a "complete" expression (root has no minimum length, concept 2.1) — but not a submittable one', () => {
     const { result } = setup([3, 7], 3)
     act(() => result.current.onTapNumber(idOf(result.current, 3)))
-    expect(result.current.submitEnabled).toBe(true)
+    // structurally complete: the expression evaluates, and the notation
+    // line shows its result (concept 9.2)
     expect(result.current.result).toBe(3)
+    // …and `=` stays dimmed anyway, because the 7 is still in the tray
+    // (concept 9.1: "solange nicht alle Zahlen gesetzt sind"). Without
+    // this, a puzzle whose target is one of its own numbers is won by
+    // tapping that single chip.
+    expect(result.current.submitEnabled).toBe(false)
+    act(() => result.current.onSubmit())
+    expect(result.current.status).toBe('idle')
   })
 })
 
@@ -1050,5 +1058,97 @@ describe('useGame — a refused drop bounces (concept 3.2 + concept 5: a refusal
 
     act(() => result.current.onDrop({ id: id3, kind: 'operand', data: { role: 'number' } }, null))
     expect(result.current.trayNumbers.find(n => n.id === id3)!.used).toBe(false) // null still removes
+  })
+})
+
+// Concept 9.1 gives `=` two conditions — "solange nicht alle Zahlen
+// gesetzt sind oder noch eine Lücke offen ist" — and only the gap was
+// being checked. It is also the only place the rule "jede Zahl genau
+// einmal" is stated at all (concept 11's table of removed messages: "Alle
+// Zahlen müssen verwendet werden | entfällt – `=` bleibt gedimmt").
+describe('useGame — `=` needs every number, not just a gapless expression (concept 9.1)', () => {
+  it('stays dimmed while a number is still in the tray, even at the target', () => {
+    const { result } = setup([1, 5], 5)
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    expect(result.current.result).toBe(5) // it *is* the target
+    expect(result.current.submitEnabled).toBe(false)
+  })
+
+  it('refuses the submit itself, not only the button', () => {
+    const { result } = setup([1, 5], 5)
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    act(() => result.current.onSubmit())
+    expect(result.current.status).toBe('idle') // not 'correct': the 1 was never used
+  })
+
+  it('lights up once the last number goes in', () => {
+    const { result } = setup([1, 5], 6)
+    act(() => result.current.onTapNumber(idOf(result.current, 1)))
+    act(() => result.current.onTapOperator('+'))
+    expect(result.current.submitEnabled).toBe(false)
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    expect(result.current.submitEnabled).toBe(true)
+    act(() => result.current.onSubmit())
+    expect(result.current.status).toBe('correct')
+  })
+
+  it('goes dim again when a number is taken back out', () => {
+    const { result } = setup([1, 5], 6)
+    act(() => result.current.onTapNumber(idOf(result.current, 1)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    expect(result.current.submitEnabled).toBe(true)
+    act(() => result.current.onTapNumber(idOf(result.current, 5))) // tap the placeholder: returns it
+    expect(result.current.submitEnabled).toBe(false)
+  })
+})
+
+describe('useGame — a wrong verdict does not outlive the expression it judged', () => {
+  it('clears when the expression changes', () => {
+    const { result } = setup([1, 5], 6)
+    act(() => result.current.onTapNumber(idOf(result.current, 1)))
+    act(() => result.current.onTapOperator('-'))
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    act(() => result.current.onSubmit())
+    expect(result.current.status).toBe('wrong') // 1 − 5 is not 6
+
+    act(() => result.current.onTapLeaf(result.current.expr.root.children[1]!.id)) // take the '−' back out
+    expect(result.current.status).toBe('idle')
+  })
+
+  it('but a correct one stays, so the board’s own 1200ms swap still fires', () => {
+    const { result } = setup([1, 5], 6)
+    act(() => result.current.onTapNumber(idOf(result.current, 1)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 5)))
+    act(() => result.current.onSubmit())
+    expect(result.current.status).toBe('correct')
+
+    act(() => result.current.onTapLeaf(result.current.expr.root.children[1]!.id))
+    expect(result.current.status).toBe('correct')
+  })
+})
+
+describe('useGame — the operator chips say when they have nowhere to go', () => {
+  it('are muted exactly once all n − 1 operator positions are filled', () => {
+    const { result } = setup([6, 2, 9], 17)
+    expect(result.current.operatorsMuted).toBe(false)
+    act(() => result.current.onTapOperator('+'))
+    expect(result.current.operatorsMuted).toBe(false) // one of two
+    act(() => result.current.onTapOperator('*'))
+    expect(result.current.operatorsMuted).toBe(true) // both spent: a third tap does nothing
+
+    const before = result.current.expr
+    act(() => result.current.onTapOperator('-'))
+    expect(result.current.expr).toBe(before) // …and indeed it does nothing
+  })
+
+  it('come back as soon as one is taken out again', () => {
+    const { result } = setup([6, 2, 9], 17)
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapOperator('*'))
+    expect(result.current.operatorsMuted).toBe(true)
+    act(() => result.current.onTapLeaf(result.current.expr.root.children[1]!.id))
+    expect(result.current.operatorsMuted).toBe(false)
   })
 })
