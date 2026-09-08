@@ -79,7 +79,17 @@ export interface UseDragOptions<T = unknown> {
   onTap: (item: DragItem<T>) => void
   /** Released after crossing the threshold — see `DropOutcome` for what a missing zone means. */
   onDrop: (item: DragItem<T>, target: DropOutcome) => void
-  /** Pointer movement, in px, before a press counts as a drag rather than a tap (concept 5.1). */
+  /**
+   * Pointer movement, in px, before a press counts as a drag rather than a
+   * tap (concept 5.1). Concept 5.1's own figure was 6px, which is below
+   * what a finger actually does: Android's own touch slop is 8dp and the
+   * browsers' click slop is around 10px, so a perfectly ordinary tap —
+   * finger rolling slightly as it lifts — crossed 6px, became a
+   * (millimetre-long) drag, and was released over no drop zone at all,
+   * which for a tray chip means "bounces back": the tap did nothing, and
+   * the player tapped again. Hence 10px, plus `onPointerUp`'s own
+   * released-where-you-picked-it-up rule for the jitter beyond it.
+   */
   threshold?: number
   /**
    * How far outside a zone's rectangle a release still counts as hitting
@@ -142,7 +152,7 @@ function encloses(outer: DOMRect, inner: DOMRect): boolean {
 }
 
 export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<T> {
-  const { onTap, onDrop, threshold = 6, tolerance = 8 } = options
+  const { onTap, onDrop, threshold = 10, tolerance = 8 } = options
 
   const zonesRef = useRef(new Map<string, ZoneEntry>())
   const measuredRef = useRef<MeasuredZone[]>([])
@@ -300,8 +310,18 @@ export function useDrag<T = unknown>(options: UseDragOptions<T>): UseDragResult<
       const hitZoneId = activeZoneIdRef.current
       const hitOccupied = measuredRef.current.find(z => z.zoneId === hitZoneId)?.occupied ?? false
       const refused = refusedRef.current
+      // A drag that hit nothing and ended back on the chip it started from
+      // is a tap that wandered, not a gesture: the finger never left the
+      // chip, so "released clear of the board" (concept 5's herausziehen)
+      // is not what happened. Without this, a slow tap that drifts past
+      // the threshold and lifts still inside the same chip silently does
+      // nothing — the reported "I had to tap several times". Only the
+      // no-zone case: a real zone under the pointer, or a refusal, means
+      // the drag reached something and keeps its own outcome.
+      const releasedOnSource = !hitZoneId && !refused && sourceElRef.current !== null &&
+        contains(sourceElRef.current.getBoundingClientRect(), e.clientX, e.clientY)
       reset()
-      if (wasDragging) onDrop(draggedItem, hitZoneId ? { zoneId: hitZoneId, occupied: hitOccupied } : refused ? 'refused' : null)
+      if (wasDragging && !releasedOnSource) onDrop(draggedItem, hitZoneId ? { zoneId: hitZoneId, occupied: hitOccupied } : refused ? 'refused' : null)
       else onTap(draggedItem)
     },
 
