@@ -164,6 +164,16 @@ const COMPS: Record<number, number[][]> = { 2: compositions(2), 3: compositions(
 export interface ReachableEntry {
   target: number
   uniqueSolution: boolean
+  /**
+   * The fewest *distinct* operators any single solution of this target
+   * uses. 1 means the target can be reached with one operator repeated —
+   * `5+5+5+5 = 20` under `{+, ×}` — which is what made a selection of
+   * several operators feel like a selection of one (PO): the generator
+   * only ever asked whether a target was reachable, never whether
+   * reaching it needs the operators the player actually picked. Bounded
+   * above by n − 1, so two numbers are always 1.
+   */
+  minDistinctOps: number
 }
 
 /**
@@ -179,11 +189,18 @@ export function reachable(numbers: number[], ops: Operator[]): ReachableEntry[] 
   const perms = PERM_IDX[n]
   const comps = COMPS[n]
   const optuples = cartesian(ops, n - 1)
+  // How many distinct operators each tuple uses, counted once per tuple
+  // rather than once per arrangement: every arrangement consumes all n − 1
+  // entries of its tuple (evalArrangement slices them across the groups
+  // and the joins, using each exactly once), so the tuple alone decides it.
+  const tupleDistinct = optuples.map(t => new Set(t).size)
   const targets = new Map<number, Set<string>>()
+  const minDistinct = new Map<number, number>()
   for (const comp of comps) {
     for (const permI of perms) {
       const permVals = permI.map(i => numbers[i])
-      for (const opTuple of optuples) {
+      for (let ti = 0; ti < optuples.length; ti++) {
+        const opTuple = optuples[ti]
         const r = evalArrangement(permVals, comp, opTuple)
         if (!isFinite(r) || r < 1 || r > TARGET_MAX) continue
         const t = Math.round(r)
@@ -191,8 +208,15 @@ export function reachable(numbers: number[], ops: Operator[]): ReachableEntry[] 
         let set = targets.get(t)
         if (!set) { set = new Set(); targets.set(t, set) }
         set.add(canonicalArrangement(permVals, comp, opTuple))
+        const d = tupleDistinct[ti]
+        const seen = minDistinct.get(t)
+        if (seen === undefined || d < seen) minDistinct.set(t, d)
       }
     }
   }
-  return [...targets.entries()].map(([target, sols]) => ({ target, uniqueSolution: sols.size === 1 }))
+  return [...targets.entries()].map(([target, sols]) => ({
+    target,
+    uniqueSolution: sols.size === 1,
+    minDistinctOps: minDistinct.get(target)!,
+  }))
 }

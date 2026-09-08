@@ -2,6 +2,7 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Game } from './Game'
+import { puzzleSignature } from '../core/puzzles'
 
 // Step 3's "vollständige Spielschleife": settings drive generation, the
 // header chip is the selection's own display and control (concept 12.7),
@@ -62,5 +63,42 @@ describe('Game — the last two remaining operators cannot be deselected (concep
     await user.click(thirdAttempt) // try to go below two
     expect(thirdAttempt).toHaveAttribute('aria-pressed', 'true')
     expect(stillPressed()).toHaveLength(2)
+  })
+})
+
+// The wiring the hook tests can't see: puzzles.ts takes the window as an
+// argument, history.ts stores it, and Game.tsx is the only place that
+// joins them — so a puzzle that never reaches the history would leave the
+// generator drawing blind again with nothing failing.
+describe('Game — the puzzle on screen is remembered, so the next draw can avoid it', () => {
+  beforeEach(() => localStorage.clear())
+
+  it('writes the shown puzzle’s signature to the history', () => {
+    render(<Game />)
+
+    const stored: unknown = JSON.parse(localStorage.getItem('zahlenkoenig:recent-v1') ?? 'null')
+    expect(Array.isArray(stored)).toBe(true)
+    const recent = stored as string[]
+    expect(recent).toHaveLength(1)
+
+    // the signature must describe the puzzle actually on the board: its
+    // target chip and its tray numbers, sorted.
+    const target = Number(document.querySelector('[class*="_target_"] [class*="_val_"]')!.textContent)
+    const numbers = [...document.querySelectorAll('button[class*="_chip_"][class*="_number_"]:not([class*="_field_"])')]
+      .map(el => Number(el.textContent)).sort((a, b) => a - b)
+    expect(recent[0]).toBe(puzzleSignature({ numbers, target }))
+  })
+
+  it('keeps the window across a redraw rather than starting over', async () => {
+    const user = userEvent.setup()
+    render(<Game />)
+
+    await user.click(screen.getByRole('button', { name: /–/ }))
+    const fourOption = screen.getAllByRole('button').find(b => b.querySelectorAll('i').length === 4)!
+    await user.click(fourOption) // a setting change redraws (concept 15.10)
+
+    const recent: string[] = JSON.parse(localStorage.getItem('zahlenkoenig:recent-v1')!)
+    expect(recent).toHaveLength(2)
+    expect(new Set(recent).size).toBe(2)
   })
 })

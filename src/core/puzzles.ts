@@ -26,6 +26,16 @@ export interface Puzzle {
   target: number
 }
 
+/**
+ * Sorted numbers and the target — what makes two puzzles "the same" to a
+ * player: the same chips and the same goal, whatever order they happened
+ * to be drawn in. `history.ts` keeps a window of these; `nextPuzzle`
+ * takes that window and draws around it.
+ */
+export function puzzleSignature(puzzle: Puzzle): string {
+  return `${[...puzzle.numbers].sort((a, b) => a - b).join(',')}=${puzzle.target}`
+}
+
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 
 function opsMask(ops: Operator[]): number {
@@ -174,33 +184,83 @@ function pickRandom<T>(items: T[]): T {
 // assumed.
 const MAX_ATTEMPTS = 500
 
+// How many draws that *did* produce a valid puzzle may be spent looking
+// for one the player hasn't just seen, before settling for a repeat. The
+// window `recent` asks to avoid (history.ts's RECENT_LIMIT) is a wish, not
+// a constraint: a selection whose whole in-band pool is smaller than the
+// window — two numbers, × and ÷, band klein has 19 puzzles in its entire
+// search space — would otherwise loop to MAX_ATTEMPTS and throw, which is
+// a far worse outcome than showing a puzzle twice.
+//
+// The budget is per number count because that is what a draw costs:
+// `reachable` runs every permutation × composition × operator tuple, so a
+// four-number draw is some two orders of magnitude dearer than a
+// two-number one. It is also exactly the other way round from where the
+// budget is needed — the thin pools are all two-number selections, while
+// no four-number selection has a pool anywhere near the window, so its
+// budget is never spent in the first place.
+function recencyAttempts(numbers: PuzzleSettings['numbers']): number {
+  return numbers === 4 ? 40 : 250
+}
+
 /**
  * A fresh puzzle for these settings, generated on the device (concept
  * 15.10): draw random numbers, ask the solver what's reachable, keep it if
  * the target lands in the selected band, otherwise draw again. The two
  * settings combinations with a thin uniqueOnly pool (concept 15.11) skip
  * the draw loop and pick straight from their exception list instead.
+ *
+ * `recent` is history.ts's window of recently played puzzles (signatures,
+ * see `puzzleSignature`); the draw avoids them where it can. Nothing else
+ * about the draw changes, and an empty window is exactly the old
+ * behaviour.
  */
-export function nextPuzzle(settings: PuzzleSettings): Puzzle {
+export function nextPuzzle(settings: PuzzleSettings, recent: readonly string[] = []): Puzzle {
   const row = bandRow(settings)
   const [lo, hi] = row.bands[settings.band]
+  const avoid = new Set(recent)
 
   if (settings.uniqueOnly) {
     const exceptions = exceptionList(settings)
     if (exceptions) {
       const inBand = exceptions.filter(([, target]) => target >= lo && target <= hi)
-      const [numbers, target] = pickRandom(inBand)
+      const fresh = inBand.filter(([numbers, target]) => !avoid.has(puzzleSignature({ numbers, target })))
+      const [numbers, target] = pickRandom(fresh.length > 0 ? fresh : inBand)
       return { numbers: [...numbers], target }
     }
   }
+
+  // Where each remembered puzzle sits in the window: 0 is the one played
+  // longest ago, the last index is the one just played. Used only when the
+  // draw has to give up on finding something unseen — then the oldest
+  // sighting wins, which walks a starved selection round its own little
+  // pool in roughly least-recently-played order instead of picking from it
+  // blind (and handing back the puzzle that is still on screen).
+  const seenAt = new Map(recent.map((signature, i) => [signature, i]))
+  const recencyBudget = recencyAttempts(settings.numbers)
+  let oldest: { puzzle: Puzzle; rank: number } | null = null
+  let spentOnRecency = 0
 
   for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
     const numbers = randomNumbers(settings.numbers)
     const candidates = reachable(numbers, settings.ops).filter(
       e => e.target >= lo && e.target <= hi && (!settings.uniqueOnly || e.uniqueSolution)
     )
-    if (candidates.length > 0) return { numbers, target: pickRandom(candidates).target }
+    if (candidates.length === 0) continue
+
+    const fresh = candidates.filter(e => !avoid.has(puzzleSignature({ numbers, target: e.target })))
+    if (fresh.length > 0) return { numbers, target: pickRandom(fresh).target }
+
+    for (const e of candidates) {
+      const rank = seenAt.get(puzzleSignature({ numbers, target: e.target }))!
+      if (!oldest || rank < oldest.rank) oldest = { puzzle: { numbers, target: e.target }, rank }
+    }
+    // `oldest` is set: every candidate of this draw is in the window, so
+    // the loop above just ranked at least one of them.
+    if (++spentOnRecency >= recencyBudget && oldest) return oldest.puzzle
   }
+
+  if (oldest) return oldest.puzzle
 
   throw new Error(
     `nextPuzzle: no candidate found after ${MAX_ATTEMPTS} attempts for ${settings.numbers} numbers, ` +

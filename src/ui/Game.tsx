@@ -11,13 +11,20 @@ import { Header } from './Header'
 import { Board, type BoardHandle } from './Board'
 import { useSettings } from './useSettings'
 import { nextPuzzle, type Puzzle } from '../core/puzzles'
+import { loadRecent, saveRecent, withPuzzle } from '../core/history'
 import './tokens.css'
 import styles from './Game.module.css'
 
 export function Game() {
   const { settings, setNumbers, toggleOp, setBand, setUniqueOnly } = useSettings()
 
-  const [puzzle, setPuzzle] = useState<Puzzle>(() => nextPuzzle(settings))
+  // The last few puzzles played, so the generator can draw around them
+  // (history.ts): without it an immediate repeat is just how a memoryless
+  // draw behaves, and in a thin selection — two numbers, a narrow band —
+  // it happens often enough to notice (PO). A ref, not state: nothing
+  // renders it, and a draw needs the value at the moment it draws.
+  const recentRef = useRef<string[]>(loadRecent())
+  const [puzzle, setPuzzle] = useState<Puzzle>(() => nextPuzzle(settings, recentRef.current))
   const boardRef = useRef<BoardHandle>(null)
   // A fresh key per puzzle remounts Board — simpler and safer than trying
   // to reset useGame's own expression tree in place, since a stale tree
@@ -26,9 +33,19 @@ export function Game() {
   const [puzzleKey, setPuzzleKey] = useState(0)
 
   const draw = useCallback(() => {
-    setPuzzle(nextPuzzle(settings))
+    setPuzzle(nextPuzzle(settings, recentRef.current))
     setPuzzleKey(k => k + 1)
   }, [settings])
+
+  // Recorded when a puzzle is actually shown rather than when it is drawn:
+  // StrictMode runs a state initializer twice in development, and this way
+  // the history holds what the player saw either way (`withPuzzle` drops
+  // an older sighting of the same puzzle, so running twice changes
+  // nothing).
+  useEffect(() => {
+    recentRef.current = withPuzzle(recentRef.current, puzzle)
+    saveRecent(recentRef.current)
+  }, [puzzle])
 
   // Re-draw whenever a setting that defines the puzzle space changes —
   // `language` doesn't, so it's deliberately not in this list. Skips its
