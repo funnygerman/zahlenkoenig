@@ -23,8 +23,9 @@ export function Game() {
   // draw behaves, and in a thin selection — two numbers, a narrow band —
   // it happens often enough to notice (PO). A ref, not state: nothing
   // renders it, and a draw needs the value at the moment it draws.
-  const recentRef = useRef<string[]>(loadRecent())
-  const [puzzle, setPuzzle] = useState<Puzzle>(() => nextPuzzle(settings, recentRef.current))
+  const recentRef = useRef<string[] | null>(null)
+  if (recentRef.current === null) recentRef.current = loadRecent() // lazily: a useRef *argument* is evaluated on every render, and this one reads storage
+  const [puzzle, setPuzzle] = useState<Puzzle>(() => nextPuzzle(settings, recentRef.current ?? []))
   const boardRef = useRef<BoardHandle>(null)
   // A fresh key per puzzle remounts Board — simpler and safer than trying
   // to reset useGame's own expression tree in place, since a stale tree
@@ -33,7 +34,7 @@ export function Game() {
   const [puzzleKey, setPuzzleKey] = useState(0)
 
   const draw = useCallback(() => {
-    setPuzzle(nextPuzzle(settings, recentRef.current))
+    setPuzzle(nextPuzzle(settings, recentRef.current ?? []))
     setPuzzleKey(k => k + 1)
   }, [settings])
 
@@ -43,7 +44,7 @@ export function Game() {
   // an older sighting of the same puzzle, so running twice changes
   // nothing).
   useEffect(() => {
-    recentRef.current = withPuzzle(recentRef.current, puzzle)
+    recentRef.current = withPuzzle(recentRef.current ?? [], puzzle)
     saveRecent(recentRef.current)
   }, [puzzle])
 
