@@ -2,6 +2,14 @@ import { describe, it, expect } from 'vitest'
 import { bandRanges, nextPuzzle, puzzleSignature, uniqueOnlyAvailable, type Operator, type Puzzle, type PuzzleSettings } from './puzzles'
 import { reachable } from './solver'
 
+/** Every multiset of three digits 1..9 — the whole three-number search space. */
+function multisetsOfThree(): number[][] {
+  const out: number[][] = []
+  for (let a = 1; a <= 9; a++) for (let b = a; b <= 9; b++) for (let c = b; c <= 9; c++) out.push([a, b, c])
+  return out
+}
+import { reachable } from './solver'
+
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 
 function opSubsets(): Operator[][] {
@@ -311,10 +319,36 @@ describe('nextPuzzle — a puzzle that needs the operators the player picked', (
     }
   })
 
-  it('× and ÷ alone: the same', () => {
+  // × and ÷ used to be the same story, and no longer are. The identity
+  // a÷(b÷c) = a·c÷b still holds, but the one-operator side of it goes
+  // through b÷c — which is usually a fraction, and puzzles.ts no longer
+  // offers a target whose only route leaves the whole numbers. So once
+  // fractional routes stop counting, 14% of three-number ×÷ puzzles and 48%
+  // of four-number ones genuinely need both: 3 × 4 ÷ 2 = 6 is whole, while
+  // its one-operator twin 3 ÷ (2 ÷ 4) passes through 0.5.
+  it('× and ÷ alone: a whole-number puzzle can need both', () => {
+    const e = reachable([2, 3, 4], ['*', '/']).find(x => x.target === 6)
+    expect(e!.wholeSolution).toBe(true)
+    expect(e!.minDistinctOps).toBe(2)
+  })
+
+  it('+ and − alone: no puzzle can need both, anywhere in the search space', () => {
+    // Here the identity a−(b−c) = a−b+c stays on the whole numbers, so the
+    // one-operator route always survives the whole-number rule. Exhaustive,
+    // not sampled — this is what the operator preference has to relax for.
+    for (const nums of multisetsOfThree()) {
+      for (const e of reachable(nums, ['+', '-'])) {
+        expect(e.minDistinctOps).toBe(1)
+      }
+    }
+  })
+
+  it('× and ÷ alone: the draw does not starve either way', () => {
     for (let i = 0; i < 10; i++) {
       const puzzle = nextPuzzle({ numbers: 3, ops: ['*', '/'], band: 1, uniqueOnly: false })
-      expect(distinctOpsNeeded(puzzle, ['*', '/'])).toBe(1)
+      const needed = distinctOpsNeeded(puzzle, ['*', '/'])
+      expect(needed).toBeGreaterThanOrEqual(1)
+      expect(needed).toBeLessThanOrEqual(2)
     }
   })
 
