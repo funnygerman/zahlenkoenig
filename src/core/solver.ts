@@ -161,6 +161,174 @@ function cartesian<T>(items: T[], k: number): T[][] {
 const PERM_IDX: Record<number, number[][]> = { 2: permutationIndices(2), 3: permutationIndices(3), 4: permutationIndices(4) }
 const COMPS: Record<number, number[][]> = { 2: compositions(2), 3: compositions(3), 4: compositions(4) }
 
+const PATTERN_GLYPH: Record<Operator, string> = { '+': '+', '-': '\u2212', '*': '\u00d7', '/': '\u00f7' }
+
+/**
+ * The shape of an arrangement with the numbers blanked out: `(n\u2212n)\u00d7n`.
+ *
+ * Depends only on the composition and the operator tuple, never on the
+ * numbers — which is what makes the memo below sound, and what lets the
+ * draw remember *shapes* instead of puzzles. Remembering puzzles fixed the
+ * immediate-repeat bug; it could do nothing about the far more visible one,
+ * that 200 draws of "4 Zahlen, alle vier, gro\u00df" produced the same
+ * `(n+n)\u00d7n\u2212n` 91% of the time out of 25 shapes the pool holds.
+ */
+const patternMemo = new Map<string, string>()
+export function patternOf(comp: number[], opTuple: Operator[], n: number): string {
+  const key = comp.join('') + '|' + opTuple.join('')
+  const seen = patternMemo.get(key)
+  if (seen !== undefined) return seen
+  const parts: string[] = []
+  let numIdx = 0
+  let opIdx = 0
+  for (const size of comp) {
+    if (size === 1) {
+      parts.push('n')
+      numIdx += 1
+    } else {
+      let inner = 'n'
+      for (let k = 0; k < size - 1; k++) inner += PATTERN_GLYPH[opTuple[opIdx + k]] + 'n'
+      parts.push('(' + inner + ')')
+      numIdx += size
+      opIdx += size - 1
+    }
+    if (numIdx < n) opIdx++
+  }
+  let out = parts[0]
+  const joins = joinOperators(comp, opTuple)
+  for (let i = 0; i < joins.length; i++) out += PATTERN_GLYPH[joins[i]] + parts[i + 1]
+  patternMemo.set(key, out)
+  return out
+}
+
+/** The operators joining the top-level operands — the same slicing evalArrangement does. */
+function joinOperators(comp: number[], ops: Operator[]): Operator[] {
+  const joins: Operator[] = []
+  let cursor = 0
+  for (let i = 0; i < comp.length - 1; i++) {
+    cursor += comp[i] - 1
+    joins.push(ops[cursor])
+    cursor += 1
+  }
+  return joins
+}
+
+const WHOLE_EPS = 1e-9
+function isWhole(x: number): boolean {
+  return Number.isFinite(x) && Math.abs(x - Math.round(x)) < WHOLE_EPS
+}
+
+/** evalFlat again, but refusing any step that leaves the whole numbers. */
+function wholeFlat(nums: number[], ops: Operator[]): number | null {
+  const terms = [nums[0]]
+  const joins: Operator[] = []
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i]
+    if (op === '*' || op === '/') {
+      const v = apply(terms[terms.length - 1], op, nums[i + 1])
+      if (!isWhole(v)) return null
+      terms[terms.length - 1] = v
+    } else {
+      joins.push(op)
+      terms.push(nums[i + 1])
+    }
+  }
+  let acc = terms[0]
+  for (let i = 0; i < joins.length; i++) {
+    acc = apply(acc, joins[i], terms[i + 1])
+    if (!isWhole(acc)) return null
+  }
+  return acc
+}
+
+/**
+ * Whether every step of this arrangement lands on a whole number, groups
+ * included.
+ *
+ * The evaluator only ever checked the *final* result (concept 8, and the
+ * 1..TARGET_MAX filter below), which makes `9 \u00f7 (1 \u00f7 9 \u00f7 9) = 729` a legal
+ * puzzle: the bracket is 1/81 and dividing by it multiplies. Measured
+ * across the whole search space, that is not an edge case — wherever \u00f7 is
+ * selected without \u00d7, dividing by a fraction is the only route to a large
+ * target, so 79% of `4 Zahlen, +\u00f7, gro\u00df` has no whole-number solution at
+ * all. For an audience that starts in the first year of school that is a
+ * correctness question rather than a taste one (PO), so puzzles.ts refuses
+ * such a target outright rather than merely ranking it lower.
+ */
+export function staysWhole(perm: number[], comp: number[], opTuple: Operator[]): boolean {
+  const n = perm.length
+  const operands: number[] = []
+  let numIdx = 0
+  let opIdx = 0
+  for (const size of comp) {
+    if (size === 1) {
+      operands.push(perm[numIdx++])
+    } else {
+      const v = wholeFlat(perm.slice(numIdx, numIdx + size), opTuple.slice(opIdx, opIdx + size - 1))
+      if (v === null) return false
+      operands.push(v)
+      numIdx += size
+      opIdx += size - 1
+    }
+    if (numIdx < n) opIdx++
+  }
+  return wholeFlat(operands, joinOperators(comp, opTuple)) !== null
+}
+
+/**
+ * Whether this arrangement contains a step that changes nothing — `\u00d7 1`,
+ * `\u00f7 1`, or a division by the number immediately to its left. A chip that
+ * changes nothing is the clearest sign a puzzle was generated rather than
+ * designed: `(6 + 5) \u00d7 9 \u00d7 1 = 99` is a three-number puzzle wearing a
+ * four-number costume.
+ *
+ * Deliberately narrow. `(1 + 1) \u00d7 9 \u00d7 5` is not counted, because `1 + 1`
+ * does change something, and `8 \u00f7 8 = 1` as a whole two-number puzzle is
+ * not counted either — drop either 8 and it breaks. Unlike the whole-number
+ * rule this is a preference in puzzles.ts, not a refusal: it is a matter of
+ * elegance, not of whether a child can solve it.
+ */
+export function hasIdentityStep(perm: number[], comp: number[], opTuple: Operator[]): boolean {
+  const n = perm.length
+  const top: (number | null)[] = [] // null marks a bracket, whose value is not a chip
+  let numIdx = 0
+  let opIdx = 0
+  for (const size of comp) {
+    if (size === 1) {
+      top.push(perm[numIdx++])
+    } else {
+      // A group is never the whole puzzle — compositions exclude [n] — so
+      // the `a ÷ a` carve-out below cannot apply inside one.
+      if (flatIdentity(perm.slice(numIdx, numIdx + size), opTuple.slice(opIdx, opIdx + size - 1), false)) return true
+      top.push(null)
+      numIdx += size
+      opIdx += size - 1
+    }
+    if (numIdx < n) opIdx++
+  }
+  return flatIdentity(top, joinOperators(comp, opTuple), n === 2)
+}
+
+/**
+ * The identity check on one flat run. `null` stands for a bracket's value,
+ * which is not a chip the player could have spent elsewhere — reading it as
+ * one was the bug that made `(1 + 1) × 9 × 5` look wasteful, because the
+ * second 1 sits at the flat index the join's left operand occupies.
+ */
+function flatIdentity(vals: (number | null)[], ops: Operator[], entirePuzzle: boolean): boolean {
+  for (let i = 0; i < ops.length; i++) {
+    const op = ops[i]
+    const left = vals[i]
+    const right = vals[i + 1]
+    if (op === '*' && (left === 1 || right === 1)) return true
+    if (op === '/' && right === 1) return true
+    // `9 + 6 ÷ 6` spends two chips to make a 1, but `8 ÷ 8 = 1` as the whole
+    // puzzle spends nothing spare — drop either 8 and it breaks.
+    if (op === '/' && left !== null && right !== null && left === right && !(entirePuzzle && vals.length === 2)) return true
+  }
+  return false
+}
+
 export interface ReachableEntry {
   target: number
   uniqueSolution: boolean
@@ -172,8 +340,21 @@ export interface ReachableEntry {
    * only ever asked whether a target was reachable, never whether
    * reaching it needs the operators the player actually picked. Bounded
    * above by n − 1, so two numbers are always 1.
+   *
+   * Counted over the whole-number solutions where the target has any,
+   * since those are the only ones puzzles.ts will offer.
    */
   minDistinctOps: number
+  /** At least one solution keeps every intermediate a whole number (`staysWhole`). */
+  wholeSolution: boolean
+  /** At least one whole-number solution also wastes no chip (`hasIdentityStep`). */
+  cleanSolution: boolean
+  /**
+   * The shape a player is likeliest to find — fewest brackets, then first
+   * alphabetically, preferring whole-number solutions. What the draw's
+   * shape memory remembers.
+   */
+  pattern: string
 }
 
 /**
@@ -229,22 +410,57 @@ function distinctOpCount(tuple: Operator[]): number {
 }
 
 export function reachable(numbers: number[], ops: Operator[]): ReachableEntry[] {
-  const targets = new Map<number, Set<string>>()
-  const minDistinct = new Map<number, number>()
+  interface Acc {
+    sols: Set<string>
+    minDistinctAny: number
+    minDistinctWhole: number
+    whole: boolean
+    clean: boolean
+    /** representative: whole beats fractional, then fewer brackets, then alphabetical */
+    bestWhole: boolean
+    bestBlocks: number
+    bestPattern: string
+  }
+  const acc = new Map<number, Acc>()
   forEachArrangement(numbers, ops, (permVals, comp, opTuple, t) => {
-    let set = targets.get(t)
-    if (!set) { set = new Set(); targets.set(t, set) }
-    set.add(canonicalArrangement(permVals, comp, opTuple))
-    // Every arrangement consumes all n - 1 entries of its tuple
-    // (evalArrangement slices them across the groups and the joins, using
-    // each exactly once), so the tuple alone decides this.
-    const d = distinctOpCount(opTuple)
-    const seen = minDistinct.get(t)
-    if (seen === undefined || d < seen) minDistinct.set(t, d)
+    const distinct = distinctOpCount(opTuple)
+    const whole = staysWhole(permVals, comp, opTuple)
+    const clean = whole && !hasIdentityStep(permVals, comp, opTuple)
+    const pattern = patternOf(comp, opTuple, numbers.length)
+    let blocks = 0
+    for (const size of comp) if (size > 1) blocks++
+
+    let a = acc.get(t)
+    if (!a) {
+      a = {
+        sols: new Set(), minDistinctAny: distinct, minDistinctWhole: whole ? distinct : Infinity,
+        whole, clean, bestWhole: whole, bestBlocks: blocks, bestPattern: pattern,
+      }
+      acc.set(t, a)
+    } else {
+      a.minDistinctAny = Math.min(a.minDistinctAny, distinct)
+      if (whole) a.minDistinctWhole = Math.min(a.minDistinctWhole, distinct)
+      a.whole = a.whole || whole
+      a.clean = a.clean || clean
+      // A whole-number shape always outranks a fractional one, however many
+      // brackets it carries — the player will be shown a puzzle that has a
+      // whole-number path, so that is the shape to remember.
+      const better = (whole && !a.bestWhole) ||
+        (whole === a.bestWhole && (blocks < a.bestBlocks || (blocks === a.bestBlocks && pattern < a.bestPattern)))
+      if (better) {
+        a.bestWhole = whole
+        a.bestBlocks = blocks
+        a.bestPattern = pattern
+      }
+    }
+    a.sols.add(canonicalArrangement(permVals, comp, opTuple))
   })
-  return [...targets.entries()].map(([target, sols]) => ({
+  return [...acc.entries()].map(([target, a]) => ({
     target,
-    uniqueSolution: sols.size === 1,
-    minDistinctOps: minDistinct.get(target)!,
+    uniqueSolution: a.sols.size === 1,
+    minDistinctOps: a.whole ? a.minDistinctWhole : a.minDistinctAny,
+    wholeSolution: a.whole,
+    cleanSolution: a.clean,
+    pattern: a.bestPattern,
   }))
 }

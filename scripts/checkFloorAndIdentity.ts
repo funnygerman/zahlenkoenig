@@ -17,103 +17,16 @@
 // Run with: npx tsx scripts/checkFloorAndIdentity.ts
 
 import { bandRanges } from '../src/core/puzzles.ts'
-import { forEachArrangement } from '../src/core/solver.ts'
+// Imported from the shipped solver rather than kept as a private copy: these
+// are the exact predicates puzzles.ts now filters on, so the self-test below
+// checks production behaviour rather than a lookalike.
+import { forEachArrangement, hasIdentityStep, staysWhole } from '../src/core/solver.ts'
 import type { Operator } from '../src/core/expression.ts'
 import { ALL_OPS, GLYPH, blocksOf, multisets, opSubsets, patternOf, selfTestModel } from './varietyModel.ts'
 
-/**
- * Does this arrangement contain a step that changes nothing? Covers the two
- * shapes the review names: a `×` or `÷` whose right operand is 1, and a `÷`
- * by the number immediately to its left (`6 ÷ 6`). Both are read off the
- * flat operand order, which is where the player sees them.
- *
- * Deliberately narrow: `(1 + 1) × 9 × 5` is *not* counted, because `1 + 1`
- * does change something. Undercounting keeps the figures a floor rather
- * than a guess.
- */
-function hasIdentityStep(perm: number[], opTuple: Operator[]): boolean {
-  for (let i = 0; i < opTuple.length; i++) {
-    const op = opTuple[i]
-    const right = perm[i + 1]
-    if ((op === '*' || op === '/') && right === 1) return true
-    // `a ÷ a` collapses to a constant 1 whatever the digit — cheap when
-    // there is something else in the expression, but `8 ÷ 8 = 1` as a whole
-    // two-number puzzle is not a wasted chip: drop either 8 and it breaks.
-    if (op === '/' && perm[i] === right && perm.length > 2) return true
-  }
-  return false
-}
 
-/**
- * Does every step of this arrangement land on a whole number?
- *
- * The evaluator only requires the *final* result to be a whole number in
- * 1..999 (solver.ts's TARGET_MAX check), so `9 ÷ (1 ÷ 9 ÷ 9) = 729` is a
- * legal puzzle: the bracket evaluates to 1/81 and the division by it
- * multiplies. For an audience that starts at first grade that is not a
- * taste question, so it gets counted rather than assumed.
- *
- * Mirrors evalFlat exactly — × and ÷ collapse left to right first, then +
- * and − — and checks every partial result, including each group's own
- * value, which is where the fraction hides in the example above.
- */
-const WHOLE_EPS = 1e-9
-function isWhole(x: number): boolean {
-  return Number.isFinite(x) && Math.abs(x - Math.round(x)) < WHOLE_EPS
-}
 
-/** The flat value, or null if any intermediate leaves the whole numbers. */
-function wholeFlat(nums: number[], ops: Operator[]): number | null {
-  const terms = [nums[0]]
-  const joins: Operator[] = []
-  for (let i = 0; i < ops.length; i++) {
-    const op = ops[i]
-    if (op === '*' || op === '/') {
-      const a = terms[terms.length - 1]
-      const b = nums[i + 1]
-      const v = op === '*' ? a * b : (b === 0 ? NaN : a / b)
-      if (!isWhole(v)) return null
-      terms[terms.length - 1] = v
-    } else {
-      joins.push(op)
-      terms.push(nums[i + 1])
-    }
-  }
-  let acc = terms[0]
-  for (let i = 0; i < joins.length; i++) {
-    acc = joins[i] === '+' ? acc + terms[i + 1] : acc - terms[i + 1]
-    if (!isWhole(acc)) return null
-  }
-  return acc
-}
 
-/** Whether a whole arrangement — groups included — stays on whole numbers throughout. */
-function staysWhole(perm: number[], comp: number[], opTuple: Operator[]): boolean {
-  const n = perm.length
-  const operands: number[] = []
-  let numIdx = 0
-  let opIdx = 0
-  for (const size of comp) {
-    if (size === 1) {
-      operands.push(perm[numIdx++])
-    } else {
-      const v = wholeFlat(perm.slice(numIdx, numIdx + size), opTuple.slice(opIdx, opIdx + size - 1))
-      if (v === null) return false
-      operands.push(v)
-      numIdx += size
-      opIdx += size - 1
-    }
-    if (numIdx < n) opIdx++
-  }
-  const joins: Operator[] = []
-  let cursor = 0
-  for (let i = 0; i < comp.length - 1; i++) {
-    cursor += comp[i] - 1
-    joins.push(opTuple[cursor])
-    cursor += 1
-  }
-  return wholeFlat(operands, joins) !== null
-}
 
 interface Cell {
   total: number
@@ -160,7 +73,7 @@ function measure(numbers: 2 | 3 | 4, ops: Operator[], lo: number, hi: number): C
     forEachArrangement(nums, ops, (perm, comp, opTuple, value) => {
       if (value < lo || value > hi) return
       const distinct = popcount(maskOf(opTuple))
-      const clean = !hasIdentityStep(perm, opTuple)
+      const clean = !hasIdentityStep(perm, comp, opTuple)
       const whole = staysWhole(perm, comp, opTuple)
       const blocks = blocksOf(comp)
       const pattern = patternOf(comp, opTuple, numbers)
@@ -196,16 +109,17 @@ function measure(numbers: 2 | 3 | 4, ops: Operator[], lo: number, hi: number): C
 function selfTest(): void {
   selfTestModel()
   const fail = (m: string) => { throw new Error(`checkFloorAndIdentity self-test: ${m}`) }
-  const yes = (p: number[], o: Operator[], why: string) => { if (!hasIdentityStep(p, o)) fail(why) }
-  const no = (p: number[], o: Operator[], why: string) => { if (hasIdentityStep(p, o)) fail(why) }
+  const yes = (p: number[], c: number[], o: Operator[], why: string) => { if (!hasIdentityStep(p, c, o)) fail(why) }
+  const no = (p: number[], c: number[], o: Operator[], why: string) => { if (hasIdentityStep(p, c, o)) fail(why) }
 
-  yes([6, 5, 9, 1], ['+', '*', '*'], '6 + 5 × 9 × 1 wastes the 1')
-  yes([9, 6, 6], ['+', '/'], '9 + 6 ÷ 6 wastes both sixes')
-  yes([8, 1, 4], ['/', '+'], '8 ÷ 1 + 4 wastes the 1')
-  no([6, 2, 9, 3], ['+', '*', '-'], '6 + 2 × 9 − 3 is clean')
-  no([1, 1, 9, 5], ['+', '*', '*'], '(1 + 1) × 9 × 5 — 1 + 1 does change something')
-  no([9, 9], ['*'], '9 × 9 is clean')
-  no([8, 8], ['/'], 'a ÷ a as the whole puzzle is clean — it is the only thing the puzzle can be')
+  yes([6, 5, 9, 1], [1, 1, 1, 1], ['+', '*', '*'], '6 + 5 × 9 × 1 wastes the 1')
+  yes([1, 9, 6, 5], [1, 1, 2], ['*', '*', '+'], '1 × 9 × (6 + 5) wastes its leading 1')
+  yes([9, 6, 6], [1, 1, 1], ['+', '/'], '9 + 6 ÷ 6 wastes both sixes')
+  yes([8, 1, 4], [1, 1, 1], ['/', '+'], '8 ÷ 1 + 4 wastes the 1')
+  no([6, 2, 9, 3], [2, 2], ['+', '*', '-'], '(6 + 2) × (9 − 3) is clean')
+  no([1, 1, 9, 5], [2, 1, 1], ['+', '*', '*'], '(1 + 1) × 9 × 5 — the bracket is not a chip')
+  no([9, 9], [1, 1], ['*'], '9 × 9 is clean')
+  no([8, 8], [1, 1], ['/'], 'a ÷ a as the whole puzzle is clean — it is the only thing the puzzle can be')
 
   // The product owner's own example, and the reason this check exists.
   if (staysWhole([9, 1, 9, 9], [1, 3], ['/', '/', '/'])) fail('9 ÷ (1 ÷ 9 ÷ 9) leaves the whole numbers at 1/81')

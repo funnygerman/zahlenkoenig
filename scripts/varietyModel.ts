@@ -7,7 +7,7 @@
 // Modell für Generator und Löser", and the reason forEachArrangement is
 // exported at all.
 
-import { forEachArrangement, reachable } from '../src/core/solver.ts'
+import { forEachArrangement, reachable, staysWhole } from '../src/core/solver.ts'
 import type { Operator } from '../src/core/expression.ts'
 
 export const ALL_OPS: Operator[] = ['+', '-', '*', '/']
@@ -117,9 +117,12 @@ export function blocksOf(comp: number[]): number {
  *  - `anyOps`    an operator some solution uses
  *  - `allOps`    an operator every solution uses (the player cannot avoid it)
  *  - `minBlocks` 0 if any solution is bracket-free
- *  - `minDistinctOps` the fewest distinct operators any one solution uses —
- *                the same quantity reachable() reports, recomputed here so a
- *                draw policy can filter on it without a second solver pass
+ *  - `minDistinctOps` the fewest distinct operators any one solution uses,
+ *                counted over the whole-number solutions where the target has
+ *                any — the same quantity reachable() reports, and it must stay
+ *                the same quantity: the self-test cross-checks them, which is
+ *                what caught this drifting when the solver started ignoring
+ *                fractional routes
  *  - `pattern`   the representative shape: fewest brackets, then first
  *                alphabetically. Fewest-brackets-first means a redundant
  *                bracket — `(n+n)+n` reaches whatever `n+n+n` reaches —
@@ -130,6 +133,9 @@ export interface Shape {
   allOps: number
   minBlocks: number
   minDistinctOps: number
+  /** internal: the same count restricted to whole-number solutions */
+  minDistinctWhole: number
+  anyWhole: boolean
   pattern: string
 }
 
@@ -148,18 +154,31 @@ export function shapesOf(numbers: number[], ops: Operator[]): Map<number, Shape>
     const blocks = blocksOf(comp)
     const pattern = patternOf(comp, opTuple, n)
     const prev = out.get(value)
+    const whole = staysWhole(_perm, comp, opTuple)
+    const distinct = popcount(mask)
     if (prev === undefined) {
-      out.set(value, { anyOps: mask, allOps: mask, minBlocks: blocks, minDistinctOps: popcount(mask), pattern })
+      out.set(value, {
+        anyOps: mask, allOps: mask, minBlocks: blocks, pattern,
+        minDistinctOps: distinct,
+        minDistinctWhole: whole ? distinct : Infinity,
+        anyWhole: whole,
+      })
       return
     }
     prev.anyOps |= mask
     prev.allOps &= mask
-    prev.minDistinctOps = Math.min(prev.minDistinctOps, popcount(mask))
+    prev.minDistinctOps = Math.min(prev.minDistinctOps, distinct)
+    if (whole) prev.minDistinctWhole = Math.min(prev.minDistinctWhole, distinct)
+    prev.anyWhole = prev.anyWhole || whole
     if (blocks < prev.minBlocks || (blocks === prev.minBlocks && pattern < prev.pattern)) {
       prev.minBlocks = blocks
       prev.pattern = pattern
     }
   })
+  // Match reachable(): where a whole-number route exists, only those count.
+  for (const shape of out.values()) {
+    if (shape.anyWhole) shape.minDistinctOps = shape.minDistinctWhole
+  }
   return out
 }
 
@@ -229,6 +248,7 @@ export function selfTestModel(): void {
   eq(s81.allOps, 1 << 2, '9,9 -> 81 requires ×')
   eq(s81.pattern, 'n×n', '9,9 -> 81 pattern')
   eq(s81.minDistinctOps, 1, '9,9 -> 81 needs one operator')
+  eq(s81.anyWhole, true, '9 × 9 stays whole')
 
   // minDistinctOps must agree with the generator's own figure, since a
   // draw policy filters on it — check it against reachable() directly.

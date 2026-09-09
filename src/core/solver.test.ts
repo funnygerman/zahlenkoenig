@@ -119,3 +119,65 @@ describe('reachable — minDistinctOps', () => {
     }
   })
 })
+
+describe('reachable — whole-number paths, wasted chips, and shapes', () => {
+  const find = (numbers: number[], ops: Operator[], target: number) =>
+    reachable(numbers, ops).find(e => e.target === target)
+
+  it('reports a target only a fraction can reach', () => {
+    // The product owner's own example. 9 ÷ (1 ÷ 9 ÷ 9): the bracket is 1/81
+    // and dividing by it multiplies, so 729 is reachable but never on whole
+    // numbers. puzzles.ts refuses these outright.
+    const e = find([9, 1, 9, 9], ['/'], 729)
+    expect(e).toBeDefined()
+    expect(e!.wholeSolution).toBe(false)
+    expect(e!.cleanSolution).toBe(false)
+  })
+
+  it('reports a target that stays whole', () => {
+    // Concept 12.5's worst case, which also has the bracket-free 6×9 − 2×3.
+    const e = find([6, 2, 9, 3], ['+', '-', '*', '/'], 48)
+    expect(e!.wholeSolution).toBe(true)
+    expect(e!.cleanSolution).toBe(true)
+  })
+
+  it('separates "stays whole" from "wastes no chip"', () => {
+    // 9 + 6 ÷ 6 = 10 is whole throughout — 6 ÷ 6 is exactly 1 — but the two
+    // sixes only ever produce that 1, so the puzzle is 9 + 1 in a costume.
+    const e = find([9, 6, 6], ['+', '/'], 10)
+    expect(e!.wholeSolution).toBe(true)
+    expect(e!.cleanSolution).toBe(false)
+  })
+
+  it('counts × 1 as a wasted chip', () => {
+    const e = find([6, 5, 9, 1], ['+', '*'], 99)
+    expect(e!.wholeSolution).toBe(true)
+    expect(e!.cleanSolution).toBe(false)
+  })
+
+  it('does not count 1 + 1 as wasted — it changes something', () => {
+    // (1 + 1) × 9 × 5 = 90 uses both ones to make a 2. Narrow on purpose:
+    // over-counting here would refuse puzzles that are perfectly good.
+    const e = find([1, 1, 9, 5], ['+', '*'], 90)
+    expect(e!.cleanSolution).toBe(true)
+  })
+
+  it('does not count 8 ÷ 8 as wasted when it is the whole puzzle', () => {
+    // Drop either 8 and it breaks, so no chip is spare.
+    expect(find([8, 8], ['+', '-', '*', '/'], 1)!.cleanSolution).toBe(true)
+  })
+
+  it('names the shape a player would find, brackets and all', () => {
+    expect(find([9, 9], ['+', '-', '*', '/'], 81)!.pattern).toBe('n×n')
+    // 1,1,1,3 → 9 under {+,×} needs a three-number group (solver's own
+    // example above), so the representative shape must carry the bracket.
+    expect(find([1, 1, 1, 3], ['+', '*'], 9)!.pattern).toBe('(n+n+n)×n')
+  })
+
+  it('counts minDistinctOps over the whole-number solutions', () => {
+    // The only routes to 729 here are fractional, so the figure falls back
+    // to those rather than reporting Infinity.
+    expect(find([9, 1, 9, 9], ['/'], 729)!.minDistinctOps).toBe(1)
+    expect(find([9, 9], ['+', '-', '*', '/'], 81)!.minDistinctOps).toBe(1)
+  })
+})
