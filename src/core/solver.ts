@@ -90,7 +90,7 @@ function canonicalFlat(tokens: string[], ops: Operator[]): string {
 
 // Same recursion as evalArrangement, building a canonical string instead of
 // a number. A group becomes an opaque parenthesised token at the top level.
-function canonicalArrangement(perm: number[], comp: number[], ops: Operator[]): string {
+export function canonicalArrangement(perm: number[], comp: number[], ops: Operator[]): string {
   const n = perm.length
   const topTokens: string[] = []
   let numIdx = 0, opIdx = 0
@@ -184,36 +184,64 @@ export interface ReachableEntry {
  * puzzles.ts's whole retry loop built on this and found single-digit
  * median attempts almost everywhere (concept 15.10/15.11).
  */
-export function reachable(numbers: number[], ops: Operator[]): ReachableEntry[] {
+/**
+ * Visits every depth-1 arrangement of `numbers` under `ops` whose value is
+ * a whole number in 1..TARGET_MAX, in the model's own fixed enumeration
+ * order (compositions, then permutations, then operator tuples).
+ *
+ * Exposed so a caller can ask what *shape* a solution has — which
+ * operators it uses, whether it needs a bracket — without re-deriving the
+ * model. Concept 15.3 wants one model for generator and solver;
+ * `scripts/checkVariety.ts` measures the generator's output against the
+ * pool it draws from and would otherwise have been a sixth hand-kept copy
+ * of this recursion.
+ */
+export function forEachArrangement(
+  numbers: number[],
+  ops: Operator[],
+  visit: (perm: number[], comp: number[], opTuple: Operator[], value: number) => void,
+): void {
   const n = numbers.length
   const perms = PERM_IDX[n]
   const comps = COMPS[n]
   const optuples = cartesian(ops, n - 1)
-  // How many distinct operators each tuple uses, counted once per tuple
-  // rather than once per arrangement: every arrangement consumes all n − 1
-  // entries of its tuple (evalArrangement slices them across the groups
-  // and the joins, using each exactly once), so the tuple alone decides it.
-  const tupleDistinct = optuples.map(t => new Set(t).size)
-  const targets = new Map<number, Set<string>>()
-  const minDistinct = new Map<number, number>()
   for (const comp of comps) {
     for (const permI of perms) {
       const permVals = permI.map(i => numbers[i])
-      for (let ti = 0; ti < optuples.length; ti++) {
-        const opTuple = optuples[ti]
+      for (const opTuple of optuples) {
         const r = evalArrangement(permVals, comp, opTuple)
         if (!isFinite(r) || r < 1 || r > TARGET_MAX) continue
         const t = Math.round(r)
         if (Math.abs(r - t) > 1e-9) continue
-        let set = targets.get(t)
-        if (!set) { set = new Set(); targets.set(t, set) }
-        set.add(canonicalArrangement(permVals, comp, opTuple))
-        const d = tupleDistinct[ti]
-        const seen = minDistinct.get(t)
-        if (seen === undefined || d < seen) minDistinct.set(t, d)
+        visit(permVals, comp, opTuple, t)
       }
     }
   }
+}
+
+// How many distinct operators one tuple uses. Counted per arrangement now
+// rather than once per tuple, so it stays allocation-free — the tuple is at
+// most three entries long, which makes indexOf cheaper than a Set.
+function distinctOpCount(tuple: Operator[]): number {
+  let count = 0
+  for (let i = 0; i < tuple.length; i++) if (tuple.indexOf(tuple[i]) === i) count++
+  return count
+}
+
+export function reachable(numbers: number[], ops: Operator[]): ReachableEntry[] {
+  const targets = new Map<number, Set<string>>()
+  const minDistinct = new Map<number, number>()
+  forEachArrangement(numbers, ops, (permVals, comp, opTuple, t) => {
+    let set = targets.get(t)
+    if (!set) { set = new Set(); targets.set(t, set) }
+    set.add(canonicalArrangement(permVals, comp, opTuple))
+    // Every arrangement consumes all n - 1 entries of its tuple
+    // (evalArrangement slices them across the groups and the joins, using
+    // each exactly once), so the tuple alone decides this.
+    const d = distinctOpCount(opTuple)
+    const seen = minDistinct.get(t)
+    if (seen === undefined || d < seen) minDistinct.set(t, d)
+  })
   return [...targets.entries()].map(([target, sols]) => ({
     target,
     uniqueSolution: sols.size === 1,
