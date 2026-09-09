@@ -19,17 +19,18 @@ export const GLYPHS = ALL_OPS.map(o => GLYPH[o])
  * Depends only on the composition and the operator tuple, never on the
  * numbers — which is what makes `patternOf`'s memo sound.
  */
-export function buildPattern(comp: number[], opTuple: Operator[], n: number): string {
+export function renderArrangement(tokens: string[], comp: number[], opTuple: Operator[]): string {
+  const n = tokens.length
   const parts: string[] = []
   let numIdx = 0
   let opIdx = 0
   for (const size of comp) {
     if (size === 1) {
-      parts.push('n')
+      parts.push(tokens[numIdx])
       numIdx += 1
     } else {
-      let inner = 'n'
-      for (let k = 0; k < size - 1; k++) inner += GLYPH[opTuple[opIdx + k]] + 'n'
+      let inner = tokens[numIdx]
+      for (let k = 0; k < size - 1; k++) inner += ' ' + GLYPH[opTuple[opIdx + k]] + ' ' + tokens[numIdx + k + 1]
       parts.push('(' + inner + ')')
       numIdx += size
       opIdx += size - 1
@@ -46,8 +47,36 @@ export function buildPattern(comp: number[], opTuple: Operator[], n: number): st
     cursor += 1
   }
   let out = parts[0]
-  for (let i = 0; i < joins.length; i++) out += GLYPH[joins[i]] + parts[i + 1]
+  for (let i = 0; i < joins.length; i++) out += ' ' + GLYPH[joins[i]] + ' ' + parts[i + 1]
   return out
+}
+
+/**
+ * The shape of one arrangement with the numbers blanked out: `(n−n)×n`.
+ * Depends only on the composition and the operator tuple, never on the
+ * numbers — which is what makes `patternOf`'s memo sound.
+ */
+export function buildPattern(comp: number[], opTuple: Operator[], n: number): string {
+  return renderArrangement(new Array(n).fill('n'), comp, opTuple).replace(/ /g, '')
+}
+
+/**
+ * The representative solution of one puzzle, written out with its real
+ * numbers — the same arrangement `shapesOf` reports as `pattern` (fewest
+ * brackets, then first alphabetically), so a printed sample and the
+ * measured distribution always agree.
+ */
+export function renderSolution(numbers: number[], ops: Operator[], target: number): string {
+  let best: { blocks: number; pattern: string; text: string } | null = null
+  forEachArrangement(numbers, ops, (perm, comp, opTuple, value) => {
+    if (value !== target) return
+    const blocks = blocksOf(comp)
+    const pattern = patternOf(comp, opTuple, numbers.length)
+    if (best && (blocks > best.blocks || (blocks === best.blocks && pattern >= best.pattern))) return
+    best = { blocks, pattern, text: renderArrangement(perm.map(String), comp, opTuple) }
+  })
+  if (!best) throw new Error(`renderSolution: ${numbers} cannot reach ${target} under ${ops.join('')}`)
+  return `${best!.text} = ${target}`
 }
 
 const patternMemo = new Map<string, string>()
@@ -168,6 +197,12 @@ export function selfTestModel(): void {
   eq(buildPattern([2, 1], ['-', '*'], 3), '(n−n)×n', 'leading block')
   eq(buildPattern([1, 2], ['+', '*'], 3), 'n+(n×n)', 'trailing block')
   eq(buildPattern([2, 2], ['+', '*', '-'], 4), '(n+n)×(n−n)', 'two blocks')
+
+  // A rendered solution must be the same arrangement the pattern names,
+  // or a printed sample would not match the measured distribution.
+  eq(renderSolution([9, 9], ALL_OPS, 81), '9 × 9 = 81', 'rendered solution, flat')
+  eq(renderSolution([1, 1, 1, 3], ['+', '*'], 9), '(1 + 1 + 1) × 3 = 9', 'rendered solution, bracketed')
+  eq(buildPattern([2, 1], ['+', '*'], 3), renderArrangement(['n', 'n', 'n'], [2, 1], ['+', '*']).replace(/ /g, ''), 'pattern and render agree')
 
   // A pattern's operators must read back off the glyphs the same way they
   // went in — a mis-sliced opTuple would otherwise show the wrong glyph

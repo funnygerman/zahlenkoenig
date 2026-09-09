@@ -29,7 +29,8 @@
 //   --numbers 2,3 restrict to these number counts; default 2,3,4
 //   --unique      also measure uniqueOnly selections
 //   --no-pool     skip the exhaustive pool pass (much faster)
-//   --policy P    draw policy: current (shipped) | uniform | shape | shapemix; default current
+//   --policy P    draw policy: current | uniform | shape | shapemix | varymix
+//   --samples N   also print the first N drawn puzzles, written out
 //   --ops "+-*/"  restrict to one operator selection
 //   --json FILE   write the full result as JSON
 //   --self-test   run the built-in known-good/known-bad checks and exit
@@ -38,7 +39,7 @@ import { nextPuzzle, puzzleSignature, uniqueOnlyAvailable, bandRanges, type Puzz
 import { withPuzzle } from '../src/core/history.ts'
 import type { Operator } from '../src/core/expression.ts'
 import {
-  ALL_OPS, GLYPH, maskOfPattern, multisets, opSubsets, selfTestModel, shapesOf, type Shape,
+  ALL_OPS, GLYPH, maskOfPattern, multisets, opSubsets, renderSolution, selfTestModel, shapesOf, type Shape,
 } from './varietyModel.ts'
 
 const BAND_NAME = ['klein', 'mittel', 'gross']
@@ -130,10 +131,17 @@ function poolTally(numbers: 2 | 3 | 4, ops: Operator[], lo: number, hi: number):
 //              inside that. The proposal, measured before it is built:
 //              `shape` on its own halves how often ÷ is unavoidable, which
 //              would undo the fix that preference was added for.
-type Policy = 'current' | 'uniform' | 'shape' | 'shapemix'
+//   varymix  — shape, but instead of always demanding the *most* operators
+//              a draw can offer, it cycles the demand: least-recently-used
+//              operator count first, so a run of puzzles mixes one-, two-
+//              and three-operator ones deliberately.
+type Policy = 'current' | 'uniform' | 'shape' | 'shapemix' | 'varymix'
 
 /** How many recent patterns the `shape` policy remembers. */
 const PATTERN_WINDOW = 12
+
+/** How many recent operator-counts `varymix` remembers when cycling its demand. */
+const MIX_WINDOW = 3
 
 function randomNumbers(count: number): number[] {
   return Array.from({ length: count }, () => 1 + Math.floor(Math.random() * 9))
@@ -155,8 +163,9 @@ function drawWithPolicy(
   hi: number,
   recent: readonly string[],
   patternRecent: readonly string[],
-  policy: 'uniform' | 'shape' | 'shapemix',
-): { numbers: number[]; target: number; shape: Shape } {
+  mixRecent: readonly number[],
+  policy: 'uniform' | 'shape' | 'shapemix' | 'varymix',
+): { numbers: number[]; target: number; shape: Shape; mix: number } {
   const seenAt = new Map(recent.map((sig, i) => [sig, i]))
   let best: { numbers: number[]; target: number; shape: Shape; rank: number; mix: number } | null = null
 
@@ -181,13 +190,21 @@ function drawWithPolicy(
 
     // Keep only the candidates that need the most of the player's chosen
     // operators — the same quantity nextPuzzle maximises, capped the same way.
+    const levelOf = ([, sh]: [number, Shape]) => Math.min(sh.minDistinctOps, wantedMix)
     let mix = 1
     if (policy === 'shapemix') {
-      mix = Math.max(...pool.map(([, sh]) => Math.min(sh.minDistinctOps, wantedMix)))
-      pool = pool.filter(([, sh]) => Math.min(sh.minDistinctOps, wantedMix) === mix)
+      mix = Math.max(...pool.map(levelOf))
+      pool = pool.filter(c => levelOf(c) === mix)
+    } else if (policy === 'varymix') {
+      // Least-recently-demanded operator count that this draw can actually
+      // offer. A level absent from the window scores -1 and wins, so the
+      // demand cycles instead of pinning to the maximum.
+      const available = [...new Set(pool.map(levelOf))]
+      mix = available.reduce((a, b) => (mixRecent.lastIndexOf(b) < mixRecent.lastIndexOf(a) ? b : a))
+      pool = pool.filter(c => levelOf(c) === mix)
     }
 
-    if (policy === 'shape' || policy === 'shapemix') {
+    if (policy !== 'uniform') {
       // Least-recently-seen pattern first: a shape absent from the window
       // scores -1 and always wins, which is what pulls a bracket or a
       // division back in as soon as one is available at all.
@@ -198,7 +215,9 @@ function drawWithPolicy(
     }
 
     const [target, shape] = pool[Math.floor(Math.random() * pool.length)]
-    if (bestRank === -1 && mix >= asking) return { numbers, target, shape }
+    // varymix has already decided what it wants, so it never spends draws
+    // hunting for a higher operator count.
+    if (bestRank === -1 && (policy === 'varymix' || mix >= asking)) return { numbers, target, shape, mix }
     if (!best || bestRank < best.rank || (bestRank === best.rank && mix > best.mix)) {
       best = { numbers, target, shape, rank: bestRank, mix }
     }
@@ -212,10 +231,11 @@ function drawWithPolicy(
 }
 
 /** What the player actually gets: real draws, with a real history window between them. */
-function drawTally(settings: PuzzleSettings, draws: number, policy: Policy, lo: number, hi: number): Tally {
+function drawTally(settings: PuzzleSettings, draws: number, policy: Policy, lo: number, hi: number, samples?: string[]): Tally {
   const t = emptyTally()
   let recent: string[] = []
   const patternRecent: string[] = []
+  const mixRecent: number[] = []
   for (let i = 0; i < draws; i++) {
     let numbers: number[]
     let target: number
@@ -226,16 +246,19 @@ function drawTally(settings: PuzzleSettings, draws: number, policy: Policy, lo: 
       target = puzzle.target
       shape = shapesOf(numbers, settings.ops).get(target)
     } else {
-      const drawn = drawWithPolicy(settings, lo, hi, recent, patternRecent, policy)
+      const drawn = drawWithPolicy(settings, lo, hi, recent, patternRecent, mixRecent, policy)
       numbers = drawn.numbers
       target = drawn.target
       shape = drawn.shape
+      mixRecent.push(drawn.mix)
+      if (mixRecent.length > MIX_WINDOW) mixRecent.shift()
     }
     if (!shape) throw new Error(`checkVariety: drew an unreachable puzzle ${numbers} = ${target}`)
     if (recent.includes(puzzleSignature({ numbers, target }))) t.repeats++
     recent = withPuzzle(recent, { numbers, target })
     patternRecent.push(shape.pattern)
     if (patternRecent.length > PATTERN_WINDOW) patternRecent.shift()
+    if (samples) samples.push(renderSolution(numbers, settings.ops, target))
     record(t, shape)
   }
   return t
@@ -295,7 +318,8 @@ const wantUnique = flag('--unique')
 const jsonPath = value('--json', '')
 const policy = value('--policy', 'current') as Policy
 const opsFilter = value('--ops', '') // e.g. "+-*/" to measure one selection
-if (!['current', 'uniform', 'shape', 'shapemix'].includes(policy)) throw new Error(`unknown --policy ${policy}`)
+const sampleCount = Number(value('--samples', '0')) // print this many drawn puzzles, written out
+if (!['current', 'uniform', 'shape', 'shapemix', 'varymix'].includes(policy)) throw new Error(`unknown --policy ${policy}`)
 
 interface Row {
   numbers: number
@@ -334,7 +358,8 @@ for (const numbers of counts) {
       for (let band = 0 as 0 | 1 | 2; band <= 2; band = (band + 1) as 0 | 1 | 2) {
         const [lo, hi] = ranges[band]
         const settings: PuzzleSettings = { numbers, ops, band, uniqueOnly }
-        const dt = drawTally(settings, draws, policy, lo, hi)
+        const sampleOut: string[] = []
+        const dt = drawTally(settings, draws, policy, lo, hi, sampleCount > 0 ? sampleOut : undefined)
         const pt = wantPool && !uniqueOnly ? poolTally(numbers, ops, lo, hi) : null
 
         const header = `${numbers} Zahlen  ${ops.map(o => GLYPH[o]).join('')}  ${BAND_NAME[band].padEnd(6)} [${lo},${hi}]${uniqueOnly ? '  uniqueOnly' : ''}`
@@ -347,6 +372,10 @@ for (const numbers of counts) {
           console.log(`        ${' '.repeat(5)}   any ${opLine(pt.anyOps, pt.count)}  []${String(pct(pt.blockRequired, pt.count)).padStart(4)}%  ${topPatterns(pt, 4)}`)
         }
 
+        // One drawn puzzle per line, written out, so a reader can judge
+        // the feel of a policy instead of only its entropy (CLAUDE.md:
+        // "Decide layout questions by looking").
+        for (const line of sampleOut.slice(0, sampleCount)) console.log(`  ${line}`)
         rows.push({ numbers, ops: ops.join(''), band, range: [lo, hi], uniqueOnly, draw: summarize(dt), pool: pt ? summarize(pt) : null })
       }
     }
