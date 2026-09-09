@@ -242,7 +242,9 @@ function drawTally(settings: PuzzleSettings, draws: number, policy: Policy, lo: 
     let target: number
     let shape: Shape | undefined
     if (policy === 'current') {
-      const puzzle = nextPuzzle(settings, recent)
+      // The shipped draw takes the shape window too now — measuring it
+      // without one would measure a generator the app does not run.
+      const puzzle = nextPuzzle(settings, recent, patternRecent)
       numbers = puzzle.numbers
       target = puzzle.target
       shape = shapesOf(numbers, settings.ops).get(target)

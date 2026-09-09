@@ -8,7 +8,7 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { DEFAULT_SETTINGS, loadSettings, saveSettings, type Settings } from '../core/settings'
-import { uniqueOnlyAvailable } from '../core/puzzles'
+import { bandCount, uniqueOnlyAvailable } from '../core/puzzles'
 import type { Operator } from '../core/expression'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
@@ -26,8 +26,14 @@ const ALL_OPS: Operator[] = ['+', '-', '*', '/']
  * every start.
  */
 function reconcile(settings: Settings): Settings {
-  if (!settings.uniqueOnly || uniqueOnlyAvailable(settings.numbers, settings.ops)) return settings
-  return { ...settings, uniqueOnly: false }
+  // A selection can now offer fewer than three bands (puzzles.ts's BandRow),
+  // so a band carried over from a wider selection has to be clamped before
+  // anything else looks at it.
+  const bands = bandCount(settings.numbers, settings.ops)
+  const band = Math.min(settings.band, bands - 1) as Settings['band']
+  const next = band === settings.band ? settings : { ...settings, band }
+  if (!next.uniqueOnly || uniqueOnlyAvailable(next.numbers, next.ops, next.band)) return next
+  return { ...next, uniqueOnly: false }
 }
 
 export function useSettings() {
@@ -55,7 +61,9 @@ export function useSettings() {
   }, [])
 
   const setBand = useCallback((band: Settings['band']) => {
-    setSettings(s => (s.band === band ? s : { ...s, band }))
+    // Through reconcile like every other change: uniqueOnly's availability
+    // is band-aware now, so changing the band alone can invalidate it.
+    setSettings(s => (s.band === band ? s : reconcile({ ...s, band })))
   }, [])
 
   const setUniqueOnly = useCallback((uniqueOnly: boolean) => {

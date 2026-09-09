@@ -8,7 +8,6 @@ function multisetsOfThree(): number[][] {
   for (let a = 1; a <= 9; a++) for (let b = a; b <= 9; b++) for (let c = b; c <= 9; c++) out.push([a, b, c])
   return out
 }
-import { reachable } from './solver'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 
@@ -21,23 +20,32 @@ function opSubsets(): Operator[][] {
 const NUMBER_COUNTS: PuzzleSettings['numbers'][] = [2, 3, 4]
 const BANDS: PuzzleSettings['band'][] = [0, 1, 2]
 
-// A handful of rows from the 45-row table (concept 15.8/15.10), transcribed
-// by hand from the concept doc / checkNextPuzzle.mjs output, independent of
-// puzzles.ts's own BAND_TABLE — a wrong table entry inside puzzles.ts would
-// still make these fail even though it agrees with itself.
-const KNOWN_BANDS: { numbers: PuzzleSettings['numbers']; ops: Operator[]; bands: [[number, number], [number, number], [number, number]] }[] = [
-  { numbers: 2, ops: ['+'], bands: [[2, 8], [8, 12], [12, 18]] },
-  { numbers: 4, ops: ['+', '-', '*', '/'], bands: [[1, 26], [26, 73], [73, 980]] },
-  { numbers: 4, ops: ['-'], bands: [[1, 5], [5, 10], [11, 26]] },
-  { numbers: 4, ops: ['/'], bands: [[1, 12], [12, 42], [42, 729]] },
-  { numbers: 3, ops: ['/'], bands: [[1, 5], [5, 10], [12, 81]] },
+// A handful of rows from the table, transcribed by hand from
+// generateBandTable.ts's output rather than read back out of puzzles.ts —
+// a wrong table entry inside puzzles.ts would still make these fail even
+// though it agrees with itself.
+//
+// The ÷ rows shrank hard when the whole-number rule came in: `4 Zahlen, nur
+// ÷` went from 922 puzzles reaching 729 to 218 reaching 9, because almost
+// every large ÷ target is only reachable by dividing by a fraction.
+const KNOWN_BANDS: { numbers: PuzzleSettings['numbers']; ops: Operator[]; bands: [number, number][] }[] = [
+  { numbers: 2, ops: ['+'], bands: [[2, 8], [9, 12], [13, 18]] },
+  { numbers: 4, ops: ['+', '-', '*', '/'], bands: [[1, 15], [16, 40], [41, 980]] },
+  { numbers: 4, ops: ['-'], bands: [[1, 5], [6, 10], [11, 26]] },
+  { numbers: 4, ops: ['/'], bands: [[1, 2], [3, 4], [5, 9]] },
+  { numbers: 3, ops: ['/'], bands: [[1, 2], [3, 5], [6, 9]] },
+  // One band, not three: with two single digits a − b ≤ 8 and a ÷ b ≤ 9,
+  // so any third band starts above everything − and ÷ can reach.
+  { numbers: 2, ops: ['+', '-', '*', '/'], bands: [[1, 81]] },
 ]
 
 describe('nextPuzzle — structural validity', () => {
   for (const numbers of NUMBER_COUNTS) {
     for (const ops of opSubsets()) {
       for (const band of BANDS) {
-        const uniqueOptions = uniqueOnlyAvailable(numbers, ops) ? [false, true] : [false]
+        // Band-aware: a selection can have unique-solution puzzles overall
+        // and none in this band (`3 Zahlen, +÷, groß`).
+        const uniqueOptions = uniqueOnlyAvailable(numbers, ops, band) ? [false, true] : [false]
         for (const uniqueOnly of uniqueOptions) {
           it(`${numbers} numbers, ops "${ops.join('')}", band ${band}${uniqueOnly ? ', uniqueOnly' : ''}`, () => {
             for (let i = 0; i < 10; i++) {
@@ -86,11 +94,26 @@ describe('uniqueOnlyAvailable', () => {
     expect(uniqueOnlyAvailable(2, ['+'])).toBe(true)
     expect(uniqueOnlyAvailable(4, ['+', '-', '*', '/'])).toBe(true)
     expect(uniqueOnlyAvailable(4, ['-'])).toBe(true)
-    expect(uniqueOnlyAvailable(4, ['/'])).toBe(true)
+  })
+
+  it('is false for 4 numbers with only ÷ — every unique one was fractional', () => {
+    // 9 ÷ (1 ÷ 9 ÷ 9) = 729 is the shape of all of them, and the
+    // whole-number rule refuses it, so the switch turns itself off.
+    expect(uniqueOnlyAvailable(4, ['/'])).toBe(false)
+  })
+
+  it('answers per band, not only per selection', () => {
+    // 3 Zahlen, +÷ has 74 unique-solution puzzles and not one of them in
+    // groß. Leaving the switch on there made nextPuzzle exhaust its
+    // attempts and throw — a blank screen, one level in from the case
+    // reconcile() already guarded.
+    expect(uniqueOnlyAvailable(3, ['+', '/'])).toBe(true)
+    expect(uniqueOnlyAvailable(3, ['+', '/'], 0)).toBe(true)
+    expect(uniqueOnlyAvailable(3, ['+', '/'], 2)).toBe(false)
   })
 })
 
-describe('the two exception-list selections (concept 15.11)', () => {
+describe('the exception-list selections (concept 15.11)', () => {
   // Both lists collapse to one closed form each — every entry is [a,b,b,b]
   // (three equal numbers, one different), because that's the only shape a
   // single non-commutative operator can force into a unique solution.
@@ -114,19 +137,12 @@ describe('the two exception-list selections (concept 15.11)', () => {
     }
   })
 
-  it('4 numbers, only "/": returns [a,b,b,b] with target = b^3/a', () => {
-    for (let i = 0; i < 50; i++) {
-      const band = [0, 1, 2][i % 3] as 0 | 1 | 2
-      const puzzle = nextPuzzle({ numbers: 4, ops: ['/'], band, uniqueOnly: true })
-      const counts = new Map<number, number>()
-      for (const n of puzzle.numbers) counts.set(n, (counts.get(n) ?? 0) + 1)
-      const entries = [...counts.entries()]
-      expect([1, 2]).toContain(entries.length)
-      const [b, bCount] = entries.length === 1 ? [entries[0][0], 4] : entries.sort((x, y) => y[1] - x[1])[0]
-      expect(bCount).toBe(entries.length === 1 ? 4 : 3)
-      const a = entries.length === 1 ? b : entries.find(([v]) => v !== b)![0]
-      expect(puzzle.target).toBe(b ** 3 / a)
-    }
+  it('4 numbers, only "/": has no list any more, and no uniqueOnly either', () => {
+    // Every entry of the old list — [a,b,b,b] with target b³/a — reaches its
+    // target by dividing by a fraction: 9 ÷ (1 ÷ 9 ÷ 9) = 729. Under the
+    // whole-number rule the generated list came back empty, so the table's
+    // `unique: 0` turns the switch off and nothing asks for a list.
+    expect(uniqueOnlyAvailable(4, ['/'])).toBe(false)
   })
 })
 
@@ -171,8 +187,8 @@ describe('nextPuzzle — throws on a selection with no band data', () => {
 
 // An immediate repeat isn't a flaw in the draw, it's what a memoryless
 // draw does: the thinnest selection here (two numbers, × and ÷, band
-// klein) has 19 puzzles in its entire search space, so one in nineteen
-// draws lands on the one still on screen. `recent` is what fixes it — and
+// klein) has a single-figure pool in its entire search space, so a blind
+// draw lands on the one still on screen every few goes. `recent` is what fixes it — and
 // since the window (history.ts's 30) is *larger* than that pool, this is
 // also the case where the loop has to give up on "unseen" and fall back
 // to the least recently played candidate instead of throwing.
@@ -233,8 +249,10 @@ describe('nextPuzzle — draws around the puzzles just played', () => {
     return out
   }
 
-  it('has 19 puzzles in its whole search space — small enough for a blind draw to repeat one in nineteen times', () => {
-    expect(wholePool(THIN)).toHaveLength(19)
+  // 19 before the whole-number rule, 13 after it: `2 ÷ 1 = 2` survives,
+  // while the fractional routes into the same band do not.
+  it('has 13 puzzles in its whole search space — small enough for a blind draw to repeat one in thirteen times', () => {
+    expect(wholePool(THIN)).toHaveLength(13)
   })
 
   it('goes looking for the one puzzle left when the window covers everything else', () => {
@@ -290,8 +308,15 @@ describe('nextPuzzle — a puzzle that needs the operators the player picked', (
     }
   })
 
-  it('four numbers with all four operators: a solution needs three of them', () => {
-    expect(share({ numbers: 4, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false }, 25, d => d >= 3)).toBeGreaterThanOrEqual(0.8)
+  // Deliberately *not* three any more. The draw used to demand as many
+  // distinct operators as it could get, and that ceiling was the single
+  // biggest cause of the monotony the product owner reported: three
+  // distinct operators from four numbers admits 3 of the 25 shapes the pool
+  // holds, which is how 91% of `4 Zahlen, alle vier, groß` came back as
+  // `(n+n)×n−n`. It is a floor of two now, and the shapes above it are the
+  // point — see `operatorFloor`.
+  it('four numbers with all four operators: a solution needs at least two', () => {
+    expect(share({ numbers: 4, ops: ['+', '-', '*', '/'], band: 1, uniqueOnly: false }, 25, d => d >= 2)).toBeGreaterThanOrEqual(0.9)
   })
 
   it('holds under uniqueOnly too', () => {

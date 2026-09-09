@@ -17,6 +17,7 @@
 import { puzzleSignature, type Puzzle } from './puzzles'
 
 const STORAGE_KEY = 'zahlenkoenig:recent-v1'
+const SHAPE_KEY = 'zahlenkoenig:recent-shapes-v1'
 
 /**
  * How many puzzles back the generator is asked to avoid. Deliberately
@@ -47,6 +48,54 @@ export function saveRecent(recent: readonly string[]): void {
     // Same as saveSettings: without storage the history just doesn't
     // survive a reload, which is no worse than having none at all.
   }
+}
+
+/**
+ * How many *shapes* back the draw is asked to avoid — the same idea one
+ * level up from the puzzle window, and the fix for the complaint the puzzle
+ * window could do nothing about.
+ *
+ * Remembering puzzles stopped the same puzzle coming back; it had no
+ * opinion about the same *shape* coming back with different digits, and
+ * that is what a player actually notices: 200 draws of `4 Zahlen, alle
+ * vier, groß` produced `(n+n)×n−n` 91% of the time, out of 25 shapes the
+ * pool holds. Shorter than RECENT_LIMIT because a selection has far fewer
+ * shapes than puzzles — a window near the shape count would turn the memory
+ * into a visible rotation.
+ */
+export const SHAPE_LIMIT = 12
+
+/** Oldest first, newest last. Same fallback rule as loadRecent. */
+export function loadRecentShapes(): string[] {
+  try {
+    const raw = localStorage.getItem(SHAPE_KEY)
+    if (!raw) return []
+    const parsed: unknown = JSON.parse(raw)
+    if (!Array.isArray(parsed)) return []
+    return parsed.filter((x): x is string => typeof x === 'string').slice(-SHAPE_LIMIT)
+  } catch {
+    return []
+  }
+}
+
+export function saveRecentShapes(shapes: readonly string[]): void {
+  try {
+    localStorage.setItem(SHAPE_KEY, JSON.stringify(shapes.slice(-SHAPE_LIMIT)))
+  } catch {
+    // Same as saveRecent: without storage the window just doesn't survive a
+    // reload, which is no worse than having none.
+  }
+}
+
+/**
+ * The shape window with this puzzle's shape appended. Unlike `withPuzzle`
+ * an older sighting is *not* dropped: how often a shape has come up lately
+ * is exactly what the draw is trying to read, so a shape that appeared
+ * three times in the last twelve should count three times.
+ */
+export function withShape(shapes: readonly string[], pattern: string | undefined): string[] {
+  if (!pattern) return [...shapes]
+  return [...shapes, pattern].slice(-SHAPE_LIMIT)
 }
 
 /** The history with this puzzle appended, trimmed to the window, and with an older sighting of the same puzzle dropped so one repeat can't hold a slot twice. */

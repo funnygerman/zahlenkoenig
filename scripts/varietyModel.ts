@@ -67,13 +67,22 @@ export function buildPattern(comp: number[], opTuple: Operator[], n: number): st
  * measured distribution always agree.
  */
 export function renderSolution(numbers: number[], ops: Operator[], target: number): string {
-  let best: { blocks: number; pattern: string; text: string } | null = null
+  let best: { whole: boolean; blocks: number; pattern: string; text: string } | null = null
   forEachArrangement(numbers, ops, (perm, comp, opTuple, value) => {
     if (value !== target) return
+    const whole = staysWhole(perm, comp, opTuple)
     const blocks = blocksOf(comp)
     const pattern = patternOf(comp, opTuple, numbers.length)
-    if (best && (blocks > best.blocks || (blocks === best.blocks && pattern >= best.pattern))) return
-    best = { blocks, pattern, text: renderArrangement(perm.map(String), comp, opTuple) }
+    // Whole beats fractional first, exactly as reachable() ranks it. Without
+    // that, a printed sample could show `(1 + 5 ÷ 3) × 3 = 8` for a puzzle
+    // whose actual solution is `(1 + 3) × (5 − 3) = 8` — the generator was
+    // right and only the rendering was wrong, which is the more dangerous
+    // way round for a report someone reads to judge the generator.
+    if (best) {
+      if (best.whole && !whole) return
+      if (best.whole === whole && (blocks > best.blocks || (blocks === best.blocks && pattern >= best.pattern))) return
+    }
+    best = { whole, blocks, pattern, text: renderArrangement(perm.map(String), comp, opTuple) }
   })
   if (!best) throw new Error(`renderSolution: ${numbers} cannot reach ${target} under ${ops.join('')}`)
   return `${best!.text} = ${target}`
@@ -221,6 +230,7 @@ export function selfTestModel(): void {
   // or a printed sample would not match the measured distribution.
   eq(renderSolution([9, 9], ALL_OPS, 81), '9 × 9 = 81', 'rendered solution, flat')
   eq(renderSolution([1, 1, 1, 3], ['+', '*'], 9), '(1 + 1 + 1) × 3 = 9', 'rendered solution, bracketed')
+  eq(renderSolution([1, 5, 3, 3], ALL_OPS, 8), '(1 + 3) × (5 − 3) = 8', 'a whole-number rendering beats a fractional one')
   eq(buildPattern([2, 1], ['+', '*'], 3), renderArrangement(['n', 'n', 'n'], [2, 1], ['+', '*']).replace(/ /g, ''), 'pattern and render agree')
 
   // A pattern's operators must read back off the glyphs the same way they
