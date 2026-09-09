@@ -329,6 +329,7 @@ interface Row {
   uniqueOnly: boolean
   draw: ReturnType<typeof summarize>
   pool: ReturnType<typeof summarize> | null
+  samples: string[]
 }
 
 function summarize(t: Tally) {
@@ -375,8 +376,10 @@ for (const numbers of counts) {
         // One drawn puzzle per line, written out, so a reader can judge
         // the feel of a policy instead of only its entropy (CLAUDE.md:
         // "Decide layout questions by looking").
-        for (const line of sampleOut.slice(0, sampleCount)) console.log(`  ${line}`)
-        rows.push({ numbers, ops: ops.join(''), band, range: [lo, hi], uniqueOnly, draw: summarize(dt), pool: pt ? summarize(pt) : null })
+        // The *last* N, not the first: the shape and mix windows need a
+        // few draws to warm up, and steady state is what a player sees.
+        for (const line of sampleOut.slice(-sampleCount)) console.log(`  ${line}`)
+        rows.push({ samples: sampleOut.slice(-sampleCount), numbers, ops: ops.join(''), band, range: [lo, hi], uniqueOnly, draw: summarize(dt), pool: pt ? summarize(pt) : null })
       }
     }
   }
