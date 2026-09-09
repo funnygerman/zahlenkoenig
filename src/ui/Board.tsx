@@ -124,7 +124,13 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   const drag = useDrag<DragPayload>({ onTap: handleTap, onDrop: handleDrop })
 
   const notation = notate(game.expr)
-  const readout = game.result !== null ? `${notation} = ${game.result}` : notation
+  // Concept 9.2's notation line, revised (PO): the result only ever meant
+  // anything to a player who had already committed to the expression, so
+  // it's withheld until `=` is pressed rather than appearing live as the
+  // tree happens to become complete — `game.status` already goes back to
+  // 'idle' on any edit (useGame's own "a verdict doesn't outlive the
+  // expression it was about"), which is exactly "judged and unedited since".
+  const readout = game.status !== 'idle' && game.result !== null ? `${notation} = ${game.result}` : notation
 
   return (
     <div className={styles.board}>
@@ -143,6 +149,14 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         <Chip variant="target" value={target} />
       </div>
 
+      {/* concept 9.2's notation line, moved (PO): directly under the field
+          being built, above the tray, rather than below it — real notation
+          as the tree grows, "= result" appended only once `=` has been
+          pressed on it. */}
+      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong)} role="status">
+        {readout}
+      </div>
+
       <Tray
         numberSlots={game.trayNumbers}
         blockDisabled={game.blockDisabled}
@@ -156,13 +170,6 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         dragHandlers={drag.dragHandlers}
         pulsingIds={hint.pulseIds}
       />
-
-      {/* concept 9.2's notation line: real notation as the tree grows, "=
-          result" appended once it's complete — right or wrong (9.2: "zeigt
-          die Zeile das eigene Ergebnis neben der Zielzahl"). */}
-      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong)} role="status">
-        {readout}
-      </div>
 
       {/* concept 5.1's "Geisterelement": the chip itself stays put and
           dims, a copy follows the finger. useDrag writes the transform

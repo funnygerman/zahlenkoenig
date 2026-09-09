@@ -55,7 +55,7 @@ answer.
 | Frage | Was fehlt, und was zu entscheiden ist |
 |---|---|
 | **Tastaturbedienung** | The chips are real `<button>`s and take focus, but pressing Enter or Space does nothing: `onClick` is dropped wherever the drag handlers are wired (`Tray.tsx`, `Expression.tsx` — a plain `onClick` alongside `useDrag` double-fires on a real tap, see `NumberCell`'s own note), and `useDrag` listens to pointer events only. Concept 5 states the opposite intent — tapping "hält aber Sechsjährige, **Tastaturbedienung** und Screenreader im Spiel". The mechanical fix is small (an `onKeyDown` for Enter/Space in `useDrag`'s handler set, which can't double-fire because a keyboard press produces no pointer event), but the product question isn't: what does keyboard-only *placement* mean for a game whose second half is dragging, and how far should it go — placing and returning only, or a full keyboard path to a bracket? |
-| **Ein negatives Ergebnis zeigt gar kein Ergebnis** | `evaluate` returns `null` for a negative final result (concept 8: "das Endergebnis muss ≥ 0 sein"), so the notation line shows bare notation with no `= …` — a finished expression looks unfinished, while `=` is live and turns it red. Concept 9.2 wants the line to show "das eigene Ergebnis" precisely so a wrong answer teaches something. Decide what it should read: `… = −3` (contradicting the ≥ 0 rule the evaluator enforces), a neutral marker, or nothing at all as now. |
+| **Ein negatives Ergebnis zeigt gar kein Ergebnis** | `evaluate` returns `null` for a negative final result (concept 8: "das Endergebnis muss ≥ 0 sein"), so the notation line shows bare notation with no `= …`. Since the result-on-submit round (below) the readout no longer appears live at all, only after `=` is pressed — but a negative-result expression still shows bare notation with no visible number even *after* pressing `=`, just now colored red (the "wrong" verdict) instead of neutral. Concept 9.2 wants the line to show "das eigene Ergebnis" precisely so a wrong answer teaches something. Decide what it should read: `… = −3` (contradicting the ≥ 0 rule the evaluator enforces), a neutral marker, or nothing at all as now. |
 
 **If asked to "implement next step" with nothing more specific, this is the
 step** — but start with the two blockers above, not the animation/PWA work
@@ -72,6 +72,30 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
+
+**A result-on-submit round (PO decision) withheld the notation line's `=
+result` until the player presses `=`, and moved the line itself.** Both
+were live before: `Board.tsx`'s `readout` used to show `"${notation} =
+${result}"` as soon as `useGame`'s `result` went non-null — which happens
+the moment the tree is structurally complete (`isExpressionComplete`),
+independent of the submit button entirely — so a player watched the answer
+appear (and, once wrong, turn red) while still arranging chips, before ever
+committing to the attempt. The line now reads `game.status !== 'idle' &&
+game.result !== null` before appending `= result`; `status` already resets
+to `'idle'` on every tree edit (a `'wrong'` verdict doesn't outlive the
+expression it was about, from the earlier bug-fix round), so `status !==
+'idle'` already means exactly "judged by a submit press and unedited
+since" — no new state needed. The line also moved: it used to sit below
+the tray (`Board.tsx`'s JSX had `<Tray>` before the readout `<div>`); it's
+between the field row and the tray now, directly under what the player is
+building. Both were plain JSX/condition changes — `.board`'s `flex-
+direction: column` follows DOM order with no `order` property anywhere in
+`Game.module.css`, so no CSS moved. `Hint.test.tsx`'s three assertions that
+a hint press alone (never `=`) produced a `"… = N"` readout no longer hold
+by construction — a hint completes the board the same way a tap does, and
+never presses submit — so those tests now click the submit chip
+(`screen.getByText('=', { selector: 'button' })`) before asserting the
+result appears, matching what the UI actually requires now.
 
 **The target-ranges-display round replaced how many bands a selection
 offers, and how they're named — a direct PO decision, not a measured
