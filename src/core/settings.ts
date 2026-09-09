@@ -9,7 +9,12 @@ export interface Settings {
   language: 'de' | 'en'
   numbers: 2 | 3 | 4
   ops: Operator[] // at least two (concept 15.6, revised), always in canonical +-*/ storage order — see setOps
-  band: 0 | 1 | 2 // klein · mittel · groß (concept 15.5)
+  /**
+   * Which target-magnitude band (concept 15.5, revised by the
+   * target-ranges-display round — see puzzles.ts's BandRow): 0 for every
+   * selection with one band, 0–3 (M · L · XL · XXL) for the ones with four.
+   */
+  band: 0 | 1 | 2 | 3
   uniqueOnly: boolean
 }
 
@@ -37,7 +42,7 @@ function sanitize(candidate: Partial<Settings> | null | undefined): Settings {
     numbers: candidate.numbers === 2 || candidate.numbers === 4 ? candidate.numbers : 3,
     // at least two — also catches a value saved before concept 15.6's revision from "at least one"
     ops: ops.length >= 2 ? ops : DEFAULT_SETTINGS.ops,
-    band: candidate.band === 1 || candidate.band === 2 ? candidate.band : 0,
+    band: candidate.band === 1 || candidate.band === 2 || candidate.band === 3 ? candidate.band : 0,
     uniqueOnly: candidate.uniqueOnly === true,
   }
 }
