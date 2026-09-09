@@ -14,7 +14,7 @@ import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import { Tray } from './Tray'
 import { Expression } from './Expression'
 import { Chip } from './Chip'
-import { notate } from '../core/notation'
+import { formatResult, notate } from '../core/notation'
 import type { Operator } from '../core/expression'
 import './tokens.css'
 import styles from './Game.module.css'
@@ -130,7 +130,9 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // tree happens to become complete — `game.status` already goes back to
   // 'idle' on any edit (useGame's own "a verdict doesn't outlive the
   // expression it was about"), which is exactly "judged and unedited since".
-  const readout = game.status !== 'idle' && game.result !== null ? `${notation} = ${game.result}` : notation
+  // `game.result` can be negative now (result-on-submit round): a wrong
+  // attempt shows its own "= −3" rather than hiding behind bare notation.
+  const readout = game.status !== 'idle' && game.result !== null ? `${notation} = ${formatResult(game.result)}` : notation
 
   return (
     <div className={styles.board}>

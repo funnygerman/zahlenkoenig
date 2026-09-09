@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { evaluate } from './evaluate'
+import { evaluate, evaluateAttempt } from './evaluate'
 import { createExpression, createOperatorLeaf, createEmptyGroup, type Group, type NumberLeaf, type Slot } from './expression'
 
 function num(value: number, source: number): NumberLeaf {
@@ -65,6 +65,26 @@ describe('evaluate — the final result must be >= 0 (concept 8)', () => {
 
   it('0 is a valid result: 3 - 3', () => {
     expect(evaluate(exprOf([num(3, 0), createOperatorLeaf('-'), num(3, 1)]))).toBe(0)
+  })
+})
+
+describe('evaluateAttempt — keeps a negative result instead of discarding it (result-on-submit round)', () => {
+  it('3 - 7 evaluates to -4, unlike evaluate()', () => {
+    expect(evaluateAttempt(exprOf([num(3, 0), createOperatorLeaf('-'), num(7, 1)]))).toBe(-4)
+  })
+
+  it('still agrees with evaluate() on a non-negative result', () => {
+    const expr = exprOf([num(3, 0), createOperatorLeaf('+'), num(4, 1), createOperatorLeaf('*'), num(2, 2)])
+    expect(evaluateAttempt(expr)).toBe(evaluate(expr))
+  })
+
+  it('is still null for an incomplete expression', () => {
+    expect(evaluateAttempt(exprOf([num(3, 0), null]))).toBeNull()
+  })
+
+  it('is still null for division by zero inside a group', () => {
+    const zeroGroup: Group = { id: 'g', kind: 'group', children: [num(3, 0), createOperatorLeaf('-'), num(3, 1)] }
+    expect(evaluateAttempt(exprOf([num(5, 2), createOperatorLeaf('/'), zeroGroup]))).toBeNull()
   })
 })
 

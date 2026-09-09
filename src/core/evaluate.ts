@@ -60,19 +60,33 @@ function evaluateGroup(group: Group): number | null {
  * by zero (only reachable through a group, concept 8), or a negative final
  * result (concept 8: "das Endergebnis muss ≥ 0 sein").
  *
- * That last rule reads, in context, as a constraint on the evaluator's own
- * result — not a rule about what the notation line (concept 9.2) may
- * display for a wrong answer, which is a separate concern for whoever
- * calls this. Worth confirming against the running app once step 2 exists
- * (spec/entwurf.html doesn't wire evaluate.ts up).
- *
  * Intermediate results may be fractional (concept 8: `9 ÷ 2 × 4 = 18`
  * stays valid); only the final comparison against a target needs the
  * caller's own epsilon (1e-9), not this function.
  */
 export function evaluate(expr: Expression): number | null {
+  const result = evaluateAttempt(expr)
+  return result === null || result < 0 ? null : result
+}
+
+/**
+ * Like `evaluate`, but keeps a negative final result instead of discarding
+ * it. The ≥0 rule (concept 8) reads, in context, as a constraint on what
+ * counts as a legal *puzzle target* — solver.ts, hints.ts and puzzles.ts
+ * all need `evaluate`'s version for that, since a generated puzzle or a
+ * hint's own completion must never be built around a route that only works
+ * through a negative intermediate result.
+ *
+ * A player's own submitted attempt is a different question (result-on-
+ * submit round, PO decision): concept 9.2 wants the notation line to show
+ * "das eigene Ergebnis" for a wrong answer, negative included — `6 − 9`
+ * really did come out to −3, and hiding that behind bare notation taught
+ * the player nothing `evaluate`'s `null` couldn't already have hidden.
+ * `useGame`'s `result` uses this one; the target comparison it feeds still
+ * only ever matches a non-negative target, so a negative attempt simply
+ * compares unequal, exactly as it always did under `evaluate`.
+ */
+export function evaluateAttempt(expr: Expression): number | null {
   if (!isExpressionComplete(expr)) return null
-  const result = evalChildren(expr.root.children)
-  if (result === null || result < 0) return null
-  return result
+  return evalChildren(expr.root.children)
 }

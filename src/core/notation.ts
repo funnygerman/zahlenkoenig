@@ -35,3 +35,14 @@ function notateChildren(children: readonly Slot[]): string {
 export function notate(expr: Expression): string {
   return notateChildren(expr.root.children)
 }
+
+/**
+ * A result value the way the notation line prints it — negative included
+ * (result-on-submit round: a wrong, negative-result attempt shows its own
+ * "= −3" now instead of nothing). Uses the same typographic minus as
+ * `operatorGlyph('-')` rather than JS's plain `-`, so a negative result
+ * doesn't sit in a different typeface from the "−" earlier in the line.
+ */
+export function formatResult(result: number): string {
+  return result < 0 ? `−${-result}` : String(result)
+}
