@@ -18,7 +18,7 @@ function opSubsets(): Operator[][] {
 }
 
 const NUMBER_COUNTS: PuzzleSettings['numbers'][] = [2, 3, 4]
-const BANDS: PuzzleSettings['band'][] = [0, 1, 2]
+const BANDS: PuzzleSettings['band'][] = [0, 1, 2, 3]
 
 // A handful of rows from the table, transcribed by hand from
 // generateBandTable.ts's output rather than read back out of puzzles.ts —
@@ -28,14 +28,21 @@ const BANDS: PuzzleSettings['band'][] = [0, 1, 2]
 // The ÷ rows shrank hard when the whole-number rule came in: `4 Zahlen, nur
 // ÷` went from 922 puzzles reaching 729 to 218 reaching 9, because almost
 // every large ÷ target is only reachable by dividing by a fraction.
+//
+// Target-ranges-display round (PO decision): a selection gets one band
+// covering its whole [min, max] unless it's 3 or 4 numbers with × selected,
+// which gets the fixed M/L/XL/XXL cut points (1–50/51–100/101–250/251–max)
+// instead — every 2-number selection collapses to one band regardless of
+// which operators are picked, since magnitude only ever tracked ×.
 const KNOWN_BANDS: { numbers: PuzzleSettings['numbers']; ops: Operator[]; bands: [number, number][] }[] = [
-  { numbers: 2, ops: ['+'], bands: [[2, 8], [9, 12], [13, 18]] },
-  { numbers: 4, ops: ['+', '-', '*', '/'], bands: [[1, 15], [16, 40], [41, 980]] },
-  { numbers: 4, ops: ['-'], bands: [[1, 5], [6, 10], [11, 26]] },
-  { numbers: 4, ops: ['/'], bands: [[1, 2], [3, 4], [5, 9]] },
-  { numbers: 3, ops: ['/'], bands: [[1, 2], [3, 5], [6, 9]] },
-  // One band, not three: with two single digits a − b ≤ 8 and a ÷ b ≤ 9,
-  // so any third band starts above everything − and ÷ can reach.
+  { numbers: 2, ops: ['+'], bands: [[2, 18]] },
+  { numbers: 4, ops: ['+', '-', '*', '/'], bands: [[1, 50], [51, 100], [101, 250], [251, 980]] },
+  { numbers: 4, ops: ['-'], bands: [[1, 26]] },
+  { numbers: 4, ops: ['/'], bands: [[1, 9]] },
+  { numbers: 3, ops: ['/'], bands: [[1, 9]] },
+  { numbers: 3, ops: ['+', '*'], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
+  // Two numbers always get one band, whatever the operators — no magnitude
+  // range is worth offering a choice over with a single digit pair.
   { numbers: 2, ops: ['+', '-', '*', '/'], bands: [[1, 81]] },
 ]
 
@@ -103,13 +110,13 @@ describe('uniqueOnlyAvailable', () => {
   })
 
   it('answers per band, not only per selection', () => {
-    // 3 Zahlen, +÷ has 74 unique-solution puzzles and not one of them in
-    // groß. Leaving the switch on there made nextPuzzle exhaust its
-    // attempts and throw — a blank screen, one level in from the case
-    // reconcile() already guarded.
-    expect(uniqueOnlyAvailable(3, ['+', '/'])).toBe(true)
-    expect(uniqueOnlyAvailable(3, ['+', '/'], 0)).toBe(true)
-    expect(uniqueOnlyAvailable(3, ['+', '/'], 2)).toBe(false)
+    // 3 Zahlen, −× has 322 unique-solution puzzles overall and not one of
+    // them in XL (101–250). Leaving the switch on there made nextPuzzle
+    // exhaust its attempts and throw — a blank screen, one level in from
+    // the case reconcile() already guarded.
+    expect(uniqueOnlyAvailable(3, ['-', '*'])).toBe(true)
+    expect(uniqueOnlyAvailable(3, ['-', '*'], 0)).toBe(true)
+    expect(uniqueOnlyAvailable(3, ['-', '*'], 2)).toBe(false)
   })
 })
 
@@ -186,9 +193,9 @@ describe('nextPuzzle — throws on a selection with no band data', () => {
 })
 
 // An immediate repeat isn't a flaw in the draw, it's what a memoryless
-// draw does: the thinnest selection here (two numbers, × and ÷, band
-// klein) has a single-figure pool in its entire search space, so a blind
-// draw lands on the one still on screen every few goes. `recent` is what fixes it — and
+// draw does: the thinnest selection here (two numbers, × and ÷ — always
+// one band) has a small pool in its entire search space, so a blind draw
+// lands on the one still on screen every few goes. `recent` is what fixes it — and
 // since the window (history.ts's 30) is *larger* than that pool, this is
 // also the case where the loop has to give up on "unseen" and fall back
 // to the least recently played candidate instead of throwing.
@@ -249,10 +256,10 @@ describe('nextPuzzle — draws around the puzzles just played', () => {
     return out
   }
 
-  // 19 before the whole-number rule, 13 after it: `2 ÷ 1 = 2` survives,
-  // while the fractional routes into the same band do not.
-  it('has 13 puzzles in its whole search space — small enough for a blind draw to repeat one in thirteen times', () => {
-    expect(wholePool(THIN)).toHaveLength(13)
+  // 19 with the old three-band split, 59 now that two numbers always get
+  // one band covering the whole selection.
+  it('has 59 puzzles in its whole search space — small enough for a blind draw to repeat one in fifty-nine times', () => {
+    expect(wholePool(THIN)).toHaveLength(59)
   })
 
   it('goes looking for the one puzzle left when the window covers everything else', () => {
@@ -260,7 +267,7 @@ describe('nextPuzzle — draws around the puzzles just played', () => {
     // gives up after `recencyAttempts` draws that turned up nothing new,
     // so the one unseen puzzle is what comes back almost always rather
     // than always — the rest of the time it's the least recently played
-    // one, which is 18 puzzles ago here.
+    // one, which is 58 puzzles ago here.
     const pool = wholePool(THIN)
     const wanted = pool[0]
     const recent = pool.filter(s => s !== wanted)

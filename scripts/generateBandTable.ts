@@ -7,23 +7,29 @@
 // model the game does not run (concept 15.3, "ein Modell für Generator und
 // Löser").
 //
-// Two rules changed with this generation, both product-owner decisions:
+// The pool is the *whole-number* pool. A target whose every route leaves
+// the whole numbers — `9 ÷ (1 ÷ 9 ÷ 9) = 729`, whose bracket is 1/81 — is
+// not a puzzle for an audience that starts in the first year of school.
+// Excluding them empties some bands outright (`3 Zahlen, nur ÷, groß` was
+// entirely fractional), which is why the bands have to be re-derived
+// rather than merely re-filtered.
 //
-//  1. The pool is the *whole-number* pool. A target whose every route
-//     leaves the whole numbers — `9 ÷ (1 ÷ 9 ÷ 9) = 729`, whose bracket is
-//     1/81 — is not a puzzle for an audience that starts in the first year
-//     of school. Excluding them empties some bands outright (`3 Zahlen,
-//     nur ÷, groß` was entirely fractional), which is why the bands have to
-//     be re-derived rather than merely re-filtered.
+// The band boundaries themselves are a PO decision (target-ranges-display
+// round), replacing the earlier tertile/operator-floor search entirely:
+// magnitude only tracks × among the four operators (− and ÷ on single
+// digits never reach far past the low end regardless of how the pool is
+// cut, so slicing by size bought them nothing), so only a × selection is
+// worth slicing by magnitude at all.
 //
-//  2. A selection carries as many bands as it can without starving an
-//     operator, not always three. A band is a tertile of target magnitude
-//     and magnitude is a proxy for operator: with two single digits
-//     a − b ≤ 8 and a ÷ b ≤ 9, so a "großes Ziel" band starting at 12
-//     cannot contain either, and no boundary placement fixes it. Where
-//     three bands would starve an operator the selection gets two, or one.
-//     Boundaries are also restricted to numbers a player can read off a
-//     chip — measured cost of that restriction: under a point of coverage.
+//  - 2 numbers: always one band, the pool's own [min, max] — with a single
+//    digit pair there is no magnitude range worth offering a choice over.
+//  - 3 or 4 numbers, × not selected: also one band, [min, max] — same
+//    reasoning; +, − and ÷ don't spread a pool wide enough to want slicing.
+//  - 3 or 4 numbers, × selected: fixed cut points at 50, 100 and 250 —
+//    "M" 1–50, "L" 51–100, "XL" 101–250, "XXL" 251–max — dropped from the
+//    top down wherever the pool doesn't actually reach that far (a 3-number
+//    pool that tops out under 251 ships M/L/XL only, not a fourth empty
+//    band).
 //
 // Run with: npx tsx scripts/generateBandTable.ts
 import { reachable } from '../src/core/solver.ts'
@@ -32,12 +38,8 @@ import type { Operator } from '../src/core/expression.ts'
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 const GLYPHS = ['+', '−', '×', '÷']
 
-/** Every selected operator must be the likely solution's in at least this share of a band. */
-const OP_FLOOR = 0.04
-/** No band smaller than this share of the selection's pool. */
-const MIN_BAND_SHARE = 0.12
-/** Boundaries a player can read off a chip. */
-const NICE = [2, 3, 4, 5, 6, 8, 10, 12, 15, 20, 25, 30, 40, 50, 60, 75, 100, 120, 150, 200, 250, 300, 400, 500, 750]
+/** Fixed × band cut points (target-ranges-display round, PO decision): M/L/XL/XXL. */
+const MULT_CUTS = [50, 100, 250]
 
 function multisets(n: number): number[][] {
   const out: number[][] = []
@@ -81,64 +83,48 @@ function poolOf(numbers: number, ops: Operator[]): { entries: Entry[]; unique: n
   return { entries, unique }
 }
 
-/** Cut positions that land on a nice boundary, and never inside a run of equal targets. */
-function niceCuts(entries: Entry[]): number[] {
-  const out = new Set<number>()
-  for (const v of NICE) {
-    const i = entries.findIndex(e => e.target > v)
-    if (i > 0 && i < entries.length) out.add(i)
-  }
-  return [...out].sort((a, b) => a - b)
+/**
+ * One band spanning the whole pool — the 2-number and non-× policy.
+ * `entries` must be non-empty (every reachable selection has at least one
+ * whole-number puzzle).
+ */
+function wholePoolBand(entries: Entry[]): [number, number][] {
+  return [[0, entries.length]]
 }
 
-function shareOf(entries: Entry[], from: number, to: number, opIdx: number[]): number {
-  const size = to - from
-  if (size === 0) return 0
-  let worst = 1
-  for (const o of opIdx) {
-    let c = 0
-    for (let i = from; i < to; i++) if (entries[i].repMask & (1 << o)) c++
-    worst = Math.min(worst, c / size)
+/**
+ * The fixed M/L/XL/XXL split for a × selection: index bounds at the first
+ * entry past each cut point, dropping any trailing band the pool never
+ * reaches. A cut point that lands inside a run of equal targets still cuts
+ * cleanly, since it's defined by value (`target > cut`), not by position.
+ */
+function multBands(entries: Entry[]): [number, number][] {
+  const edges = [0]
+  for (const cut of MULT_CUTS) {
+    const i = entries.findIndex(e => e.target > cut)
+    const idx = i === -1 ? entries.length : i
+    if (idx > edges[edges.length - 1] && idx < entries.length) edges.push(idx)
   }
-  return worst
-}
-
-/** The most even k-band split that starves no operator, on readable boundaries. */
-function split(entries: Entry[], opIdx: number[], k: number): [number, number][] | null {
-  const n = entries.length
-  const minSize = Math.floor(n * MIN_BAND_SHARE)
-  const cuts = niceCuts(entries)
-  let best: { bounds: [number, number][]; score: number } | null = null
-  const consider = (edges: number[]) => {
-    const bounds: [number, number][] = []
-    for (let i = 0; i < edges.length - 1; i++) bounds.push([edges[i], edges[i + 1]])
-    for (const [a, b] of bounds) {
-      if (b - a < minSize) return
-      if (shareOf(entries, a, b, opIdx) < OP_FLOOR) return
-    }
-    const want = n / bounds.length
-    const score = bounds.reduce((acc, [a, b]) => acc + ((b - a) - want) ** 2, 0)
-    if (!best || score < best.score) best = { bounds, score }
-  }
-  if (k === 1) consider([0, n])
-  else if (k === 2) for (const c of cuts) consider([0, c, n])
-  else for (let i = 0; i < cuts.length; i++) for (let j = i + 1; j < cuts.length; j++) consider([0, cuts[i], cuts[j], n])
-  return best ? best.bounds : null
+  edges.push(entries.length)
+  const bounds: [number, number][] = []
+  for (let i = 0; i < edges.length - 1; i++) bounds.push([edges[i], edges[i + 1]])
+  return bounds
 }
 
 const rows: string[] = []
 for (const numbers of [2, 3, 4] as const) {
   for (const { mask, ops } of opSubsets()) {
     const { entries, unique } = poolOf(numbers, ops)
-    const opIdx = ops.map(o => ALL_OPS.indexOf(o))
-    let bounds: [number, number][] | null = null
-    for (const k of [3, 2, 1]) {
-      bounds = split(entries, opIdx, k)
-      if (bounds) break
-    }
-    // One band is always representable, even where the floor cannot be met.
-    if (!bounds) bounds = [[0, entries.length]]
-    const bands = bounds.map(([a, b]) => `[${entries[a].target}, ${entries[b - 1].target}]`).join(', ')
+    const usesMult = numbers !== 2 && ops.includes('*')
+    const bounds = usesMult ? multBands(entries) : wholePoolBand(entries)
+    // Displayed range: a × band's own low/high are the fixed cut values
+    // (1–50, 51–100, 101–250) — the whole point of naming them M/L/XL is
+    // that a player sees the same numbers regardless of selection — except
+    // the top band, which is open-ended ("251–…") and shows the pool's own
+    // max there. A non-× selection still shows its pool's actual [min, max].
+    const lowOf = (i: number) => (usesMult ? (i === 0 ? 1 : MULT_CUTS[i - 1] + 1) : entries[bounds[i][0]].target)
+    const hiOf = (i: number, b: number) => (usesMult && i < bounds.length - 1 ? MULT_CUTS[i] : entries[b - 1].target)
+    const bands = bounds.map(([a, b], i) => `[${lowOf(i)}, ${hiOf(i, b)}]`).join(', ')
     // Per band, because concept 15.6's switch has to turn itself off when the
     // *current* band has no unique-solution puzzle, not merely when the whole
     // selection has none: `3 Zahlen, +÷` has 74 of them and none in groß.

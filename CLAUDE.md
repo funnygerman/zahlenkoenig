@@ -73,6 +73,35 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
 
+**The target-ranges-display round replaced how many bands a selection
+offers, and how they're named — a direct PO decision, not a measured
+recommendation this time.** The tertile/operator-floor search
+`generateBandTable.ts` used to run (and `checkBands.ts` still explores, now
+purely as historical record — see its own header) is gone from
+`BAND_TABLE`'s generation entirely. In its place: two numbers always get one
+band ("beliebig"), spanning the selection's whole `[min, max]`; three or
+four numbers without × also get one band, same reasoning; three or four
+numbers *with* × get four fixed bands regardless of selection — "M" 1–50,
+"L" 51–100, "XL" 101–250, "XXL" 251–max, the same four cut points on every
+× selection a player can reach; the exhaustive pool for every one of them
+already crosses all three cut points, so "four bands, or sometimes three"
+never actually happens in the reachable table — only unreachable
+single-operator rows would ever ship fewer, and concept 15.6 already keeps
+those off the panel. The reasoning: magnitude only ever tracked one
+operator. − and ÷ on single digits barely move regardless of where a cut
+lands, so slicing *any* selection by magnitude except a × one was never
+buying the player anything — the earlier tertile split's whole failure mode
+(a "großes Ziel" band mathematically unable to contain − or ÷) was a
+symptom of slicing something that didn't need slicing, not a boundary
+placement problem the search could fix. `Settings.band`/`PuzzleSettings.band`
+widened from `0 | 1 | 2` to `0 | 1 | 2 | 3` to carry the fourth band;
+`Header.tsx`'s `BAND_LABELS` collapsed to two rows — `1: ['beliebig']` and
+`4: MULT_BAND_LABELS` (`['M', 'L', 'XL', 'XXL']`) — since the earlier
+2-and-3-band cases this table used to have to name ("klein · groß" without
+a "mittel" to imply) no longer exist. `bandCount`/`bandRow`/`reconcile`'s
+clamping (`Math.min(settings.band, bands.length - 1)`) needed no changes —
+it was already generic over how many bands a selection has.
+
 **A second generation round (PO play-testing, a UX review, and four
 measurement scripts) rebuilt what the generator offers. Three product
 decisions came out of it, and each one changes what a puzzle can be.**
