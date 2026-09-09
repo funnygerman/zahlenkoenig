@@ -15,7 +15,8 @@
 // that for every selection, and searches for the boundaries that would
 // avoid it.
 //
-// Run with: npx tsx scripts/checkBands.ts [--threshold 10] [--json FILE]
+// Run with: npx tsx scripts/checkBands.ts [--threshold 10] [--floor 4]
+//                                          [--min-ops N] [--json FILE]
 
 import { bandRanges } from '../src/core/puzzles.ts'
 import type { Operator } from '../src/core/expression.ts'
@@ -260,6 +261,13 @@ selfTest()
 const threshold = Number(val('--threshold', '10')) / 100
 const jsonPath = val('--json', '')
 const MIN_BAND_SHARE = 0.12 // no band smaller than 12% of the selection's pool
+// Only selections the app can actually produce: concept 15.6 (revised)
+// requires at least two operators, enforced in useSettings.ts's toggleOp
+// and settings.ts's sanitize, so a single-operator selection is
+// unreachable however the table is keyed. --min-ops 1 measures them
+// anyway, which is only useful for checking puzzles.ts's own BAND_TABLE
+// (still 45 rows, 12 of them dead).
+const minOps = Number(val('--min-ops', '2'))
 
 const results: unknown[] = []
 console.log(`\nthreshold: every selected operator must be the representative in >= ${Math.round(threshold * 100)}% of a band's pool`)
@@ -267,6 +275,7 @@ console.log('bands = how many ranges that still allows; current = what the shipp
 
 for (const numbers of [2, 3, 4] as const) {
   for (const { ops } of opSubsets()) {
+    if (ops.length < minOps) continue
     const entries = poolOf(numbers, ops)
     const p = prefixOf(entries)
     const opIdx = ops.map(o => ALL_OPS.indexOf(o))

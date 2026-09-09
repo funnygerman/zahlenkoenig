@@ -32,6 +32,7 @@
 //   --policy P    draw policy: current | uniform | shape | shapemix | varymix
 //   --samples N   also print the first N drawn puzzles, written out
 //   --ops "+-*/"  restrict to one operator selection
+//   --min-ops N   smallest operator count to measure; default 2, what the app allows
 //   --json FILE   write the full result as JSON
 //   --self-test   run the built-in known-good/known-bad checks and exit
 
@@ -318,6 +319,13 @@ const wantUnique = flag('--unique')
 const jsonPath = value('--json', '')
 const policy = value('--policy', 'current') as Policy
 const opsFilter = value('--ops', '') // e.g. "+-*/" to measure one selection
+// Only selections the app can actually produce: concept 15.6 (revised)
+// requires at least two operators, enforced in useSettings.ts's toggleOp
+// and settings.ts's sanitize, so a single-operator selection is
+// unreachable however the table is keyed. --min-ops 1 measures them
+// anyway, which is only useful for checking puzzles.ts's own BAND_TABLE
+// (still 45 rows, 12 of them dead).
+const minOps = Number(value('--min-ops', '2'))
 const sampleCount = Number(value('--samples', '0')) // print this many drawn puzzles, written out
 if (!['current', 'uniform', 'shape', 'shapemix', 'varymix'].includes(policy)) throw new Error(`unknown --policy ${policy}`)
 
@@ -352,6 +360,7 @@ const started = Date.now()
 
 for (const numbers of counts) {
   for (const { ops } of opSubsets()) {
+    if (ops.length < minOps) continue
     if (opsFilter && ops.join('') !== opsFilter) continue
     const ranges = bandRanges(numbers, ops)
     for (const uniqueOnly of wantUnique ? [false, true] : [false]) {
