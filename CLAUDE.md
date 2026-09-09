@@ -16,6 +16,7 @@ both are worth reading before proposing anything:
 |---|---|
 | `spec/zahlenkoenig-v2-konzept.md` | **What** v2 is. Data model, block interaction, layout, design system, implementation order. |
 | `spec/zahlenkoenig-v2-entscheidungen.md` | **Why**, and **what was already rejected**. Read this before suggesting an approach — a lot of plausible ideas have been considered and turned down for stated reasons. |
+| `spec/generator-audit.html` | **Vorher/Nachher for the generation round below.** Open it in a browser: all 33 selectable settings combinations, measured before and after, with the puzzles each one draws today. Self-contained, no build step. |
 | `spec/entwurf.html` | The clickable draft. Open it in a browser: a playable board with the selection panel, plus the studies that settled bracket shape, block contrast and the block icon. It also measures the worst-case width live. |
 
 Entries marked **PO** in the decisions document were chosen by the product owner
@@ -71,6 +72,100 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
+
+**A second generation round (PO play-testing, a UX review, and four
+measurement scripts) rebuilt what the generator offers. Three product
+decisions came out of it, and each one changes what a puzzle can be.**
+
+*The draw picks at random among equals now, and remembers shapes.* The PO's
+report was "very many puzzles with the same patterns" and "−, ÷ and [] are
+used very seldom". Measured against the exhaustive pool: 200 draws of
+`4 Zahlen, alle vier, groß` produced `(n+n)×n−n` **91%** of the time, from a
+pool holding 25 shapes whose most common is 19%. The cause was one
+character. `nextPuzzle` kept the best candidate under a strict `>`
+comparison, so every tie fell to whichever candidate `reachable()` happened
+to enumerate first — and that order is fixed (flat arrangements before
+bracketed ones, operator tuples in `+ − × ÷` order), so **brackets lost
+every tie by construction**. It collects the tied candidates and picks at
+random now. On top of that, `history.ts` keeps a second, shorter window of
+recently-seen *shapes* (`SHAPE_LIMIT`, its own LocalStorage key), and the
+draw prefers a shape it hasn't just shown. The puzzle window fixed the same
+puzzle coming back; it had no opinion about the same *shape* coming back
+with different digits, which is what a player actually notices.
+
+*The operator preference is a floor now, not a ceiling.* `minDistinctOps`
+was added so that picking four operators wouldn't feel like picking one
+(`5 + 5 + 5 + 5`), by demanding as many distinct operators as a draw could
+offer. It worked, and it was also the single biggest cause of the monotony:
+demanding three distinct operators from four numbers admits **3 of those 25
+shapes**. `operatorFloor` asks for two instead. Carved out where two is
+impossible — two numbers have one operator position, and `{+,−}` always
+keeps a whole-number one-operator route through `a−(b−c) = a−b+c`.
+**`{×,÷}` is no longer carved out**, and that is a genuine change of fact,
+not of policy: its identity `a÷(b÷c) = a·c÷b` goes through `b÷c`, which is
+usually a fraction, so once fractional routes stopped counting, 14% of
+three-number and 48% of four-number `×÷` puzzles genuinely need both.
+
+*A target reachable only through a fraction is refused.* The evaluator only
+ever checked the **final** result (concept 8), which made
+`9 ÷ (1 ÷ 9 ÷ 9) = 729` a legal puzzle — the bracket is 1/81 and dividing by
+it multiplies. Measured, it is not an edge case: wherever ÷ is selected
+without ×, dividing by a fraction is the only route to a large target, so
+**79% of `4 Zahlen, +÷, groß` has no whole-number solution at all** (72% for
+`+−÷`, 59% for `−÷`). Two numbers is 0% everywhere, so the youngest players
+were never exposed. `solver.ts`'s `staysWhole` decides it and `reachable`
+reports it as `wholeSolution`; `puzzles.ts` refuses rather than ranks, on the
+PO's decision that this is a correctness question for a first-grade audience
+rather than a taste one. A related but weaker fault, the wasted chip
+(`× 1`, `÷ 1`, `6 ÷ 6` — `hasIdentityStep`/`cleanSolution`), stayed a
+preference; measured, it lands at 0–3% of draws anyway.
+
+*A selection carries one to three bands, not always three.* Concept 15.5's
+"kein einziges Band leer" understated the problem: a band is a slice of
+target magnitude and magnitude is a proxy for operator, so with two single
+digits — where `a − b ≤ 8` and `a ÷ b ≤ 9` while `a × b` reaches 81 — a
+third band starting above 12 **cannot contain − or ÷ at all**, and searching
+every legal boundary placement confirms no three-way split fixes it. That is
+the PO's own `9 × 9 = 81` report, and no draw could ever have fixed it.
+`BandRow.bands` is variable-length now; 28 of the 33 selections a player can
+reach keep three bands, three get two, and `2 Zahlen` with three or four
+operators gets one. `Header.tsx` names them by count (`beliebig` alone,
+`klein · groß` for two), because calling the only band "klein" is a lie.
+Boundaries are also restricted to numbers a player can read off a chip —
+measured cost of that restriction: under a point of operator coverage.
+
+Two consequences worth knowing before touching any of this:
+**`uniqueOnlyAvailable` is band-aware**, because a selection can have
+unique-solution puzzles and a band of it have none (`3 Zahlen, +÷` has 74
+and not one in groß, which made `nextPuzzle` exhaust its attempts and throw
+— the same blank screen `reconcile` already guarded, one level in). And
+**concept 15.11's exception lists are now a map**, generated for every
+selection whose uniqueOnly pool is thin enough to ship; `4 Zahlen, nur ÷`
+lost its list entirely, because every unique-solution ÷ puzzle at four
+numbers reaches its target through a fraction.
+
+Measured after, on `3 Zahlen, alle vier` — the documented default (17.1),
+and where the complaint actually lives, not the four-number case: the most
+common shape falls from 62% to 8–12%, distinct shapes rise from 5 to 9–14,
+brackets from 13% to 23–39%, ÷ from 6% to 22–62%. On `4 Zahlen, alle vier,
+groß`: 91% → 7%, 3 → 25 distinct shapes. No repeats, in either.
+
+**The four scripts this round produced are the reason any of it is
+checkable**, and all of them import `solver.ts` rather than keeping a copy
+of the model — which is what `generateBandTable.mjs` and
+`dumpUniqueExceptions.mjs` did, and why they are gone:
+
+| Script | What it answers |
+|---|---|
+| `scripts/checkVariety.ts` | What the draw actually produces, per selection and band, against the exhaustive pool — plus four counterfactual draw policies, so a fix can be measured before it is built |
+| `scripts/checkBands.ts` | How many bands a selection can carry without starving an operator, and where the boundaries go |
+| `scripts/checkFloorAndIdentity.ts` | Whether the operator floor starves a band, and how often puzzles waste a chip or leave the whole numbers |
+| `scripts/generateBandTable.ts` | Emits `BAND_TABLE` and `UNIQUE_EXCEPTIONS` — regenerate and paste after any model change |
+
+`scripts/varietyModel.ts` holds what the measurement scripts share. Its
+self-test cross-checks its own `minDistinctOps` against `reachable()`, which
+is what caught it drifting the moment the solver started ignoring fractional
+routes — worth keeping, and worth copying if a fifth script appears.
 
 **A bug-fix round after step 5 (PO play-testing plus a scripted browser
 pass) changed four things about how the game feels, and each of them is
