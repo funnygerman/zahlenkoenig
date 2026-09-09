@@ -43,7 +43,14 @@ import {
   ALL_OPS, GLYPH, maskOfPattern, multisets, opSubsets, renderSolution, selfTestModel, shapesOf, type Shape,
 } from './varietyModel.ts'
 
-const BAND_NAME = ['klein', 'mittel', 'gross']
+// Named by how many bands the selection has, the same way Header.tsx does:
+// a selection can carry one, two or three (puzzles.ts's BandRow).
+const BAND_NAMES: Record<number, string[]> = {
+  1: ['beliebig'],
+  2: ['klein', 'gross'],
+  3: ['klein', 'mittel', 'gross'],
+}
+const bandName = (band: number, count: number) => (BAND_NAMES[count] ?? BAND_NAMES[3])[band]
 
 // --------------------------------------------------------------- tallies
 
@@ -101,12 +108,21 @@ function opLine(counts: number[], n: number): string {
 
 // ------------------------------------------------------------- the passes
 
-/** Exhaustive: every (multiset, target) pair whose target lands in this band. */
+/**
+ * Exhaustive: every (multiset, target) pair whose target lands in this band
+ * *and* which the generator would consider at all.
+ *
+ * The whole-number rule is part of that now. Counting targets reachable only
+ * through a fraction would compare the draw against puzzles the game will
+ * never offer — and in the ÷-without-× selections that is most of the band,
+ * so the baseline would be wrong exactly where it matters.
+ */
 function poolTally(numbers: 2 | 3 | 4, ops: Operator[], lo: number, hi: number): Tally {
   const t = emptyTally()
   for (const nums of multisets(numbers)) {
     for (const [target, shape] of shapesOf(nums, ops)) {
       if (target < lo || target > hi) continue
+      if (!shape.anyWhole) continue
       record(t, shape)
     }
   }
@@ -367,14 +383,16 @@ for (const numbers of counts) {
     const ranges = bandRanges(numbers, ops)
     for (const uniqueOnly of wantUnique ? [false, true] : [false]) {
       if (uniqueOnly && !uniqueOnlyAvailable(numbers, ops)) continue
-      for (let band = 0 as 0 | 1 | 2; band <= 2; band = (band + 1) as 0 | 1 | 2) {
+      // As many bands as this selection actually has — assuming three is
+      // exactly the bug the band work fixed in the app.
+      for (let band = 0 as 0 | 1 | 2; band < ranges.length; band = (band + 1) as 0 | 1 | 2) {
         const [lo, hi] = ranges[band]
         const settings: PuzzleSettings = { numbers, ops, band, uniqueOnly }
         const sampleOut: string[] = []
         const dt = drawTally(settings, draws, policy, lo, hi, sampleCount > 0 ? sampleOut : undefined)
         const pt = wantPool && !uniqueOnly ? poolTally(numbers, ops, lo, hi) : null
 
-        const header = `${numbers} Zahlen  ${ops.map(o => GLYPH[o]).join('')}  ${BAND_NAME[band].padEnd(6)} [${lo},${hi}]${uniqueOnly ? '  uniqueOnly' : ''}`
+        const header = `${numbers} Zahlen  ${ops.map(o => GLYPH[o]).join('')}  ${bandName(band, ranges.length).padEnd(8)} [${lo},${hi}]${uniqueOnly ? '  uniqueOnly' : ''}`
         console.log('')
         console.log(header)
         console.log(`  draw n=${String(dt.count).padStart(5)}  rep ${opLine(dt.repOps, dt.count)}  []${String(pct(dt.blockRequired, dt.count)).padStart(4)}%  patterns ${String(dt.patterns.size).padStart(3)}  top ${String(summarize(dt).topShare).padStart(3)}%  H ${entropy(dt.patterns, dt.count).toFixed(2)}  repeat ${String(pct(dt.repeats, dt.count)).padStart(3)}%`)
