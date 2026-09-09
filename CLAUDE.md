@@ -16,6 +16,7 @@ both are worth reading before proposing anything:
 |---|---|
 | `spec/zahlenkoenig-v2-konzept.md` | **What** v2 is. Data model, block interaction, layout, design system, implementation order. |
 | `spec/zahlenkoenig-v2-entscheidungen.md` | **Why**, and **what was already rejected**. Read this before suggesting an approach — a lot of plausible ideas have been considered and turned down for stated reasons. |
+| `spec/generator-audit.html` | **Vorher/Nachher for the generation round below.** Open it in a browser: all 33 selectable settings combinations, measured before and after, with the puzzles each one draws today. Self-contained, no build step. |
 | `spec/entwurf.html` | The clickable draft. Open it in a browser: a playable board with the selection panel, plus the studies that settled bracket shape, block contrast and the block icon. It also measures the worst-case width live. |
 
 Entries marked **PO** in the decisions document were chosen by the product owner

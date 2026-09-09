@@ -1,0 +1,610 @@
+<title>Zahlenkönig Generator Audit</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Serif:wght@500;600&display=swap">
+<style>
+:root{
+  --hue:214;
+  --bg:hsl(var(--hue) 24% 97%);
+  --surface:#fff;
+  --surface-2:hsl(var(--hue) 26% 95.5%);
+  --line:hsl(var(--hue) 20% 87%);
+  --line-soft:hsl(var(--hue) 20% 92%);
+  --ink:hsl(var(--hue) 32% 15%);
+  --ink-2:hsl(var(--hue) 20% 32%);
+  --muted:hsl(var(--hue) 12% 46%);
+  --accent:hsl(var(--hue) 62% 42%);
+  --accent-soft:hsl(var(--hue) 62% 42% / .16);
+  --alarm:#A82330;
+  --alarm-soft:#A8233016;
+  --op-add:#2F6FB5;
+  --op-sub:#C2721A;
+  --op-mul:#0E9B74;
+  --op-div:#8E5AA8;
+  --track:hsl(var(--hue) 18% 90%);
+  --tick:hsl(var(--hue) 30% 30%);
+  --shadow:0 1px 2px hsl(var(--hue) 30% 20% / .06), 0 4px 14px hsl(var(--hue) 30% 20% / .05);
+  --measure:64ch;
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --bg:hsl(var(--hue) 26% 10%);
+    --surface:hsl(var(--hue) 20% 13.5%);
+    --surface-2:hsl(var(--hue) 18% 17%);
+    --line:hsl(var(--hue) 14% 25%);
+    --line-soft:hsl(var(--hue) 14% 20%);
+    --ink:hsl(var(--hue) 16% 92%);
+    --ink-2:hsl(var(--hue) 12% 76%);
+    --muted:hsl(var(--hue) 10% 58%);
+    --accent:hsl(var(--hue) 66% 64%);
+    --accent-soft:hsl(var(--hue) 66% 64% / .2);
+    --alarm:#E8767C;
+    --alarm-soft:#E8767C1f;
+    --op-add:#4C8FD6;
+    --op-sub:#C9821F;
+    --op-mul:#0DA87D;
+    --op-div:#A970C4;
+    --track:hsl(var(--hue) 14% 22%);
+    --tick:hsl(var(--hue) 14% 72%);
+    --shadow:0 1px 2px #0006, 0 4px 14px #0004;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:hsl(var(--hue) 26% 10%);
+  --surface:hsl(var(--hue) 20% 13.5%);
+  --surface-2:hsl(var(--hue) 18% 17%);
+  --line:hsl(var(--hue) 14% 25%);
+  --line-soft:hsl(var(--hue) 14% 20%);
+  --ink:hsl(var(--hue) 16% 92%);
+  --ink-2:hsl(var(--hue) 12% 76%);
+  --muted:hsl(var(--hue) 10% 58%);
+  --accent:hsl(var(--hue) 66% 64%);
+  --accent-soft:hsl(var(--hue) 66% 64% / .2);
+  --alarm:#E8767C;
+  --alarm-soft:#E8767C1f;
+  --op-add:#4C8FD6;
+  --op-sub:#C9821F;
+  --op-mul:#0DA87D;
+  --op-div:#A970C4;
+  --track:hsl(var(--hue) 14% 22%);
+  --tick:hsl(var(--hue) 14% 72%);
+  --shadow:0 1px 2px #0006, 0 4px 14px #0004;
+}
+
+body{
+  background:var(--bg);
+  color:var(--ink);
+  font-family:"IBM Plex Sans",system-ui,sans-serif;
+  font-size:15px;
+  line-height:1.62;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1200px;margin:0 auto;padding:0 24px 96px;}
+.col{max-width:var(--measure);}
+h1,h2,h3{font-family:"IBM Plex Serif",Georgia,serif;text-wrap:balance;line-height:1.18;}
+h1{font-size:clamp(30px,4.4vw,46px);font-weight:600;letter-spacing:-.015em;margin:0;}
+h2{font-size:25px;font-weight:600;margin:0;letter-spacing:-.01em;}
+h3{font-size:17px;font-weight:600;margin:0;}
+p{margin:0;}
+a{color:var(--accent);}
+code,.mono{font-family:"IBM Plex Mono",ui-monospace,monospace;font-variant-numeric:tabular-nums;}
+.eyebrow{
+  font-size:11.5px;font-weight:600;letter-spacing:.11em;text-transform:uppercase;
+  color:var(--muted);font-family:"IBM Plex Sans",sans-serif;
+}
+.lede{font-size:18px;line-height:1.6;color:var(--ink-2);}
+.small{font-size:13.5px;color:var(--muted);line-height:1.55;}
+
+/* ---- header ---- */
+header.top{padding:60px 0 40px;display:flex;flex-direction:column;gap:20px;}
+.rule{height:1px;background:var(--line);border:0;margin:0;}
+.metaline{
+  display:flex;flex-wrap:wrap;gap:8px 22px;font-size:12.5px;color:var(--muted);
+  font-family:"IBM Plex Mono",monospace;padding-top:4px;
+}
+.metaline b{color:var(--ink-2);font-weight:500;}
+
+section{padding:52px 0 0;display:flex;flex-direction:column;gap:26px;}
+.sechead{display:flex;flex-direction:column;gap:9px;}
+
+/* ---- findings ---- */
+.findings{display:grid;grid-template-columns:repeat(auto-fit,minmax(330px,1fr));gap:20px;}
+.finding{
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;
+  padding:22px 22px 20px;display:flex;flex-direction:column;gap:14px;box-shadow:var(--shadow);
+}
+.finding .tag{
+  display:inline-flex;align-items:center;gap:7px;font-size:11.5px;font-weight:600;
+  letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+}
+.finding .tag::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--accent);}
+.finding.blame-band .tag::before{background:var(--op-sub);}
+.finding p{font-size:14.5px;color:var(--ink-2);}
+
+/* figure: paired bars */
+.pairfig{display:flex;flex-direction:column;gap:9px;margin-top:2px;}
+.pairrow{display:grid;grid-template-columns:118px 1fr 46px;align-items:center;gap:12px;font-size:12.5px;}
+.pairrow .lab{color:var(--muted);font-size:12px;}
+.pairrow .val{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;text-align:right;color:var(--ink-2);
+  font-variant-numeric:tabular-nums;
+}
+.track{position:relative;height:9px;border-radius:4px;background:var(--track);overflow:hidden;}
+.track>i{display:block;height:100%;border-radius:4px;background:var(--accent);}
+.track.is-alarm>i{background:var(--alarm);}
+
+/* ---- controls ---- */
+.controls{
+  display:flex;flex-wrap:wrap;gap:10px 26px;align-items:flex-end;
+  padding:16px 18px;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;
+}
+.ctl{display:flex;flex-direction:column;gap:6px;}
+.ctl>span{font-size:11px;font-weight:600;letter-spacing:.09em;text-transform:uppercase;color:var(--muted);}
+.seg{display:flex;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:2px;gap:2px;}
+.seg button{
+  font:inherit;font-size:13px;font-weight:500;color:var(--ink-2);background:none;border:0;
+  padding:5px 11px;border-radius:5px;cursor:pointer;line-height:1.3;
+}
+.seg button:hover{background:var(--accent-soft);}
+.seg button[aria-pressed="true"]{background:var(--accent);color:#fff;}
+:root[data-theme="dark"] .seg button[aria-pressed="true"],
+:root:not([data-theme="light"]) .seg button[aria-pressed="true"]{color:hsl(var(--hue) 30% 10%);}
+@media (prefers-color-scheme:light){:root:not([data-theme="dark"]) .seg button[aria-pressed="true"]{color:#fff;}}
+button:focus-visible,tr:focus-visible{outline:2px solid var(--accent);outline-offset:2px;}
+
+/* ---- legend ---- */
+.legend{display:flex;flex-wrap:wrap;gap:8px 20px;align-items:center;font-size:12.5px;color:var(--muted);}
+.legend .k{display:inline-flex;align-items:center;gap:6px;}
+.swatch{width:16px;height:9px;border-radius:3px;display:inline-block;}
+.legend .ticklab{position:relative;width:22px;height:9px;border-radius:3px;background:var(--track);display:inline-block;}
+.legend .ticklab::after{content:"";position:absolute;left:13px;top:-2px;bottom:-2px;width:2px;background:var(--tick);border-radius:1px;}
+
+/* ---- matrix ---- */
+.tablewrap{overflow-x:auto;border:1px solid var(--line);border-radius:10px;background:var(--surface);box-shadow:var(--shadow);}
+table{border-collapse:collapse;width:100%;min-width:940px;}
+thead th{
+  position:sticky;top:0;z-index:2;background:var(--surface);
+  font-size:10.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);
+  text-align:left;padding:11px 10px 9px;border-bottom:1px solid var(--line);white-space:nowrap;
+}
+thead th.num{text-align:right;}
+tbody tr.data{border-bottom:1px solid var(--line-soft);cursor:pointer;}
+tbody tr.data:last-child{border-bottom:0;}
+tbody tr.data:hover{background:var(--accent-soft);}
+tbody tr.data.open{background:var(--accent-soft);}
+td{padding:7px 10px;vertical-align:middle;}
+td.num{text-align:right;font-family:"IBM Plex Mono",monospace;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--ink-2);}
+.sel{display:flex;align-items:baseline;gap:8px;white-space:nowrap;}
+.sel .n{font-family:"IBM Plex Mono",monospace;font-weight:600;font-size:13.5px;}
+.sel .ops{font-family:"IBM Plex Mono",monospace;font-size:14px;letter-spacing:.06em;}
+.sel .ops .o0{color:var(--op-add);} .sel .ops .o1{color:var(--op-sub);}
+.sel .ops .o2{color:var(--op-mul);} .sel .ops .o3{color:var(--op-div);}
+.bandcell{white-space:nowrap;font-size:12.5px;color:var(--ink-2);}
+.bandcell .rg{font-family:"IBM Plex Mono",monospace;font-size:11.5px;color:var(--muted);margin-left:6px;}
+.opcell{width:58px;}
+.opbar{position:relative;height:9px;border-radius:4px;background:var(--track);overflow:visible;}
+.opbar>i{display:block;height:100%;border-radius:4px;}
+.opbar>u{position:absolute;top:-2.5px;bottom:-2.5px;width:2px;background:var(--tick);border-radius:1px;transform:translateX(-1px);}
+.opbar.off{background:none;}
+.opbar.off::after{content:"–";position:absolute;left:0;top:-9px;color:var(--muted);font-size:12px;}
+.shape{display:flex;align-items:center;gap:9px;min-width:210px;}
+.shape .nm{font-family:"IBM Plex Mono",monospace;font-size:12px;color:var(--ink-2);white-space:nowrap;width:92px;overflow:hidden;text-overflow:ellipsis;}
+.shape .track{flex:1;min-width:66px;}
+.flag{
+  display:inline-block;font-size:10.5px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;
+  padding:2px 6px;border-radius:4px;background:var(--alarm-soft);color:var(--alarm);white-space:nowrap;
+}
+/* ---- expanded samples ---- */
+tr.detail td{padding:0;background:var(--surface-2);}
+.detail-inner{padding:18px 14px 20px;display:flex;flex-direction:column;gap:14px;}
+.samplegrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:14px;}
+.samplecol{display:flex;flex-direction:column;gap:5px;}
+.samplecol h4{
+  margin:0 0 3px;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--muted);font-family:"IBM Plex Sans",sans-serif;
+}
+.samplecol h4 em{font-style:normal;color:var(--ink-2);}
+.samplecol ol{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:2px;}
+.samplecol li{
+  font-family:"IBM Plex Mono",monospace;font-size:12.5px;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+}
+.detail-note{font-size:12.5px;color:var(--muted);max-width:78ch;}
+
+/* ---- bands table ---- */
+.bandtable td.num{font-size:12.5px;}
+.rec{display:inline-flex;align-items:center;gap:6px;font-family:"IBM Plex Mono",monospace;font-size:12.5px;}
+.dots{display:inline-flex;gap:2px;}
+.dots i{width:7px;height:7px;border-radius:2px;background:var(--track);display:block;}
+.dots i.on{background:var(--accent);}
+
+/* ---- before/after pairs ---- */
+.delta{display:flex;flex-direction:column;gap:3px;min-width:118px;}
+.pairnums{font-family:"IBM Plex Mono",monospace;font-size:11.5px;white-space:nowrap;color:var(--ink);font-variant-numeric:tabular-nums;}
+.pairnums .was{color:var(--muted);}
+.pairnums .arrow{color:var(--muted);padding:0 3px;}
+.dbar{position:relative;height:5px;border-radius:3px;background:var(--track);overflow:hidden;}
+.dbar>i{display:block;height:100%;border-radius:3px;}
+.dbar.was>i{background:var(--alarm);opacity:.8;}
+.dbar.now>i{background:var(--accent);}
+.rangecell{font-family:"IBM Plex Mono",monospace;font-size:11.5px;white-space:nowrap;color:var(--ink-2);}
+.rangecell .was{color:var(--muted);}
+.built{display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:18px;}
+.built article{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px;display:flex;flex-direction:column;gap:11px;}
+.built h3{font-size:16px;}
+.built p{font-size:13.5px;color:var(--ink-2);}
+.built .num{font-family:"IBM Plex Mono",monospace;font-size:26px;font-weight:600;color:var(--accent);letter-spacing:-.02em;}
+.built .num s{text-decoration:none;color:var(--alarm);font-size:19px;}
+.built .num .arrow{color:var(--muted);font-size:17px;padding:0 6px;}
+
+/* ---- decisions ---- */
+.decisions{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px;}
+.decision{
+  background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:20px 20px 18px;
+  display:flex;flex-direction:column;gap:12px;
+}
+.decision ul{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px;}
+.decision li{display:flex;flex-direction:column;gap:3px;font-size:13.5px;color:var(--ink-2);}
+.decision li b{color:var(--ink);font-weight:600;font-size:14px;}
+.decision li.pick b::after{
+  content:"empfohlen";margin-left:8px;font-size:10px;letter-spacing:.08em;text-transform:uppercase;
+  color:var(--accent);font-weight:600;
+}
+footer{padding:56px 0 0;font-size:12.5px;color:var(--muted);display:flex;flex-direction:column;gap:6px;}
+@media (prefers-reduced-motion:no-preference){
+  tbody tr.data,.seg button{transition:background-color .13s ease;}
+}
+</style>
+<div class="wrap">
+
+<header class="top">
+  <p class="eyebrow">Vorher / Nachher · 33 Auswahlen · 200 Züge je Zelle</p>
+  <h1>Why the same puzzle kept coming back</h1>
+  <p class="lede col">Two complaints — “very many puzzles with the same patterns”, and “−, ÷ and [] are used very seldom” — turned out to be two unrelated faults, one in the draw and one in the target band. Both are fixed. This is what was measured, what was decided, and what changed.</p>
+  <hr class="rule">
+  <div class="metaline">
+    <span><b>Method</b> nextPuzzle’s real output, before and after</span>
+    <span><b>Scripts</b> checkVariety · checkBands · checkFloorAndIdentity</span>
+    <span><b>Umfang</b> nur wählbare Auswahlen — mindestens zwei Rechenzeichen</span>
+  </div>
+</header>
+
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">The headline</p>
+    <h2>What changed</h2>
+    <p class="small">Two cells matter most: <span class="mono">3 Zahlen, alle vier</span> is the documented default selection and where the complaint actually lived, and <span class="mono">4 Zahlen, alle vier, groß</span> was the worst case in the whole search space.</p>
+  </div>
+  <div class="built" id="headline"></div>
+</section>
+
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">The diagnosis</p>
+    <h2>Same symptom, opposite causes</h2>
+    <p class="small">Every figure was measured twice: over 200 real draws, and exhaustively over every <span class="mono">(numbers, target)</span> pair the band admits. Where the draw matched the pool, the band was at fault. Where the draw was far narrower, the draw was throwing variety away.</p>
+  </div>
+  <div class="findings">
+    <article class="finding">
+      <span class="tag">Fault 1 · the draw</span>
+      <h3>At 3 and 4 numbers, variety existed and was discarded</h3>
+      <p><span class="mono">reachable()</span> returns every target the drawn numbers can hit, and <span class="mono">nextPuzzle</span> kept the <em>first</em> one at the best rank — a strict <span class="mono">&gt;</span> against a running best, so ties fell to enumeration order. That order is fixed: flat arrangements before bracketed ones, operator tuples in <span class="mono">+ − × ÷</span>. <b>Brackets lost every tie by construction.</b></p>
+      <p class="small">Fixed twice over: the draw collects the tied candidates and picks at random, and <span class="mono">history.ts</span> now keeps a second window of recently-seen <em>shapes</em> so the draw can prefer one it has not just shown.</p>
+    </article>
+    <article class="finding blame-band">
+      <span class="tag">Fault 2 · the band</span>
+      <h3>At 2 numbers, the band had already chosen the operator</h3>
+      <p>With two single digits <span class="mono">a − b ≤ 8</span> and <span class="mono">a ÷ b ≤ 9</span>, while the <em>großes Ziel</em> band began at 12. The band started above everything − and ÷ can reach, so the pool itself held none — the draw was reporting an empty shelf faithfully, and no draw fix could have touched it.</p>
+      <p class="small">Fixed by giving those selections one band instead of three. Searching every legal boundary placement confirmed no three-way split works.</p>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">Decided by the product owner</p>
+    <h2>Three changes</h2>
+  </div>
+  <div class="built">
+    <article>
+      <h3>A floor, not a ceiling</h3>
+      <p>The old preference demanded as many distinct operators as a draw could offer — added so four operators would not feel like one, and the single biggest cause of the monotony: three distinct operators from four numbers admits <b>3 of the 25 shapes</b> the pool holds.</p>
+      <p>It asks for <em>two</em> now. Carved out where two is impossible: two numbers have one operator position, and <span class="mono">{+,−}</span> always keeps a whole-number one-operator route through <span class="mono">a−(b−c) = a−b+c</span>.</p>
+      <p class="small"><span class="mono">{×,÷}</span> is <em>not</em> carved out, and that is a change of fact rather than policy — its identity <span class="mono">a÷(b÷c) = a·c÷b</span> runs through a fraction, so once fractional routes stopped counting, 14 % of three-number and 48 % of four-number <span class="mono">×÷</span> puzzles genuinely need both.</p>
+    </article>
+    <article>
+      <h3>Whole numbers, or no puzzle</h3>
+      <p>The evaluator only ever checked the <em>final</em> result, which made this a legal puzzle:</p>
+      <p class="mono" style="font-size:17px;">9 ÷ (1 ÷ 9 ÷ 9) = 729</p>
+      <p>The bracket is <span class="mono">1⁄81</span>, and dividing by it multiplies. Where ÷ is selected without ×, that is the only route to a large target — so it was <b>79 % of <span class="mono">4 Zahlen, +÷, groß</span></b>, not an edge case. Refused outright now, on the decision that this is a correctness question for a first-grade audience rather than a taste one.</p>
+      <p class="small">Two numbers was 0 % everywhere, so the youngest players were never exposed. The weaker cousin — a chip that changes nothing, <span class="mono">× 1</span> or <span class="mono">6 ÷ 6</span> — stayed a preference, and measures 0–3 % of draws.</p>
+    </article>
+    <article>
+      <h3>One to three bands</h3>
+      <p>A band is a slice of target magnitude, and magnitude is a proxy for operator. Rather than always three, a selection now carries as many as keep every selected operator available, on boundaries a player can read off a chip.</p>
+      <p><b>28 of the 33 reachable selections keep three.</b> Three get two; <span class="mono">2 Zahlen</span> with three or four operators gets one, labelled <span class="mono">beliebig</span> rather than a “klein” that covers the whole range.</p>
+      <p class="small">Regenerating the table over the whole-number pool also emptied bands that were entirely fractional, so they had to be re-derived rather than re-filtered.</p>
+    </article>
+  </div>
+</section>
+
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">All 33 selections</p>
+    <h2>Before and after, cell by cell</h2>
+    <p class="small">One row per selection and band. The upper, red bar is what the generator produced before; the lower, blue bar is what it produces now. The target ranges moved too, so both are shown — a band that changed is part of the fix, not noise around it. Click a row for the puzzles it draws today.</p>
+  </div>
+
+  <div class="controls">
+    <label class="ctl"><span>Zahlen</span><div class="seg" id="seg-n" role="group" aria-label="Number count"></div></label>
+    <label class="ctl"><span>Sort</span><div class="seg" id="seg-sort" role="group" aria-label="Sort order"></div></label>
+  </div>
+
+  <div class="legend">
+    <span class="k"><span class="swatch" style="background:var(--alarm);opacity:.8"></span> before</span>
+    <span class="k"><span class="swatch" style="background:var(--accent)"></span> after</span>
+    <span class="k">“top shape” is the share of draws landing on the single most common shape — lower is more varied</span>
+  </div>
+
+  <div class="tablewrap">
+    <table id="matrix">
+      <thead><tr>
+        <th>Auswahl</th><th>Band</th><th>Ziel</th>
+        <th>Top shape</th><th class="num">Shapes</th><th>Brackets</th><th>÷ in solution</th>
+      </tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+  </div>
+  <p class="small col" id="matrix-note"></p>
+</section>
+
+<section>
+  <div class="sechead col">
+    <p class="eyebrow">Fault 2, in full</p>
+    <h2>The band table, then and now</h2>
+    <p class="small">Boundaries are round numbers now, the overlap bug is gone — the old generator sliced the sorted target list by index, so a value sitting on a tertile boundary landed in <em>both</em> neighbouring bands — and five selections carry fewer than three.</p>
+  </div>
+  <div class="tablewrap">
+    <table class="bandtable"><thead><tr>
+      <th>Auswahl</th><th>Bands</th><th>Vorher</th><th>Nachher</th>
+    </tr></thead><tbody id="bandrows"></tbody></table>
+  </div>
+</section>
+
+<footer>
+  <hr class="rule">
+  <p>Measured against <span class="mono">src/core/puzzles.ts</span> and <span class="mono">src/core/solver.ts</span> on branch <span class="mono">claude/puzzle-generation-patterns-glclor</span>. Every script imports the shipped depth-1 model rather than re-deriving it, and runs known-good / known-bad self-checks before reporting.</p>
+  <p>200 draws per cell for the draw figures; pool figures are exhaustive over all digit multisets 1–9, restricted to targets the generator will offer.</p>
+</footer>
+</div>
+
+<script id="report-data" type="application/json">{"rows":[{"n":2,"ops":"+−","band":0,"rangeBefore":[1,4],"rangeAfter":[1,3],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[13,87,0,0],"block":0,"patterns":2,"top":87,"h":0.56,"shapes":[["n−n",87],["n+n",13]]},"after":{"repOps":[9,91,0,0],"block":0,"patterns":2,"top":91,"h":0.44,"shapes":[["n−n",91],["n+n",9]]},"pool":{"count":23,"repOps":[9,91,0,0],"block":0,"patterns":2,"top":91,"h":0.43,"shapes":[["n−n",91],["n+n",9]]},"samples":["4 − 2 = 2","7 − 4 = 3","5 − 3 = 2","4 − 1 = 3","2 − 1 = 1","6 − 3 = 3","9 − 8 = 1","3 − 1 = 2"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":30,"cleanPct":100}},{"n":2,"ops":"+−","band":1,"rangeBefore":[4,9],"rangeAfter":[4,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[55,46,0,0],"block":0,"patterns":2,"top":55,"h":0.99,"shapes":[["n+n",55],["n−n",46]]},"after":{"repOps":[38,63,0,0],"block":0,"patterns":2,"top":63,"h":0.95,"shapes":[["n−n",63],["n+n",38]]},"pool":{"count":19,"repOps":[37,63,0,0],"block":0,"patterns":2,"top":63,"h":0.95,"shapes":[["n−n",63],["n+n",37]]},"samples":["7 − 2 = 5","3 + 1 = 4","8 − 2 = 6","2 + 4 = 6","6 − 1 = 5","1 + 4 = 5","8 − 3 = 5","2 + 3 = 5"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":33,"cleanPct":100}},{"n":2,"ops":"+−","band":2,"rangeBefore":[9,18],"rangeAfter":[7,18],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,0],"block":0,"patterns":1,"top":100,"h":0,"shapes":[["n+n",100]]},"after":{"repOps":[90,11,0,0],"block":0,"patterns":2,"top":90,"h":0.48,"shapes":[["n+n",90],["n−n",11]]},"pool":{"count":39,"repOps":[92,8,0,0],"block":0,"patterns":2,"top":92,"h":0.39,"shapes":[["n+n",92],["n−n",8]]},"samples":["2 + 8 = 10","3 + 6 = 9","7 + 5 = 12","7 + 1 = 8","9 + 4 = 13","8 + 5 = 13","6 + 7 = 13","5 + 9 = 14"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":29,"cleanPct":100}},{"n":2,"ops":"+×","band":0,"rangeBefore":[1,9],"rangeAfter":[1,8],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[64,0,37,0],"block":0,"patterns":2,"top":64,"h":0.95,"shapes":[["n+n",64],["n×n",37]]},"after":{"repOps":[61,0,40,0],"block":0,"patterns":2,"top":61,"h":0.97,"shapes":[["n+n",61],["n×n",40]]},"pool":{"count":26,"repOps":[62,0,38,0],"block":0,"patterns":2,"top":62,"h":0.96,"shapes":[["n+n",62],["n×n",38]]},"samples":["4 + 3 = 7","8 × 1 = 8","6 + 1 = 7","5 × 1 = 5","3 + 3 = 6","1 × 7 = 7","2 + 4 = 6","3 × 1 = 3"],"quality":{"floor2":0,"chipAll":3,"chipLikely":3,"fracAll":0,"fracLikely":0,"cleanCount":31,"cleanPct":97}},{"n":2,"ops":"+×","band":1,"rangeBefore":[9,16],"rangeAfter":[9,15],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[76,0,24,0],"block":0,"patterns":2,"top":76,"h":0.8,"shapes":[["n+n",76],["n×n",24]]},"after":{"repOps":[76,0,24,0],"block":0,"patterns":2,"top":76,"h":0.8,"shapes":[["n+n",76],["n×n",24]]},"pool":{"count":32,"repOps":[78,0,22,0],"block":0,"patterns":2,"top":78,"h":0.76,"shapes":[["n+n",78],["n×n",22]]},"samples":["2 + 7 = 9","3 × 4 = 12","8 + 2 = 10","2 × 7 = 14","8 + 7 = 15","6 + 3 = 9","3 × 3 = 9","3 + 9 = 12"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":36,"cleanPct":100}},{"n":2,"ops":"+×","band":2,"rangeBefore":[16,81],"rangeAfter":[16,81],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[13,0,88,0],"block":0,"patterns":2,"top":88,"h":0.54,"shapes":[["n×n",88],["n+n",13]]},"after":{"repOps":[14,0,86,0],"block":0,"patterns":2,"top":86,"h":0.58,"shapes":[["n×n",86],["n+n",14]]},"pool":{"count":31,"repOps":[13,0,87,0],"block":0,"patterns":2,"top":87,"h":0.55,"shapes":[["n×n",87],["n+n",13]]},"samples":["9 × 9 = 81","8 + 8 = 16","9 × 3 = 27","5 × 8 = 40","7 × 5 = 35","8 × 4 = 32","2 × 8 = 16","4 × 6 = 24"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":31,"cleanPct":100}},{"n":2,"ops":"−×","band":0,"rangeBefore":[1,4],"rangeAfter":[1,2],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,84,16,0],"block":0,"patterns":2,"top":84,"h":0.63,"shapes":[["n−n",84],["n×n",16]]},"after":{"repOps":[0,88,12,0],"block":0,"patterns":2,"top":88,"h":0.53,"shapes":[["n−n",88],["n×n",12]]},"pool":{"count":17,"repOps":[0,88,12,0],"block":0,"patterns":2,"top":88,"h":0.52,"shapes":[["n−n",88],["n×n",12]]},"samples":["6 − 4 = 2","3 − 1 = 2","9 − 7 = 2","4 − 3 = 1","9 − 8 = 1","4 − 2 = 2","3 − 2 = 1","2 − 1 = 1"],"quality":{"floor2":0,"chipAll":3,"chipLikely":3,"fracAll":0,"fracLikely":0,"cleanCount":30,"cleanPct":97}},{"n":2,"ops":"−×","band":1,"rangeBefore":[4,15],"rangeAfter":[3,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,51,49,0],"block":0,"patterns":2,"top":51,"h":1,"shapes":[["n−n",51],["n×n",49]]},"after":{"repOps":[0,74,26,0],"block":0,"patterns":2,"top":74,"h":0.83,"shapes":[["n−n",74],["n×n",26]]},"pool":{"count":24,"repOps":[0,75,25,0],"block":0,"patterns":2,"top":75,"h":0.81,"shapes":[["n−n",75],["n×n",25]]},"samples":["7 − 4 = 3","3 × 2 = 6","8 − 5 = 3","2 × 2 = 4","6 − 2 = 4","1 × 4 = 4","4 − 1 = 3","6 × 1 = 6"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":30,"cleanPct":100}},{"n":2,"ops":"−×","band":2,"rangeBefore":[16,81],"rangeAfter":[7,81],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,0],"block":0,"patterns":1,"top":100,"h":0,"shapes":[["n×n",100]]},"after":{"repOps":[0,11,90,0],"block":0,"patterns":2,"top":90,"h":0.48,"shapes":[["n×n",90],["n−n",11]]},"pool":{"count":40,"repOps":[0,8,93,0],"block":0,"patterns":2,"top":93,"h":0.38,"shapes":[["n×n",93],["n−n",8]]},"samples":["8 × 7 = 56","7 × 6 = 42","8 × 8 = 64","5 × 6 = 30","9 × 9 = 81","5 × 4 = 20","4 × 2 = 8","6 × 8 = 48"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":27,"cleanPct":100}},{"n":2,"ops":"+−×","band":0,"rangeBefore":[1,5],"rangeAfter":[1,2],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[16,75,10,0],"block":0,"patterns":3,"top":75,"h":1.07,"shapes":[["n−n",75],["n+n",16],["n×n",10]]},"after":{"repOps":[6,83,11,0],"block":0,"patterns":3,"top":83,"h":0.82,"shapes":[["n−n",83],["n×n",11],["n+n",6]]},"pool":{"count":18,"repOps":[6,83,11,0],"block":0,"patterns":3,"top":83,"h":0.8,"shapes":[["n−n",83],["n×n",11],["n+n",6]]},"samples":["5 − 3 = 2","8 − 7 = 1","4 − 2 = 2","6 − 4 = 2","8 − 6 = 2","9 − 7 = 2","7 − 6 = 1","1 + 1 = 2"],"quality":{"floor2":0,"chipAll":2,"chipLikely":2,"fracAll":0,"fracLikely":0,"cleanCount":40,"cleanPct":98}},{"n":2,"ops":"+−×","band":1,"rangeBefore":[6,12],"rangeAfter":[3,5],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[65,13,23,0],"block":0,"patterns":3,"top":65,"h":1.27,"shapes":[["n+n",65],["n×n",23],["n−n",13]]},"after":{"repOps":[23,64,14,0],"block":0,"patterns":3,"top":64,"h":1.29,"shapes":[["n−n",64],["n+n",23],["n×n",14]]},"pool":{"count":23,"repOps":[22,65,13,0],"block":0,"patterns":3,"top":65,"h":1.26,"shapes":[["n−n",65],["n+n",22],["n×n",13]]},"samples":["5 × 1 = 5","1 + 2 = 3","7 − 2 = 5","4 + 1 = 5","7 − 3 = 4","6 − 2 = 4","7 − 4 = 3","9 − 6 = 3"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":43,"cleanPct":100}},{"n":2,"ops":"+−×","band":2,"rangeBefore":[12,81],"rangeAfter":[6,81],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[36,0,65,0],"block":0,"patterns":2,"top":65,"h":0.94,"shapes":[["n×n",65],["n+n",36]]},"after":{"repOps":[40,20,40,0],"block":0,"patterns":3,"top":40,"h":1.52,"shapes":[["n×n",40],["n+n",40],["n−n",20]]},"pool":{"count":84,"repOps":[46,7,46,0],"block":0,"patterns":3,"top":46,"h":1.3,"shapes":[["n+n",46],["n×n",46],["n−n",7]]},"samples":["7 × 6 = 42","6 + 9 = 15","7 − 1 = 6","6 × 8 = 48","5 + 6 = 11","9 − 1 = 8","3 × 9 = 27","6 + 7 = 13"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":47,"cleanPct":100}},{"n":2,"ops":"+÷","band":0,"rangeBefore":[1,4],"rangeAfter":[1,2],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[18,0,0,82],"block":0,"patterns":2,"top":82,"h":0.68,"shapes":[["n÷n",82],["n+n",18]]},"after":{"repOps":[8,0,0,93],"block":0,"patterns":2,"top":93,"h":0.38,"shapes":[["n÷n",93],["n+n",8]]},"pool":{"count":14,"repOps":[7,0,0,93],"block":0,"patterns":2,"top":93,"h":0.37,"shapes":[["n÷n",93],["n+n",7]]},"samples":["3 ÷ 3 = 1","9 ÷ 9 = 1","2 ÷ 1 = 2","1 ÷ 1 = 1","7 ÷ 7 = 1","1 + 1 = 2","2 ÷ 2 = 1","6 ÷ 3 = 2"],"quality":{"floor2":0,"chipAll":18,"chipLikely":18,"fracAll":0,"fracLikely":0,"cleanCount":18,"cleanPct":82}},{"n":2,"ops":"+÷","band":1,"rangeBefore":[5,10],"rangeAfter":[3,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[81,0,0,19],"block":0,"patterns":2,"top":81,"h":0.7,"shapes":[["n+n",81],["n÷n",19]]},"after":{"repOps":[53,0,0,47],"block":0,"patterns":2,"top":53,"h":1,"shapes":[["n+n",53],["n÷n",47]]},"pool":{"count":15,"repOps":[53,0,0,47],"block":0,"patterns":2,"top":53,"h":1,"shapes":[["n+n",53],["n÷n",47]]},"samples":["3 ÷ 1 = 3","2 + 2 = 4","1 + 5 = 6","6 ÷ 2 = 3","1 + 3 = 4","9 ÷ 3 = 3","2 + 4 = 6","8 ÷ 2 = 4"],"quality":{"floor2":0,"chipAll":19,"chipLikely":19,"fracAll":0,"fracLikely":0,"cleanCount":21,"cleanPct":81}},{"n":2,"ops":"+÷","band":2,"rangeBefore":[10,18],"rangeAfter":[7,18],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,0],"block":0,"patterns":1,"top":100,"h":0,"shapes":[["n+n",100]]},"after":{"repOps":[90,0,0,11],"block":0,"patterns":2,"top":90,"h":0.48,"shapes":[["n+n",90],["n÷n",11]]},"pool":{"count":39,"repOps":[92,0,0,8],"block":0,"patterns":2,"top":92,"h":0.39,"shapes":[["n+n",92],["n÷n",8]]},"samples":["4 + 3 = 7","8 + 4 = 12","4 + 5 = 9","7 + 2 = 9","8 + 8 = 16","6 + 3 = 9","7 + 6 = 13","2 + 6 = 8"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":25,"cleanPct":100}},{"n":2,"ops":"−÷","band":0,"rangeBefore":[1,2],"rangeAfter":[1,2],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,52,0,48],"block":0,"patterns":2,"top":52,"h":1,"shapes":[["n−n",52],["n÷n",48]]},"after":{"repOps":[0,52,0,48],"block":0,"patterns":2,"top":52,"h":1,"shapes":[["n−n",52],["n÷n",48]]},"pool":{"count":27,"repOps":[0,52,0,48],"block":0,"patterns":2,"top":52,"h":1,"shapes":[["n−n",52],["n÷n",48]]},"samples":["9 ÷ 9 = 1","4 − 3 = 1","7 ÷ 7 = 1","6 − 5 = 1","4 ÷ 4 = 1","3 − 2 = 1","2 ÷ 2 = 1","9 − 7 = 2"],"quality":{"floor2":0,"chipAll":7,"chipLikely":7,"fracAll":0,"fracLikely":0,"cleanCount":25,"cleanPct":93}},{"n":2,"ops":"−÷","band":1,"rangeBefore":[2,4],"rangeAfter":[3,4],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,66,0,34],"block":0,"patterns":2,"top":66,"h":0.92,"shapes":[["n−n",66],["n÷n",34]]},"after":{"repOps":[0,68,0,32],"block":0,"patterns":2,"top":68,"h":0.9,"shapes":[["n−n",68],["n÷n",32]]},"pool":{"count":16,"repOps":[0,69,0,31],"block":0,"patterns":2,"top":69,"h":0.9,"shapes":[["n−n",69],["n÷n",31]]},"samples":["6 − 2 = 4","8 ÷ 2 = 4","8 − 5 = 3","9 ÷ 3 = 3","4 − 1 = 3","6 ÷ 2 = 3","7 − 3 = 4","4 ÷ 1 = 4"],"quality":{"floor2":0,"chipAll":12,"chipLikely":12,"fracAll":0,"fracLikely":0,"cleanCount":23,"cleanPct":88}},{"n":2,"ops":"−÷","band":2,"rangeBefore":[4,9],"rangeAfter":[5,9],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,69,0,32],"block":0,"patterns":2,"top":69,"h":0.9,"shapes":[["n−n",69],["n÷n",32]]},"after":{"repOps":[0,67,0,34],"block":0,"patterns":2,"top":67,"h":0.92,"shapes":[["n−n",67],["n÷n",34]]},"pool":{"count":15,"repOps":[0,67,0,33],"block":0,"patterns":2,"top":67,"h":0.92,"shapes":[["n−n",67],["n÷n",33]]},"samples":["8 − 1 = 7","9 − 2 = 7","9 − 4 = 5","8 − 3 = 5","7 ÷ 1 = 7","8 − 2 = 6","8 ÷ 1 = 8","9 − 1 = 8"],"quality":{"floor2":0,"chipAll":27,"chipLikely":27,"fracAll":0,"fracLikely":0,"cleanCount":16,"cleanPct":73}},{"n":2,"ops":"+−÷","band":0,"rangeBefore":[1,3],"rangeAfter":[1,3],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[5,56,0,39],"block":0,"patterns":3,"top":56,"h":1.21,"shapes":[["n−n",56],["n÷n",39],["n+n",5]]},"after":{"repOps":[7,47,0,47],"block":0,"patterns":3,"top":47,"h":1.3,"shapes":[["n÷n",47],["n−n",47],["n+n",7]]},"pool":{"count":38,"repOps":[5,53,0,42],"block":0,"patterns":3,"top":53,"h":1.24,"shapes":[["n−n",53],["n÷n",42],["n+n",5]]},"samples":["3 ÷ 1 = 3","8 − 5 = 3","6 ÷ 2 = 3","6 − 3 = 3","4 ÷ 2 = 2","5 − 3 = 2","6 ÷ 3 = 2","7 − 5 = 2"],"quality":{"floor2":0,"chipAll":8,"chipLikely":8,"fracAll":0,"fracLikely":0,"cleanCount":35,"cleanPct":92}},{"n":2,"ops":"+−÷","band":1,"rangeBefore":[3,8],"rangeAfter":[4,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[35,50,0,16],"block":0,"patterns":3,"top":50,"h":1.45,"shapes":[["n−n",50],["n+n",35],["n÷n",16]]},"after":{"repOps":[31,51,0,18],"block":0,"patterns":3,"top":51,"h":1.46,"shapes":[["n−n",51],["n+n",31],["n÷n",18]]},"pool":{"count":23,"repOps":[30,52,0,17],"block":0,"patterns":3,"top":52,"h":1.45,"shapes":[["n−n",52],["n+n",30],["n÷n",17]]},"samples":["6 ÷ 1 = 6","7 − 2 = 5","4 + 1 = 5","5 ÷ 1 = 5","9 − 4 = 5","5 + 1 = 6","8 − 3 = 5","3 + 3 = 6"],"quality":{"floor2":0,"chipAll":13,"chipLikely":13,"fracAll":0,"fracLikely":0,"cleanCount":39,"cleanPct":87}},{"n":2,"ops":"+−÷","band":2,"rangeBefore":[8,18],"rangeAfter":[7,18],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[93,3,0,5],"block":0,"patterns":3,"top":93,"h":0.45,"shapes":[["n+n",93],["n÷n",5],["n−n",3]]},"after":{"repOps":[79,11,0,11],"block":0,"patterns":3,"top":79,"h":0.95,"shapes":[["n+n",79],["n−n",11],["n÷n",11]]},"pool":{"count":42,"repOps":[86,7,0,7],"block":0,"patterns":3,"top":86,"h":0.73,"shapes":[["n+n",86],["n÷n",7],["n−n",7]]},"samples":["5 + 9 = 14","9 − 2 = 7","7 ÷ 1 = 7","9 + 2 = 11","8 + 6 = 14","4 + 4 = 8","6 + 2 = 8","3 + 8 = 11"],"quality":{"floor2":0,"chipAll":6,"chipLikely":6,"fracAll":0,"fracLikely":0,"cleanCount":34,"cleanPct":94}},{"n":2,"ops":"×÷","band":0,"rangeBefore":[1,4],"rangeAfter":[1,2],"bandsBefore":3,"bandsAfter":2,"before":{"repOps":[0,0,27,73],"block":0,"patterns":2,"top":73,"h":0.84,"shapes":[["n÷n",73],["n×n",27]]},"after":{"repOps":[0,0,16,84],"block":0,"patterns":2,"top":84,"h":0.63,"shapes":[["n÷n",84],["n×n",16]]},"pool":{"count":13,"repOps":[0,0,15,85],"block":0,"patterns":2,"top":85,"h":0.62,"shapes":[["n÷n",85],["n×n",15]]},"samples":["2 ÷ 2 = 1","5 ÷ 5 = 1","4 ÷ 4 = 1","6 ÷ 3 = 2","1 × 1 = 1","6 ÷ 6 = 1","2 × 1 = 2","9 ÷ 9 = 1"],"quality":{"floor2":0,"chipAll":5,"chipLikely":5,"fracAll":0,"fracLikely":0,"cleanCount":18,"cleanPct":95}},{"n":2,"ops":"×÷","band":1,"rangeBefore":[5,24],"rangeAfter":[3,81],"bandsBefore":3,"bandsAfter":2,"before":{"repOps":[0,0,100,0],"block":0,"patterns":1,"top":100,"h":0,"shapes":[["n×n",100]]},"after":{"repOps":[0,0,90,11],"block":0,"patterns":2,"top":90,"h":0.48,"shapes":[["n×n",90],["n÷n",11]]},"pool":{"count":46,"repOps":[0,0,93,7],"block":0,"patterns":2,"top":93,"h":0.35,"shapes":[["n×n",93],["n÷n",7]]},"samples":["2 × 3 = 6","5 × 8 = 40","6 × 5 = 30","5 × 9 = 45","6 × 3 = 18","7 × 9 = 63","3 × 9 = 27","4 × 4 = 16"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":21,"cleanPct":100}},{"n":2,"ops":"+×÷","band":0,"rangeBefore":[1,7],"rangeAfter":[1,81],"bandsBefore":3,"bandsAfter":1,"before":{"repOps":[35,0,24,42],"block":0,"patterns":3,"top":42,"h":1.55,"shapes":[["n÷n",42],["n+n",35],["n×n",24]]},"after":{"repOps":[34,0,34,33],"block":0,"patterns":3,"top":34,"h":1.58,"shapes":[["n+n",34],["n×n",34],["n÷n",33]]},"pool":{"count":103,"repOps":[44,0,43,14],"block":0,"patterns":3,"top":44,"h":1.44,"shapes":[["n+n",44],["n×n",43],["n÷n",14]]},"samples":["4 + 5 = 9","7 × 8 = 56","8 ÷ 4 = 2","1 + 5 = 6","9 × 5 = 45","4 ÷ 2 = 2","9 + 6 = 15","6 × 8 = 48"],"quality":{"floor2":0,"chipAll":3,"chipLikely":3,"fracAll":0,"fracLikely":0,"cleanCount":33,"cleanPct":97}},{"n":2,"ops":"−×÷","band":0,"rangeBefore":[1,3],"rangeAfter":[1,2],"bandsBefore":3,"bandsAfter":2,"before":{"repOps":[0,57,9,34],"block":0,"patterns":3,"top":57,"h":1.3,"shapes":[["n−n",57],["n÷n",34],["n×n",9]]},"after":{"repOps":[0,52,8,41],"block":0,"patterns":3,"top":52,"h":1.31,"shapes":[["n−n",52],["n÷n",41],["n×n",8]]},"pool":{"count":27,"repOps":[0,52,7,41],"block":0,"patterns":3,"top":52,"h":1.3,"shapes":[["n−n",52],["n÷n",41],["n×n",7]]},"samples":["7 − 5 = 2","6 ÷ 3 = 2","2 × 1 = 2","5 − 4 = 1","4 ÷ 2 = 2","4 − 3 = 1","7 ÷ 7 = 1","8 − 6 = 2"],"quality":{"floor2":0,"chipAll":3,"chipLikely":3,"fracAll":0,"fracLikely":0,"cleanCount":35,"cleanPct":97}},{"n":2,"ops":"−×÷","band":1,"rangeBefore":[3,9],"rangeAfter":[3,81],"bandsBefore":3,"bandsAfter":2,"before":{"repOps":[0,61,32,8],"block":0,"patterns":3,"top":61,"h":1.24,"shapes":[["n−n",61],["n×n",32],["n÷n",8]]},"after":{"repOps":[0,45,45,11],"block":0,"patterns":3,"top":45,"h":1.38,"shapes":[["n×n",45],["n−n",45],["n÷n",11]]},"pool":{"count":67,"repOps":[0,31,64,4],"block":0,"patterns":3,"top":64,"h":1.14,"shapes":[["n×n",64],["n−n",31],["n÷n",4]]},"samples":["5 × 3 = 15","8 − 3 = 5","9 ÷ 3 = 3","8 × 5 = 40","8 − 4 = 4","6 × 3 = 18","9 − 5 = 4","4 × 7 = 28"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":35,"cleanPct":100}},{"n":2,"ops":"+−×÷","band":0,"rangeBefore":[1,4],"rangeAfter":[1,81],"bandsBefore":3,"bandsAfter":1,"before":{"repOps":[9,57,6,28],"block":0,"patterns":4,"top":57,"h":1.53,"shapes":[["n−n",57],["n÷n",28],["n+n",9],["n×n",6]]},"after":{"repOps":[25,25,25,25],"block":0,"patterns":4,"top":25,"h":2,"shapes":[["n×n",25],["n−n",25],["n+n",25],["n÷n",25]]},"pool":{"count":138,"repOps":[33,25,32,10],"block":0,"patterns":4,"top":33,"h":1.89,"shapes":[["n+n",33],["n×n",32],["n−n",25],["n÷n",10]]},"samples":["3 × 8 = 24","6 − 4 = 2","5 + 9 = 14","6 ÷ 3 = 2","8 × 9 = 72","2 − 1 = 1","2 + 1 = 3","2 ÷ 2 = 1"],"quality":{"floor2":0,"chipAll":2,"chipLikely":2,"fracAll":0,"fracLikely":0,"cleanCount":46,"cleanPct":98}},{"n":3,"ops":"+−","band":0,"rangeBefore":[1,5],"rangeAfter":[1,5],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[81,99,0,0],"block":0,"patterns":3,"top":80,"h":0.79,"shapes":[["n+n−n",80],["n−n−n",20],["n+n+n",1]]},"after":{"repOps":[57,87,0,0],"block":0,"patterns":3,"top":44,"h":1.44,"shapes":[["n+n−n",44],["n−n−n",43],["n+n+n",14]]},"pool":{"count":200,"repOps":[77,98,0,0],"block":0,"patterns":3,"top":75,"h":0.92,"shapes":[["n+n−n",75],["n−n−n",24],["n+n+n",2]]},"samples":["7 − 1 − 1 = 5","1 + 2 + 2 = 5","7 + 6 − 9 = 4","5 − 3 − 1 = 1","2 + 2 − 2 = 2","1 + 1 + 3 = 5","6 − 2 − 3 = 1","5 + 1 − 1 = 5"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":200,"cleanPct":100}},{"n":3,"ops":"+−","band":1,"rangeBefore":[5,10],"rangeAfter":[6,10],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,84,0,0],"block":0,"patterns":3,"top":84,"h":0.68,"shapes":[["n+n−n",84],["n+n+n",16],["n−n−n",1]]},"after":{"repOps":[90,56,0,0],"block":0,"patterns":3,"top":45,"h":1.38,"shapes":[["n+n−n",45],["n+n+n",45],["n−n−n",11]]},"pool":{"count":166,"repOps":[98,84,0,0],"block":0,"patterns":3,"top":82,"h":0.77,"shapes":[["n+n−n",82],["n+n+n",16],["n−n−n",2]]},"samples":["7 + 1 + 1 = 9","8 − 1 − 1 = 6","5 + 5 − 3 = 7","7 + 2 + 1 = 10","9 − 1 − 1 = 7","6 + 1 − 1 = 6","2 + 4 + 2 = 8","2 + 7 − 1 = 8"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":205,"cleanPct":100}},{"n":3,"ops":"+−","band":2,"rangeBefore":[11,27],"rangeAfter":[11,27],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,10,0,0],"block":0,"patterns":2,"top":91,"h":0.45,"shapes":[["n+n+n",91],["n+n−n",10]]},"after":{"repOps":[100,50,0,0],"block":0,"patterns":2,"top":50,"h":1,"shapes":[["n+n+n",50],["n+n−n",50]]},"pool":{"count":184,"repOps":[100,27,0,0],"block":0,"patterns":2,"top":73,"h":0.84,"shapes":[["n+n+n",73],["n+n−n",27]]},"samples":["7 + 2 + 9 = 18","9 + 5 − 2 = 12","7 + 8 + 4 = 19","9 + 7 − 1 = 15","9 + 4 + 9 = 22","8 + 9 − 5 = 12","9 + 1 + 2 = 12","8 + 9 − 6 = 11"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":184,"cleanPct":100}},{"n":3,"ops":"+×","band":0,"rangeBefore":[1,21],"rangeAfter":[1,20],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,0],"block":3,"patterns":2,"top":97,"h":0.19,"shapes":[["n+n×n",97],["(n+n)×n",3]]},"after":{"repOps":[75,0,75,0],"block":25,"patterns":4,"top":25,"h":2,"shapes":[["(n+n)×n",25],["n+n×n",25],["n+n+n",25],["n×n×n",25]]},"pool":{"count":331,"repOps":[92,0,57,0],"block":13,"patterns":4,"top":43,"h":1.73,"shapes":[["n+n+n",43],["n+n×n",36],["(n+n)×n",13],["n×n×n",8]]},"samples":["(4 + 6) × 2 = 20","3 + 8 × 2 = 19","5 + 6 + 9 = 20","2 × 3 × 3 = 18","(6 + 1) × 2 = 14","3 + 2 × 6 = 15","4 + 4 + 8 = 16","1 × 2 × 8 = 16"],"quality":{"floor2":50,"chipAll":3,"chipLikely":3,"fracAll":0,"fracLikely":0,"cleanCount":342,"cleanPct":97}},{"n":3,"ops":"+×","band":1,"rangeBefore":[21,51],"rangeAfter":[21,50],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,0],"block":12,"patterns":2,"top":89,"h":0.51,"shapes":[["n+n×n",89],["(n+n)×n",12]]},"after":{"repOps":[75,0,75,0],"block":25,"patterns":4,"top":25,"h":2,"shapes":[["(n+n)×n",25],["n+n×n",25],["n×n×n",25],["n+n+n",25]]},"pool":{"count":356,"repOps":[91,0,94,0],"block":38,"patterns":4,"top":47,"h":1.62,"shapes":[["n+n×n",47],["(n+n)×n",38],["n×n×n",9],["n+n+n",6]]},"samples":["(5 + 7) × 2 = 24","6 + 4 × 5 = 26","8 × 2 × 3 = 48","8 + 9 + 9 = 26","(2 + 6) × 6 = 48","5 + 4 × 8 = 37","4 × 2 × 3 = 24","9 + 5 + 7 = 21"],"quality":{"floor2":84,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":361,"cleanPct":100}},{"n":3,"ops":"+×","band":2,"rangeBefore":[51,729],"rangeAfter":[51,729],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,0],"block":48,"patterns":2,"top":53,"h":1,"shapes":[["n+n×n",53],["(n+n)×n",48]]},"after":{"repOps":[67,0,100,0],"block":34,"patterns":3,"top":34,"h":1.58,"shapes":[["(n+n)×n",34],["n+n×n",34],["n×n×n",33]]},"pool":{"count":348,"repOps":[70,0,100,0],"block":49,"patterns":3,"top":49,"h":1.5,"shapes":[["(n+n)×n",49],["n×n×n",30],["n+n×n",21]]},"samples":["(2 + 7) × 8 = 72","9 + 8 × 7 = 65","5 × 9 × 4 = 180","(5 + 2) × 9 = 63","2 + 8 × 8 = 66","7 × 7 × 7 = 343","(8 + 1) × 7 = 63","1 + 7 × 8 = 57"],"quality":{"floor2":70,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":348,"cleanPct":100}},{"n":3,"ops":"−×","band":0,"rangeBefore":[1,7],"rangeAfter":[1,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":35,"patterns":3,"top":62,"h":1.15,"shapes":[["n×n−n",62],["(n−n)×n",35],["n−n×n",4]]},"after":{"repOps":[0,84,67,0],"block":34,"patterns":6,"top":17,"h":2.58,"shapes":[["(n−n)×n",17],["n×n−n",17],["n−(n−n)",17],["n−n×n",17]]},"pool":{"count":347,"repOps":[0,98,41,0],"block":63,"patterns":6,"top":47,"h":2.03,"shapes":[["n−(n−n)",47],["n×n−n",20],["(n−n)×n",16],["n−n−n",12]]},"samples":["3 × 2 − 4 = 2","1 − (3 − 7) = 5","7 − 3 × 2 = 1","1 × 1 × 1 = 1","8 − 2 − 5 = 1","(4 − 1) × 2 = 6","3 × 4 − 7 = 5","3 − (5 − 4) = 2"],"quality":{"floor2":34,"chipAll":0,"chipLikely":2,"fracAll":0,"fracLikely":0,"cleanCount":398,"cleanPct":100}},{"n":3,"ops":"−×","band":1,"rangeBefore":[7,22],"rangeAfter":[7,20],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":30,"patterns":2,"top":70,"h":0.88,"shapes":[["n×n−n",70],["(n−n)×n",30]]},"after":{"repOps":[0,76,73,0],"block":49,"patterns":5,"top":25,"h":2.13,"shapes":[["(n−n)×n",25],["n×n−n",25],["n−(n−n)",24],["n×n×n",24]]},"pool":{"count":403,"repOps":[0,95,64,0],"block":67,"patterns":5,"top":36,"h":1.8,"shapes":[["n−(n−n)",36],["(n−n)×n",31],["n×n−n",27],["n×n×n",5]]},"samples":["9 − (2 − 1) = 8","2 × 2 × 3 = 12","(9 − 2) × 2 = 14","2 × 8 − 6 = 10","4 − (5 − 9) = 8","9 × 2 × 1 = 18","(5 − 1) × 4 = 16","4 × 4 − 6 = 10"],"quality":{"floor2":59,"chipAll":0,"chipLikely":1,"fracAll":0,"fracLikely":0,"cleanCount":423,"cleanPct":100}},{"n":3,"ops":"−×","band":2,"rangeBefore":[22,729],"rangeAfter":[21,729],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":12,"patterns":2,"top":88,"h":0.53,"shapes":[["n×n−n",88],["(n−n)×n",12]]},"after":{"repOps":[0,67,100,0],"block":34,"patterns":3,"top":34,"h":1.58,"shapes":[["n×n−n",34],["(n−n)×n",34],["n×n×n",33]]},"pool":{"count":398,"repOps":[0,66,100,0],"block":24,"patterns":3,"top":42,"h":1.55,"shapes":[["n×n−n",42],["n×n×n",34],["(n−n)×n",24]]},"samples":["6 × 9 − 7 = 47","(8 − 1) × 4 = 28","8 × 4 × 7 = 224","4 × 7 − 6 = 22","(7 − 3) × 6 = 24","8 × 8 × 5 = 320","8 × 8 − 6 = 58","(9 − 3) × 8 = 48"],"quality":{"floor2":65,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":384,"cleanPct":100}},{"n":3,"ops":"+−×","band":0,"rangeBefore":[1,12],"rangeAfter":[1,10],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[26,75,100,0],"block":26,"patterns":4,"top":47,"h":1.61,"shapes":[["n×n−n",47],["(n−n)×n",26],["n+n×n",26],["n−n×n",2]]},"after":{"repOps":[45,57,67,0],"block":23,"patterns":9,"top":12,"h":3.17,"shapes":[["(n−n)×n",12],["n×n−n",12],["n−n×n",12],["(n+n)×n",12]]},"pool":{"count":601,"repOps":[59,88,40,0],"block":17,"patterns":9,"top":47,"h":2.29,"shapes":[["n+n−n",47],["n×n−n",16],["(n−n)×n",15],["n−n−n",7]]},"samples":["3 + 8 − 1 = 10","9 − 4 − 3 = 2","1 + 4 + 3 = 8","(7 − 6) × 3 = 3","2 × 2 × 2 = 8","7 × 2 − 4 = 10","6 − 2 × 2 = 2","(2 + 1) × 2 = 6"],"quality":{"floor2":40,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":706,"cleanPct":100}},{"n":3,"ops":"+−×","band":1,"rangeBefore":[12,33],"rangeAfter":[11,30],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[79,22,100,0],"block":13,"patterns":4,"top":72,"h":1.27,"shapes":[["n+n×n",72],["n×n−n",16],["(n+n)×n",7],["(n−n)×n",6]]},"after":{"repOps":[57,43,72,0],"block":29,"patterns":7,"top":15,"h":2.81,"shapes":[["(n+n)×n",15],["n+n×n",15],["(n−n)×n",15],["n×n−n",15]]},"pool":{"count":673,"repOps":[64,40,73,0],"block":28,"patterns":7,"top":24,"h":2.64,"shapes":[["n+n×n",24],["n+n+n",20],["n×n−n",17],["(n−n)×n",16]]},"samples":["8 × 3 − 6 = 18","6 + 3 + 2 = 11","9 + 7 − 3 = 13","4 × 2 × 3 = 24","(5 + 7) × 2 = 24","6 + 2 × 6 = 18","(7 − 4) × 5 = 15","3 × 7 − 2 = 19"],"quality":{"floor2":73,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":683,"cleanPct":100}},{"n":3,"ops":"+−×","band":2,"rangeBefore":[33,729],"rangeAfter":[31,729],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[96,5,100,0],"block":22,"patterns":3,"top":74,"h":1,"shapes":[["n+n×n",74],["(n+n)×n",22],["n×n−n",5]]},"after":{"repOps":[40,40,100,0],"block":40,"patterns":5,"top":20,"h":2.32,"shapes":[["(n+n)×n",20],["n+n×n",20],["n×n−n",20],["(n−n)×n",20]]},"pool":{"count":699,"repOps":[60,22,100,0],"block":43,"patterns":5,"top":36,"h":2.15,"shapes":[["(n+n)×n",36],["n+n×n",24],["n×n×n",18],["n×n−n",16]]},"samples":["9 × 7 − 3 = 60","(7 − 2) × 7 = 35","4 × 9 × 9 = 324","(3 + 2) × 7 = 35","8 + 8 × 6 = 56","7 × 5 − 3 = 32","(9 − 3) × 6 = 36","4 × 7 × 5 = 140"],"quality":{"floor2":82,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":662,"cleanPct":100}},{"n":3,"ops":"+÷","band":0,"rangeBefore":[1,6],"rangeAfter":[1,5],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,100],"block":55,"patterns":3,"top":50,"h":1.22,"shapes":[["(n+n)÷n",50],["n+n÷n",46],["n÷(n+n)",5]]},"after":{"repOps":[65,0,0,89],"block":53,"patterns":6,"top":18,"h":2.57,"shapes":[["(n+n)÷n",18],["n+n÷n",18],["n÷(n+n)",18],["n÷n÷n",18]]},"pool":{"count":193,"repOps":[69,0,0,98],"block":59,"patterns":6,"top":37,"h":2.13,"shapes":[["(n+n)÷n",37],["n+n÷n",27],["n÷(n÷n)",18],["n÷n÷n",12]]},"samples":["1 + 1 + 1 = 3","(2 + 1) ÷ 3 = 1","3 + 6 ÷ 3 = 5","8 ÷ 2 ÷ 4 = 1","4 ÷ (1 + 1) = 2","4 ÷ (6 ÷ 3) = 2","(1 + 3) ÷ 4 = 1","2 + 9 ÷ 3 = 5"],"quality":{"floor2":62,"chipAll":47,"chipLikely":52,"fracAll":2,"fracLikely":8,"cleanCount":112,"cleanPct":48}},{"n":3,"ops":"+÷","band":1,"rangeBefore":[6,12],"rangeAfter":[6,10],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,100],"block":6,"patterns":2,"top":94,"h":0.33,"shapes":[["n+n÷n",94],["(n+n)÷n",6]]},"after":{"repOps":[66,0,0,78],"block":44,"patterns":5,"top":22,"h":2.29,"shapes":[["n+n÷n",22],["(n+n)÷n",22],["n+n+n",22],["n÷(n÷n)",22]]},"pool":{"count":163,"repOps":[78,0,0,83],"block":26,"patterns":5,"top":55,"h":1.76,"shapes":[["n+n÷n",55],["n÷(n÷n)",20],["n+n+n",17],["(n+n)÷n",7]]},"samples":["8 + 4 ÷ 2 = 10","(7 + 7) ÷ 2 = 7","6 + 2 + 1 = 9","8 ÷ (4 ÷ 4) = 8","8 ÷ 1 ÷ 1 = 8","4 + 6 ÷ 3 = 6","(6 + 6) ÷ 2 = 6","2 + 4 + 3 = 9"],"quality":{"floor2":52,"chipAll":49,"chipLikely":49,"fracAll":9,"fracLikely":19,"cleanCount":98,"cleanPct":44}},{"n":3,"ops":"+÷","band":2,"rangeBefore":[12,81],"rangeAfter":[11,27],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[95,0,0,68],"block":5,"patterns":3,"top":63,"h":1.17,"shapes":[["n+n÷n",63],["n+n+n",33],["n÷(n÷n)",5]]},"after":{"repOps":[100,0,0,50],"block":0,"patterns":2,"top":50,"h":1,"shapes":[["n+n÷n",50],["n+n+n",50]]},"pool":{"count":164,"repOps":[100,0,0,18],"block":0,"patterns":2,"top":82,"h":0.69,"shapes":[["n+n+n",82],["n+n÷n",18]]},"samples":["8 + 5 ÷ 1 = 13","6 + 7 + 2 = 15","8 + 8 ÷ 1 = 16","3 + 2 + 8 = 13","9 + 8 ÷ 2 = 13","9 + 2 + 4 = 15","9 + 4 ÷ 2 = 11","8 + 9 + 1 = 18"],"quality":{"floor2":10,"chipAll":23,"chipLikely":23,"fracAll":28,"fracLikely":28,"cleanCount":128,"cleanPct":64}},{"n":3,"ops":"−÷","band":0,"rangeBefore":[1,3],"rangeAfter":[1,3],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,0,100],"block":41,"patterns":4,"top":31,"h":1.96,"shapes":[["n−n÷n",31],["n÷n−n",29],["n÷(n−n)",25],["(n−n)÷n",16]]},"after":{"repOps":[0,75,0,75],"block":50,"patterns":8,"top":13,"h":3,"shapes":[["(n−n)÷n",13],["n÷n−n",13],["n÷(n−n)",13],["n−n÷n",13]]},"pool":{"count":237,"repOps":[0,83,0,67],"block":48,"patterns":8,"top":20,"h":2.91,"shapes":[["n−(n−n)",20],["n−n÷n",18],["n÷(n−n)",14],["n−n−n",13]]},"samples":["(9 − 6) ÷ 3 = 1","8 ÷ 2 − 3 = 1","6 ÷ (7 − 5) = 3","6 − 9 ÷ 3 = 3","4 − (7 − 4) = 1","8 ÷ (8 ÷ 2) = 2","7 − 3 − 3 = 1","3 ÷ 1 ÷ 1 = 3"],"quality":{"floor2":43,"chipAll":16,"chipLikely":36,"fracAll":0,"fracLikely":2,"cleanCount":196,"cleanPct":83}},{"n":3,"ops":"−÷","band":1,"rangeBefore":[3,7],"rangeAfter":[4,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,0,100],"block":35,"patterns":4,"top":42,"h":1.65,"shapes":[["n−n÷n",42],["n÷(n−n)",33],["n÷n−n",23],["(n−n)÷n",2]]},"after":{"repOps":[0,74,0,72],"block":46,"patterns":8,"top":15,"h":2.93,"shapes":[["n−n÷n",15],["n÷(n−n)",14],["n−(n−n)",14],["n−n−n",14]]},"pool":{"count":186,"repOps":[0,84,0,59],"block":63,"patterns":8,"top":35,"h":2.47,"shapes":[["n−(n−n)",35],["n−n÷n",22],["n÷(n÷n)",14],["n÷(n−n)",13]]},"samples":["8 − 6 ÷ 3 = 6","6 ÷ 1 ÷ 1 = 6","8 ÷ (8 − 6) = 4","7 − (9 − 8) = 6","7 − 1 − 2 = 4","8 ÷ (6 ÷ 3) = 4","7 ÷ 1 − 2 = 5","8 − 6 ÷ 2 = 5"],"quality":{"floor2":40,"chipAll":20,"chipLikely":36,"fracAll":2,"fracLikely":9,"cleanCount":253,"cleanPct":78}},{"n":3,"ops":"−÷","band":2,"rangeBefore":[7,81],"rangeAfter":[7,17],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,0,100],"block":55,"patterns":3,"top":55,"h":1.26,"shapes":[["n÷(n−n)",55],["n−n÷n",39],["n÷n−n",7]]},"after":{"repOps":[0,71,0,78],"block":59,"patterns":7,"top":20,"h":2.64,"shapes":[["n÷(n−n)",20],["n−n÷n",20],["n−(n−n)",20],["n÷(n÷n)",20]]},"pool":{"count":198,"repOps":[0,86,0,36],"block":87,"patterns":7,"top":64,"h":1.68,"shapes":[["n−(n−n)",64],["n÷(n÷n)",12],["n÷(n−n)",11],["n−n÷n",10]]},"samples":["4 − (1 − 4) = 7","9 ÷ 1 − 2 = 7","7 ÷ 1 ÷ 1 = 7","7 ÷ (6 ÷ 6) = 7","9 ÷ (4 − 3) = 9","9 − 6 ÷ 6 = 8","9 − (1 − 5) = 13","8 ÷ (6 ÷ 6) = 8"],"quality":{"floor2":16,"chipAll":20,"chipLikely":31,"fracAll":26,"fracLikely":33,"cleanCount":178,"cleanPct":67}},{"n":3,"ops":"+−÷","band":0,"rangeBefore":[1,4],"rangeAfter":[1,4],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[38,62,0,100],"block":42,"patterns":7,"top":21,"h":2.53,"shapes":[["n÷n−n",21],["n+n÷n",19],["n−n÷n",19],["n÷(n−n)",19]]},"after":{"repOps":[40,52,0,78],"block":44,"patterns":12,"top":9,"h":3.57,"shapes":[["n−n÷n",9],["(n+n)÷n",9],["n÷(n−n)",9],["n÷n−n",9]]},"pool":{"count":367,"repOps":[54,73,0,59],"block":24,"patterns":12,"top":31,"h":2.98,"shapes":[["n+n−n",31],["n−n÷n",13],["(n+n)÷n",11],["n+n÷n",10]]},"samples":["1 + 4 − 3 = 2","7 − 2 − 2 = 3","9 ÷ 3 ÷ 3 = 1","8 ÷ (1 + 3) = 2","5 − 8 ÷ 4 = 3","(9 + 5) ÷ 7 = 2","6 ÷ (4 ÷ 2) = 3","4 ÷ (3 − 2) = 4"],"quality":{"floor2":51,"chipAll":21,"chipLikely":28,"fracAll":0,"fracLikely":1,"cleanCount":287,"cleanPct":78}},{"n":3,"ops":"+−÷","band":1,"rangeBefore":[4,9],"rangeAfter":[5,8],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[50,50,0,100],"block":36,"patterns":5,"top":43,"h":2.01,"shapes":[["n+n÷n",43],["n÷(n−n)",28],["n−n÷n",14],["n÷n−n",8]]},"after":{"repOps":[50,63,0,63],"block":25,"patterns":8,"top":13,"h":3,"shapes":[["n−n÷n",13],["n÷(n−n)",13],["(n+n)÷n",13],["n+n÷n",13]]},"pool":{"count":293,"repOps":[73,67,0,53],"block":13,"patterns":8,"top":40,"h":2.4,"shapes":[["n+n−n",40],["n+n÷n",23],["n−n÷n",14],["n÷(n−n)",8]]},"samples":["7 − 6 ÷ 6 = 6","6 ÷ (9 − 8) = 6","(7 + 9) ÷ 2 = 8","6 + 7 ÷ 7 = 7","2 + 9 − 5 = 6","9 − 2 − 1 = 6","2 + 3 + 1 = 6","7 ÷ 1 − 1 = 6"],"quality":{"floor2":48,"chipAll":26,"chipLikely":27,"fracAll":2,"fracLikely":2,"cleanCount":323,"cleanPct":72}},{"n":3,"ops":"+−÷","band":2,"rangeBefore":[9,81],"rangeAfter":[9,27],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[90,11,0,100],"block":12,"patterns":3,"top":89,"h":0.56,"shapes":[["n+n÷n",89],["n÷(n−n)",11],["(n+n)÷n",1]]},"after":{"repOps":[78,47,0,51],"block":26,"patterns":5,"top":25,"h":2.15,"shapes":[["n+n÷n",25],["n+n+n",25],["n+n−n",25],["n÷(n−n)",23]]},"pool":{"count":316,"repOps":[98,31,0,24],"block":3,"patterns":5,"top":47,"h":1.65,"shapes":[["n+n+n",47],["n+n−n",29],["n+n÷n",21],["n÷(n−n)",2]]},"samples":["3 + 3 + 7 = 13","9 + 4 − 3 = 10","8 + 6 ÷ 3 = 10","9 ÷ (2 − 1) = 9","1 + 2 + 6 = 9","7 + 5 − 1 = 11","9 + 6 ÷ 2 = 12","9 ÷ (6 − 5) = 9"],"quality":{"floor2":19,"chipAll":21,"chipLikely":21,"fracAll":17,"fracLikely":17,"cleanCount":271,"cleanPct":71}},{"n":3,"ops":"×÷","band":0,"rangeBefore":[1,8],"rangeAfter":[1,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,88],"block":0,"patterns":2,"top":88,"h":0.54,"shapes":[["n×n÷n",88],["n×n×n",13]]},"after":{"repOps":[0,0,97,74],"block":0,"patterns":3,"top":71,"h":1.03,"shapes":[["n×n÷n",71],["n×n×n",26],["n÷n÷n",4]]},"pool":{"count":81,"repOps":[0,0,99,90],"block":0,"patterns":3,"top":89,"h":0.56,"shapes":[["n×n÷n",89],["n×n×n",10],["n÷n÷n",1]]},"samples":["4 × 3 ÷ 2 = 6","1 × 1 × 1 = 1","3 × 8 ÷ 4 = 6","2 × 1 × 2 = 4","7 × 2 ÷ 7 = 2","3 × 1 × 1 = 3","9 × 4 ÷ 6 = 6","6 × 1 × 1 = 6"],"quality":{"floor2":0,"chipAll":15,"chipLikely":50,"fracAll":0,"fracLikely":0,"cleanCount":80,"cleanPct":78}},{"n":3,"ops":"×÷","band":1,"rangeBefore":[8,56],"rangeAfter":[7,20],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,43],"block":0,"patterns":2,"top":58,"h":0.98,"shapes":[["n×n×n",58],["n×n÷n",43]]},"after":{"repOps":[0,0,100,50],"block":0,"patterns":2,"top":50,"h":1,"shapes":[["n×n÷n",50],["n×n×n",50]]},"pool":{"count":70,"repOps":[0,0,100,71],"block":0,"patterns":2,"top":71,"h":0.86,"shapes":[["n×n÷n",71],["n×n×n",29]]},"samples":["7 × 6 ÷ 3 = 14","9 × 1 × 2 = 18","6 × 6 ÷ 2 = 18","5 × 1 × 2 = 10","6 × 3 ÷ 2 = 9","2 × 2 × 3 = 12","6 × 8 ÷ 3 = 16","8 × 1 × 2 = 16"],"quality":{"floor2":0,"chipAll":4,"chipLikely":5,"fracAll":0,"fracLikely":0,"cleanCount":104,"cleanPct":96}},{"n":3,"ops":"×÷","band":2,"rangeBefore":[60,729],"rangeAfter":[21,729],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,0],"block":0,"patterns":1,"top":100,"h":0,"shapes":[["n×n×n",100]]},"after":{"repOps":[0,0,100,30],"block":0,"patterns":2,"top":71,"h":0.88,"shapes":[["n×n×n",71],["n×n÷n",30]]},"pool":{"count":146,"repOps":[0,0,100,6],"block":0,"patterns":2,"top":94,"h":0.33,"shapes":[["n×n×n",94],["n×n÷n",6]]},"samples":["6 × 5 × 4 = 120","8 × 9 ÷ 2 = 36","8 × 7 × 8 = 448","3 × 4 × 3 = 36","5 × 3 × 6 = 90","6 × 6 × 4 = 144","9 × 7 ÷ 3 = 21","2 × 4 × 5 = 40"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":99,"cleanPct":100}},{"n":3,"ops":"+×÷","band":0,"rangeBefore":[1,13],"rangeAfter":[1,8],"bandsBefore":3,"bandsAfter":2,"before":{"repOps":[100,0,34,66],"block":20,"patterns":5,"top":47,"h":1.57,"shapes":[["n+n÷n",47],["n+n×n",34],["(n+n)÷n",19],["n÷(n+n)",1]]},"after":{"repOps":[73,0,48,53],"block":36,"patterns":9,"top":13,"h":3.11,"shapes":[["n+n÷n",13],["(n+n)÷n",13],["n÷(n+n)",12],["n×n÷n",12]]},"pool":{"count":308,"repOps":[68,0,39,84],"block":29,"patterns":9,"top":29,"h":2.37,"shapes":[["n+n÷n",29],["n×n÷n",28],["(n+n)÷n",25],["n+n×n",6]]},"samples":["9 × 2 ÷ 3 = 6","2 + 2 × 3 = 8","5 + 2 + 1 = 8","8 ÷ 2 ÷ 2 = 2","3 + 8 ÷ 2 = 7","(1 + 1) × 3 = 6","3 × 1 × 1 = 3","(5 + 3) ÷ 8 = 1"],"quality":{"floor2":59,"chipAll":21,"chipLikely":29,"fracAll":0,"fracLikely":0,"cleanCount":362,"cleanPct":77}},{"n":3,"ops":"+×÷","band":1,"rangeBefore":[13,39],"rangeAfter":[9,729],"bandsBefore":3,"bandsAfter":2,"before":{"repOps":[100,0,100,0],"block":11,"patterns":2,"top":90,"h":0.48,"shapes":[["n+n×n",90],["(n+n)×n",11]]},"after":{"repOps":[68,0,65,36],"block":20,"patterns":7,"top":17,"h":2.71,"shapes":[["(n+n)×n",17],["n+n×n",16],["n×n÷n",16],["n+n÷n",16]]},"pool":{"count":1062,"repOps":[82,0,82,7],"block":32,"patterns":7,"top":32,"h":2.2,"shapes":[["(n+n)×n",32],["n+n×n",32],["n×n×n",14],["n+n+n",14]]},"samples":["(9 + 1) × 9 = 90","5 + 5 × 3 = 20","(9 + 9) ÷ 2 = 9","5 × 8 ÷ 2 = 20","7 + 6 ÷ 3 = 9","8 + 7 + 3 = 18","5 × 8 × 7 = 280","(2 + 1) × 5 = 15"],"quality":{"floor2":65,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":467,"cleanPct":100}},{"n":3,"ops":"−×÷","band":0,"rangeBefore":[1,6],"rangeAfter":[1,4],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,56,45],"block":25,"patterns":7,"top":40,"h":2.18,"shapes":[["n×n−n",40],["n−n÷n",30],["(n−n)×n",12],["n÷(n−n)",9]]},"after":{"repOps":[0,80,44,48],"block":36,"patterns":12,"top":9,"h":3.55,"shapes":[["(n−n)÷n",9],["(n−n)×n",9],["n−n÷n",9],["n÷n−n",9]]},"pool":{"count":324,"repOps":[0,82,41,47],"block":37,"patterns":12,"top":19,"h":3.15,"shapes":[["n−(n−n)",19],["n×n÷n",16],["n−n÷n",16],["n×n−n",14]]},"samples":["(8 − 2) ÷ 6 = 1","(3 − 2) × 4 = 4","2 × 1 × 2 = 4","8 − 8 ÷ 2 = 4","9 ÷ 3 − 1 = 2","6 ÷ (7 − 4) = 2","3 × 3 − 7 = 2","7 − 2 × 3 = 1"],"quality":{"floor2":45,"chipAll":10,"chipLikely":21,"fracAll":0,"fracLikely":0,"cleanCount":418,"cleanPct":90}},{"n":3,"ops":"−×÷","band":1,"rangeBefore":[6,18],"rangeAfter":[5,10],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,88,13],"block":26,"patterns":3,"top":62,"h":1.31,"shapes":[["n×n−n",62],["(n−n)×n",26],["n−n÷n",13]]},"after":{"repOps":[0,73,59,28],"block":28,"patterns":8,"top":14,"h":2.92,"shapes":[["(n−n)×n",14],["n×n−n",14],["n−n÷n",14],["n×n÷n",14]]},"pool":{"count":354,"repOps":[0,83,53,27],"block":52,"patterns":8,"top":33,"h":2.46,"shapes":[["n−(n−n)",33],["(n−n)×n",19],["n×n−n",16],["n×n÷n",14]]},"samples":["5 − (1 − 6) = 10","1 × 4 × 2 = 8","(2 − 1) × 5 = 5","9 − 3 − 1 = 5","8 × 2 − 8 = 8","9 − 6 ÷ 2 = 6","9 × 2 ÷ 3 = 6","4 − (1 − 7) = 10"],"quality":{"floor2":52,"chipAll":4,"chipLikely":8,"fracAll":0,"fracLikely":0,"cleanCount":467,"cleanPct":96}},{"n":3,"ops":"−×÷","band":2,"rangeBefore":[18,729],"rangeAfter":[11,729],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":17,"patterns":2,"top":84,"h":0.65,"shapes":[["n×n−n",84],["(n−n)×n",17]]},"after":{"repOps":[0,60,80,20],"block":40,"patterns":5,"top":20,"h":2.32,"shapes":[["(n−n)×n",20],["n×n−n",20],["n×n÷n",20],["n×n×n",20]]},"pool":{"count":631,"repOps":[0,72,92,4],"block":34,"patterns":5,"top":38,"h":2.01,"shapes":[["n×n−n",38],["(n−n)×n",26],["n×n×n",24],["n−(n−n)",8]]},"samples":["8 × 9 ÷ 6 = 12","5 × 8 × 6 = 240","9 − (1 − 7) = 15","(5 − 2) × 8 = 24","8 × 8 − 2 = 62","8 × 7 ÷ 4 = 14","6 × 4 × 8 = 192","6 − (3 − 9) = 12"],"quality":{"floor2":66,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":459,"cleanPct":100}},{"n":3,"ops":"+−×÷","band":0,"rangeBefore":[1,9],"rangeAfter":[1,4],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[41,60,58,43],"block":21,"patterns":10,"top":30,"h":2.63,"shapes":[["n×n−n",30],["n+n÷n",24],["n+n×n",14],["(n−n)×n",13]]},"after":{"repOps":[32,69,30,61],"block":40,"patterns":14,"top":8,"h":3.75,"shapes":[["(n+n)÷n",8],["n×n−n",8],["n÷(n−n)",8],["(n−n)÷n",8]]},"pool":{"count":375,"repOps":[50,75,22,44],"block":19,"patterns":16,"top":30,"h":3.26,"shapes":[["n+n−n",30],["n−n÷n",12],["n×n−n",10],["(n+n)÷n",9]]},"samples":["9 − 2 − 3 = 4","8 ÷ (1 + 1) = 4","8 + 3 − 7 = 4","(9 + 9) ÷ 6 = 3","6 × 1 − 4 = 2","8 ÷ (5 − 3) = 4","(7 − 1) ÷ 3 = 2","(8 − 7) × 2 = 2"],"quality":{"floor2":53,"chipAll":15,"chipLikely":18,"fracAll":0,"fracLikely":0,"cleanCount":669,"cleanPct":85}},{"n":3,"ops":"+−×÷","band":1,"rangeBefore":[9,28],"rangeAfter":[5,8],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[73,28,95,5],"block":9,"patterns":5,"top":66,"h":1.44,"shapes":[["n+n×n",66],["n×n−n",21],["(n−n)×n",7],["n+n÷n",5]]},"after":{"repOps":[49,45,51,34],"block":25,"patterns":13,"top":9,"h":3.67,"shapes":[["(n−n)×n",9],["(n+n)÷n",9],["n×n−n",9],["n−n÷n",9]]},"pool":{"count":335,"repOps":[64,68,27,33],"block":13,"patterns":13,"top":35,"h":2.85,"shapes":[["n+n−n",35],["n+n÷n",17],["n−n÷n",12],["n×n−n",10]]},"samples":["1 + 3 + 4 = 8","(9 − 8) × 5 = 5","(5 + 9) ÷ 2 = 7","7 × 2 − 7 = 7","7 − 1 − 1 = 5","8 − 6 ÷ 3 = 6","6 × 4 ÷ 3 = 8","4 + 3 ÷ 3 = 5"],"quality":{"floor2":63,"chipAll":2,"chipLikely":2,"fracAll":0,"fracLikely":0,"cleanCount":787,"cleanPct":98}},{"n":3,"ops":"+−×÷","band":2,"rangeBefore":[28,729],"rangeAfter":[9,729],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[94,7,100,0],"block":14,"patterns":3,"top":80,"h":0.92,"shapes":[["n+n×n",80],["(n+n)×n",14],["n×n−n",7]]},"after":{"repOps":[56,33,67,22],"block":23,"patterns":9,"top":12,"h":3.17,"shapes":[["n+n×n",12],["(n+n)×n",12],["(n−n)×n",11],["n×n−n",11]]},"pool":{"count":1543,"repOps":[62,32,82,4],"block":33,"patterns":9,"top":22,"h":2.86,"shapes":[["n+n×n",22],["(n+n)×n",22],["n×n−n",15],["(n−n)×n",11]]},"samples":["4 × 5 − 9 = 11","6 × 5 ÷ 2 = 15","8 + 8 ÷ 2 = 12","4 + 5 + 8 = 17","6 + 9 − 2 = 13","2 × 6 × 8 = 96","4 + 9 × 3 = 31","(9 + 1) × 3 = 30"],"quality":{"floor2":83,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":768,"cleanPct":100}},{"n":4,"ops":"+−","band":0,"rangeBefore":[1,6],"rangeAfter":[1,5],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,100,0,0],"block":0,"patterns":3,"top":52,"h":1.04,"shapes":[["n+n+n−n",52],["n+n−n−n",48],["n−n−n−n",1]]},"after":{"repOps":[70,99,0,0],"block":0,"patterns":4,"top":35,"h":1.65,"shapes":[["n+n−n−n",35],["n+n+n−n",35],["n−n−n−n",30],["n+n+n+n",1]]},"pool":{"count":811,"repOps":[95,100,0,0],"block":0,"patterns":4,"top":63,"h":1.18,"shapes":[["n+n−n−n",63],["n+n+n−n",32],["n−n−n−n",5],["n+n+n+n",0]]},"samples":["8 + 9 − 4 − 9 = 4","3 + 3 + 1 − 2 = 5","9 − 3 − 2 − 2 = 2","4 + 5 − 1 − 5 = 3","5 + 4 + 2 − 6 = 5","8 − 2 − 2 − 2 = 2","5 + 4 − 3 − 4 = 2","4 + 7 + 1 − 9 = 3"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":961,"cleanPct":100}},{"n":4,"ops":"+−","band":1,"rangeBefore":[6,13],"rangeAfter":[6,12],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,90,0,0],"block":0,"patterns":3,"top":84,"h":0.8,"shapes":[["n+n+n−n",84],["n+n+n+n",11],["n+n−n−n",6]]},"after":{"repOps":[98,71,0,0],"block":0,"patterns":4,"top":35,"h":1.69,"shapes":[["n+n+n−n",35],["n+n−n−n",34],["n+n+n+n",30],["n−n−n−n",2]]},"pool":{"count":955,"repOps":[100,95,0,0],"block":0,"patterns":4,"top":70,"h":1.09,"shapes":[["n+n+n−n",70],["n+n−n−n",24],["n+n+n+n",5],["n−n−n−n",0]]},"samples":["1 + 1 + 2 + 3 = 7","9 + 6 + 3 − 7 = 11","9 + 8 − 1 − 6 = 10","9 − 1 − 1 − 1 = 6","1 + 9 + 2 − 5 = 7","1 + 5 + 1 + 2 = 9","9 + 5 − 2 − 2 = 10","9 + 1 + 1 − 2 = 9"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":1070,"cleanPct":100}},{"n":4,"ops":"+−","band":2,"rangeBefore":[13,36],"rangeAfter":[13,36],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,8,0,0],"block":0,"patterns":2,"top":93,"h":0.38,"shapes":[["n+n+n+n",93],["n+n+n−n",8]]},"after":{"repOps":[100,61,0,0],"block":0,"patterns":3,"top":40,"h":1.54,"shapes":[["n+n+n−n",40],["n+n+n+n",39],["n+n−n−n",22]]},"pool":{"count":951,"repOps":[100,54,0,0],"block":0,"patterns":3,"top":52,"h":1.1,"shapes":[["n+n+n−n",52],["n+n+n+n",46],["n+n−n−n",2]]},"samples":["5 + 2 + 3 + 6 = 16","8 + 9 − 2 − 2 = 13","9 + 7 + 6 − 5 = 17","7 + 9 + 2 + 5 = 23","9 + 9 + 9 − 9 = 18","9 + 9 − 3 − 2 = 13","9 + 2 + 6 + 1 = 18","4 + 9 + 7 − 2 = 18"],"quality":{"floor2":0,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":951,"cleanPct":100}},{"n":4,"ops":"+×","band":0,"rangeBefore":[1,51],"rangeAfter":[1,50],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,0],"block":0,"patterns":1,"top":100,"h":0,"shapes":[["n+n+n×n",100]]},"after":{"repOps":[91,0,90,0],"block":50,"patterns":10,"top":11,"h":3.32,"shapes":[["n+n+n×n",11],["(n+n)×n+n",10],["(n+n+n)×n",10],["n×n+n×n",10]]},"pool":{"count":4366,"repOps":[99,0,89,0],"block":44,"patterns":10,"top":29,"h":2.79,"shapes":[["n+n+n×n",29],["(n+n)×n+n",26],["n+n+n+n",11],["n+n×n×n",10]]},"samples":["3 × 8 + 6 × 2 = 36","2 × 2 × 1 × 7 = 28","(3 + 8) × 2 × 2 = 44","(1 + 8 × 3) × 2 = 50","1 + 2 × 6 × 4 = 49","(4 + 4) × (1 + 5) = 48","7 + 6 + 8 + 5 = 26","2 + 2 + 3 × 7 = 25"],"quality":{"floor2":87,"chipAll":1,"chipLikely":9,"fracAll":0,"fracLikely":0,"cleanCount":4410,"cleanPct":99}},{"n":4,"ops":"+×","band":1,"rangeBefore":[51,119],"rangeAfter":[51,120],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,0],"block":15,"patterns":5,"top":41,"h":1.74,"shapes":[["n+n+n×n",41],["n+n×n×n",40],["(n+n)×n×n",14],["n×n+n×n",5]]},"after":{"repOps":[89,0,100,0],"block":56,"patterns":9,"top":12,"h":3.17,"shapes":[["(n+n×n)×n",12],["(n+n)×n×n",12],["(n+n)×n+n",11],["(n+n+n)×n",11]]},"pool":{"count":4632,"repOps":[99,0,100,0],"block":72,"patterns":9,"top":30,"h":2.87,"shapes":[["(n+n)×n+n",30],["(n+n×n)×n",14],["(n+n+n)×n",13],["n+n+n×n",10]]},"samples":["(4 + 1 + 9) × 5 = 70","(7 + 9) × (2 + 4) = 96","6 × 3 + 9 × 8 = 90","4 + 7 + 8 × 9 = 83","4 + 3 × 5 × 5 = 79","(6 + 7 × 4) × 3 = 102","(4 + 9) × 4 × 2 = 104","2 × 9 × 2 × 3 = 108"],"quality":{"floor2":99,"chipAll":0,"chipLikely":4,"fracAll":0,"fracLikely":0,"cleanCount":4507,"cleanPct":100}},{"n":4,"ops":"+×","band":2,"rangeBefore":[119,980],"rangeAfter":[121,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,0],"block":18,"patterns":2,"top":83,"h":0.67,"shapes":[["n+n×n×n",83],["(n+n)×n×n",18]]},"after":{"repOps":[87,0,100,0],"block":65,"patterns":8,"top":13,"h":2.99,"shapes":[["(n+n×n)×n",13],["n+n×n×n",13],["(n+n)×(n+n)",13],["(n+n+n)×n",13]]},"pool":{"count":4316,"repOps":[94,0,100,0],"block":80,"patterns":8,"top":36,"h":2.39,"shapes":[["(n+n×n)×n",36],["(n+n)×n×n",28],["n+n×n×n",14],["(n+n)×(n+n)",7]]},"samples":["(9 + 6) × 8 + 1 = 121","8 × 8 + 9 × 8 = 136","(3 + 7 × 7) × 3 = 156","3 + 5 × 6 × 5 = 153","(1 + 9) × (9 + 7) = 160","(3 + 9 + 6) × 8 = 144","(8 + 7) × 6 × 7 = 630","9 × 8 × 3 × 3 = 648"],"quality":{"floor2":94,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":4468,"cleanPct":100}},{"n":4,"ops":"−×","band":0,"rangeBefore":[1,15],"rangeAfter":[1,15],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":14,"patterns":7,"top":63,"h":1.79,"shapes":[["n×n−n−n",63],["n×n−n×n",14],["n×n×n−n",9],["n×n−(n−n)",6]]},"after":{"repOps":[0,100,90,0],"block":75,"patterns":15,"top":8,"h":3.87,"shapes":[["(n−n)×n−n",8],["n−(n−n)×n",8],["n×n−(n−n)",8],["n×n−n−n",8]]},"pool":{"count":4941,"repOps":[0,100,76,0],"block":78,"patterns":18,"top":18,"h":3.42,"shapes":[["(n−n)×n−n",18],["n−(n−n)×n",13],["n−(n−n−n)",13],["n×n−n−n",12]]},"samples":["1 × 6 × 2 − 1 = 11","(9 − 2 − 6) × 5 = 5","(2 − 1) × 3 × 5 = 15","(9 − 7) × 5 − 8 = 2","5 − (4 − 6 − 3) = 10","1 − (2 − 8) − 6 = 1","3 − (7 − 9) × 4 = 11","(7 − 2 × 3) × 9 = 9"],"quality":{"floor2":60,"chipAll":0,"chipLikely":2,"fracAll":0,"fracLikely":0,"cleanCount":4940,"cleanPct":100}},{"n":4,"ops":"−×","band":1,"rangeBefore":[15,48],"rangeAfter":[16,50],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":5,"patterns":7,"top":57,"h":1.5,"shapes":[["n×n−n−n",57],["n×n×n−n",33],["n×n−n×n",6],["n×n−(n−n)",2]]},"after":{"repOps":[0,93,92,0],"block":70,"patterns":14,"top":8,"h":3.72,"shapes":[["(n−n)×n−n",8],["(n−n−n)×n",8],["n−(n−n)×n",8],["(n×n−n)×n",8]]},"pool":{"count":5192,"repOps":[0,99,96,0],"block":75,"patterns":14,"top":23,"h":3.19,"shapes":[["n×n−(n−n)",23],["n−(n−n)×n",14],["(n−n)×n−n",13],["n×n−n−n",12]]},"samples":["(8 − 2) × 5 − 5 = 25","(2 − 8) × (6 − 9) = 18","(9 − 5 − 2) × 8 = 16","3 − (1 − 5) × 8 = 35","(3 × 3 − 6) × 9 = 27","5 × 7 − (6 − 9) = 38","3 × 2 × 8 − 3 = 45","8 × 5 − 2 × 3 = 34"],"quality":{"floor2":93,"chipAll":0,"chipLikely":1,"fracAll":0,"fracLikely":0,"cleanCount":5313,"cleanPct":100}},{"n":4,"ops":"−×","band":2,"rangeBefore":[48,980],"rangeAfter":[51,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,0],"block":2,"patterns":3,"top":91,"h":0.52,"shapes":[["n×n×n−n",91],["n×n−n−n",8],["(n−n)×n×n",2]]},"after":{"repOps":[0,90,100,0],"block":59,"patterns":11,"top":11,"h":3.39,"shapes":[["n×n−(n−n)",11],["(n×n−n)×n",11],["(n−n)×n×n",11],["n×n×n−n",11]]},"pool":{"count":4644,"repOps":[0,93,100,0],"block":69,"patterns":11,"top":40,"h":2.45,"shapes":[["(n×n−n)×n",40],["n×n×n−n",20],["(n−n)×n×n",15],["n×n−(n−n)",10]]},"samples":["2 × 3 × 9 × 3 = 162","9 × 8 − (2 − 3) = 73","(7 × 4 − 2) × 2 = 52","(8 − 1 − 1) × 9 = 54","(5 − 3) × 4 × 7 = 56","9 × 9 − 7 × 4 = 53","6 × 7 × 2 − 1 = 83","9 × 9 − 4 − 3 = 74"],"quality":{"floor2":94,"chipAll":0,"chipLikely":0,"fracAll":0,"fracLikely":0,"cleanCount":4952,"cleanPct":100}},{"n":4,"ops":"+−×","band":0,"rangeBefore":[1,29],"rangeAfter":[1,25],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,100,100,0],"block":100,"patterns":4,"top":46,"h":1.49,"shapes":[["(n+n)×n−n",46],["(n+n−n)×n",43],["(n+n)×(n−n)",9],["n−(n+n)×n",3]]},"after":{"repOps":[61,76,100,0],"block":59,"patterns":26,"top":8,"h":4.38,"shapes":[["n+n×n−n",8],["(n−n)×n+n",8],["n×n−n−n",7],["n+n+n×n",7]]},"pool":{"count":8371,"repOps":[80,82,70,0],"block":32,"patterns":31,"top":17,"h":3.89,"shapes":[["n+n+n−n",17],["n+n×n−n",16],["(n−n)×n+n",11],["n+n−n−n",8]]},"samples":["(7 − 6) × 4 × 5 = 20","(3 × 7 − 9) × 2 = 24","(9 − 1 − 1) × 2 = 14","1 + 5 + 3 × 6 = 24","(1 + 1) × 5 × 2 = 20","(1 + 1 + 1) × 6 = 18","(3 + 6) × 3 − 5 = 22","(7 − 5) × 9 + 6 = 24"],"quality":{"floor2":71,"chipAll":0,"chipLikely":2,"fracAll":0,"fracLikely":0,"cleanCount":9419,"cleanPct":100}},{"n":4,"ops":"+−×","band":1,"rangeBefore":[29,81],"rangeAfter":[26,75],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,100,100,0],"block":100,"patterns":3,"top":95,"h":0.34,"shapes":[["(n+n)×n−n",95],["(n+n−n)×n",3],["(n+n)×(n−n)",3]]},"after":{"repOps":[70,57,100,0],"block":61,"patterns":21,"top":7,"h":4.27,"shapes":[["n+n×n−n",7],["(n+n)×n+n",7],["n+n+n×n",7],["(n+n)×n−n",7]]},"pool":{"count":9587,"repOps":[81,53,99,0],"block":56,"patterns":25,"top":14,"h":4.01,"shapes":[["(n+n)×n+n",14],["n+n×n−n",13],["n+n+n×n",11],["(n+n)×n−n",10]]},"samples":["2 × 8 + 8 × 6 = 64","8 × 8 − 7 × 4 = 36","(8 + 8) × 4 + 8 = 72","(6 − 1) × 4 × 2 = 40","2 + 4 × 6 × 2 = 50","(1 + 3 × 6) × 3 = 57","4 + 3 + 4 × 7 = 35","(1 + 8 + 7) × 3 = 48"],"quality":{"floor2":99,"chipAll":0,"chipLikely":3,"fracAll":0,"fracLikely":0,"cleanCount":9512,"cleanPct":100}},{"n":4,"ops":"+−×","band":2,"rangeBefore":[81,980],"rangeAfter":[76,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,100,100,0],"block":100,"patterns":3,"top":98,"h":0.16,"shapes":[["(n+n)×n−n",98],["(n+n−n)×n",2],["(n+n)×(n−n)",1]]},"after":{"repOps":[77,46,100,0],"block":72,"patterns":17,"top":8,"h":3.93,"shapes":[["(n+n×n)×n",8],["(n−n)×n×n",8],["(n+n)×n−n",8],["n×n×n−n",8]]},"pool":{"count":10077,"repOps":[72,34,100,0],"block":78,"patterns":19,"top":20,"h":3.51,"shapes":[["(n+n×n)×n",20],["(n+n)×n×n",15],["(n×n−n)×n",13],["(n+n)×n+n",8]]},"samples":["(7 + 7) × 9 − 6 = 120","(9 + 5) × (8 − 2) = 84","(5 + 5 + 2) × 8 = 96","(7 + 5) × 7 + 4 = 88","(9 + 7 − 3) × 8 = 104","8 + 6 × 5 × 3 = 98","(6 + 7) × (8 + 2) = 130","(9 + 9 × 4) × 8 = 360"],"quality":{"floor2":97,"chipAll":0,"chipLikely":1,"fracAll":0,"fracLikely":0,"cleanCount":9449,"cleanPct":100}},{"n":4,"ops":"+÷","band":0,"rangeBefore":[1,8],"rangeAfter":[1,6],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,100],"block":49,"patterns":12,"top":27,"h":2.89,"shapes":[["(n+n)÷n+n",27],["n÷n+n÷n",26],["n+n+n÷n",13],["n+n÷n÷n",13]]},"after":{"repOps":[90,0,0,100],"block":71,"patterns":17,"top":11,"h":3.91,"shapes":[["n÷n+n÷n",11],["(n+n)÷n+n",8],["(n+n+n)÷n",8],["(n+n)÷n÷n",8]]},"pool":{"count":1330,"repOps":[91,0,0,100],"block":75,"patterns":17,"top":16,"h":3.54,"shapes":[["(n+n)÷n+n",16],["(n+n+n)÷n",14],["(n+n÷n)÷n",13],["n÷n+n÷n",10]]},"samples":["5 ÷ (6 ÷ 3 ÷ 2) = 5","3 ÷ 3 + 8 ÷ 4 = 3","(6 + 4) ÷ 5 ÷ 2 = 1","3 + 1 + 4 ÷ 2 = 6","(7 + 8) ÷ (1 + 4) = 3","(8 + 1) ÷ (9 ÷ 3) = 3","2 + 8 ÷ (1 + 3) = 4","4 + 6 ÷ 2 ÷ 3 = 5"],"quality":{"floor2":86,"chipAll":30,"chipLikely":45,"fracAll":13,"fracLikely":22,"cleanCount":1026,"cleanPct":52}},{"n":4,"ops":"+÷","band":1,"rangeBefore":[8,18],"rangeAfter":[7,12],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,100],"block":12,"patterns":5,"top":86,"h":0.83,"shapes":[["n+n+n÷n",86],["(n+n)÷n+n",7],["n+n÷(n÷n)",4],["n+n÷n÷n",3]]},"after":{"repOps":[84,0,0,92],"block":71,"patterns":13,"top":16,"h":3.53,"shapes":[["n÷(n÷n)÷n",16],["n+n+n÷n",9],["(n+n)÷n+n",9],["n+n÷(n÷n)",9]]},"pool":{"count":1159,"repOps":[97,0,0,96],"block":57,"patterns":13,"top":31,"h":2.6,"shapes":[["(n+n)÷n+n",31],["n+n+n÷n",29],["n+n÷(n÷n)",14],["n+n÷n÷n",9]]},"samples":["7 + 8 ÷ (3 + 1) = 9","4 + 4 + 9 ÷ 3 = 11","7 ÷ (4 ÷ 2 ÷ 2) = 7","1 + 7 + 1 + 3 = 12","(2 + 2) ÷ 2 + 7 = 9","3 + 5 ÷ (9 ÷ 9) = 8","8 ÷ 2 + 6 ÷ 2 = 7","6 + 9 ÷ 3 ÷ 1 = 9"],"quality":{"floor2":82,"chipAll":37,"chipLikely":46,"fracAll":25,"fracLikely":33,"cleanCount":872,"cleanPct":41}},{"n":4,"ops":"+÷","band":2,"rangeBefore":[18,729],"rangeAfter":[13,36],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,0,100],"block":77,"patterns":3,"top":51,"h":1.49,"shapes":[["n+n÷(n÷n)",51],["(n+n)÷(n÷n)",27],["n+n+n÷n",23]]},"after":{"repOps":[100,0,0,80],"block":45,"patterns":7,"top":21,"h":2.48,"shapes":[["(n+n)÷n+n",21],["n+n+n÷n",21],["n+n+n+n",21],["n+n÷(n÷n)",20]]},"pool":{"count":995,"repOps":[100,0,0,56],"block":16,"patterns":7,"top":44,"h":1.73,"shapes":[["n+n+n+n",44],["n+n+n÷n",38],["n+n÷(n÷n)",9],["(n+n)÷n+n",7]]},"samples":["(5 + 3) ÷ 2 + 9 = 13","8 + 7 + 6 ÷ 3 = 17","9 + 8 ÷ (1 + 1) = 13","3 + 4 + 2 + 4 = 13","8 + 7 ÷ (5 ÷ 5) = 15","(6 + 4) ÷ 2 + 8 = 13","7 + 4 + 9 ÷ 3 = 14","9 + 8 ÷ 1 ÷ 2 = 13"],"quality":{"floor2":59,"chipAll":41,"chipLikely":50,"fracAll":79,"fracLikely":79,"cleanCount":360,"cleanPct":17}},{"n":4,"ops":"−÷","band":0,"rangeBefore":[1,6],"rangeAfter":[1,4],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,0,100],"block":44,"patterns":18,"top":32,"h":3.17,"shapes":[["n−n÷n−n",32],["n÷n−n÷n",15],["n÷n−(n−n)",13],["n÷(n−n)−n",12]]},"after":{"repOps":[0,100,0,100],"block":75,"patterns":24,"top":8,"h":4.33,"shapes":[["n÷(n−n)−n",8],["n−n÷n−n",8],["n÷n−(n−n)",7],["n÷n−n÷n",7]]},"pool":{"count":1669,"repOps":[0,92,0,90],"block":67,"patterns":28,"top":14,"h":4.14,"shapes":[["n−n÷n−n",14],["n÷n−n÷n",10],["n÷(n÷n)−n",9],["n÷n−(n−n)",9]]},"samples":["8 ÷ 4 − (6 − 8) = 4","8 ÷ 4 − (4 − 3) = 1","4 ÷ (8 ÷ 2 − 3) = 4","(9 − 1) ÷ 4 − 1 = 1","1 − (6 − 6) ÷ 7 = 1","7 − 9 ÷ 3 − 2 = 2","4 − (1 − 1) ÷ 4 = 4","7 − 6 ÷ (7 − 5) = 4"],"quality":{"floor2":55,"chipAll":14,"chipLikely":49,"fracAll":2,"fracLikely":21,"cleanCount":2009,"cleanPct":81}},{"n":4,"ops":"−÷","band":1,"rangeBefore":[6,12],"rangeAfter":[5,8],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,0,100],"block":91,"patterns":13,"top":31,"h":3.04,"shapes":[["n÷n−(n−n)",31],["n−n÷(n−n)",20],["n−(n−n)÷n",10],["n÷(n÷n)−n",9]]},"after":{"repOps":[0,96,0,92],"block":85,"patterns":18,"top":9,"h":3.99,"shapes":[["n÷(n÷n)−n",9],["n−(n÷n−n)",8],["n÷(n−n)−n",8],["n−(n−n)÷n",8]]},"pool":{"count":1435,"repOps":[0,95,0,82],"block":90,"patterns":21,"top":18,"h":3.8,"shapes":[["n−(n−n)÷n",18],["n÷n−(n−n)",12],["n−(n−n−n)",11],["n÷(n÷n)−n",9]]},"samples":["8 ÷ 1 − 7 ÷ 7 = 7","6 ÷ (2 − 4 ÷ 4) = 6","7 ÷ (8 ÷ 4 ÷ 2) = 7","7 ÷ (8 ÷ 2 − 3) = 7","7 − (2 − 2) ÷ 8 = 7","9 − 6 ÷ (8 ÷ 4) = 6","1 − (8 ÷ 2 − 9) = 6","8 ÷ 4 − (6 − 9) = 5"],"quality":{"floor2":55,"chipAll":17,"chipLikely":32,"fracAll":9,"fracLikely":23,"cleanCount":1696,"cleanPct":75}},{"n":4,"ops":"−÷","band":2,"rangeBefore":[12,729],"rangeAfter":[9,26],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,0,100],"block":100,"patterns":6,"top":48,"h":1.94,"shapes":[["n÷(n÷n)−n",48],["n−n÷(n−n)",27],["n−(n÷n−n)",13],["n÷(n−n÷n)",7]]},"after":{"repOps":[0,90,0,81],"block":100,"patterns":12,"top":10,"h":3.48,"shapes":[["n−(n÷n−n)",10],["n−(n−n)÷n",10],["n÷n−(n−n)",10],["n−n÷(n−n)",10]]},"pool":{"count":1702,"repOps":[0,98,0,51],"block":100,"patterns":13,"top":44,"h":2.64,"shapes":[["n−(n−n−n)",44],["n−(n÷n−n)",16],["n−n÷(n−n)",11],["n−(n−n)÷n",6]]},"samples":["4 − 6 ÷ (8 − 9) = 10","8 − (3 − 1 − 7) = 13","5 − (3 − 6 − 5) = 13","9 ÷ (9 − 5 − 3) = 9","9 ÷ (8 ÷ 2 − 3) = 9","9 ÷ (5 − 8 ÷ 2) = 9","5 − (8 ÷ 8 − 9) = 13","9 − (1 − 9) − 7 = 10"],"quality":{"floor2":45,"chipAll":36,"chipLikely":47,"fracAll":59,"fracLikely":63,"cleanCount":777,"cleanPct":35}},{"n":4,"ops":"+−÷","band":0,"rangeBefore":[1,7],"rangeAfter":[1,5],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[99,97,0,100],"block":82,"patterns":17,"top":29,"h":3.04,"shapes":[["n−(n+n)÷n",29],["(n+n)÷n−n",15],["n+n÷n−n",14],["(n+n)÷(n−n)",13]]},"after":{"repOps":[70,72,0,100],"block":59,"patterns":34,"top":7,"h":4.75,"shapes":[["n+n÷n−n",7],["(n−n)÷n+n",7],["n÷n+n÷n",7],["n−n÷n−n",6]]},"pool":{"count":2279,"repOps":[85,85,0,68],"block":23,"patterns":48,"top":23,"h":3.85,"shapes":[["n+n÷n−n",23],["n+n−n−n",19],["n+n+n−n",11],["n−n÷n−n",6]]},"samples":["4 − 9 ÷ 3 ÷ 3 = 3","5 − 8 ÷ 8 − 1 = 3","(9 − 9) ÷ 4 + 1 = 1","7 − (5 + 7) ÷ 2 = 1","(6 + 9) ÷ (4 − 1) = 5","8 + 5 ÷ 5 − 7 = 2","(9 + 5) ÷ 7 − 1 = 1","1 + 3 − 6 ÷ 3 = 2"],"quality":{"floor2":59,"chipAll":12,"chipLikely":36,"fracAll":1,"fracLikely":4,"cleanCount":2720,"cleanPct":86}},{"n":4,"ops":"+−÷","band":1,"rangeBefore":[7,16],"rangeAfter":[6,10],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,53,0,100],"block":38,"patterns":13,"top":44,"h":2.77,"shapes":[["n+n+n÷n",44],["(n+n)÷(n−n)",12],["n+n−n÷n",10],["n+n÷n−n",9]]},"after":{"repOps":[87,61,0,98],"block":64,"patterns":27,"top":8,"h":4.46,"shapes":[["n+n÷n−n",8],["(n−n)÷n+n",8],["n+n+n÷n",7],["n+n−n÷n",7]]},"pool":{"count":1956,"repOps":[97,72,0,67],"block":31,"patterns":34,"top":23,"h":3.55,"shapes":[["n+n+n−n",23],["n+n÷n−n",12],["n+n+n÷n",12],["(n−n)÷n+n",11]]},"samples":["7 + 6 ÷ (8 ÷ 4) = 10","(8 + 8) ÷ (3 − 1) = 8","9 − (5 + 7) ÷ 6 = 7","(6 + 6) ÷ (8 ÷ 4) = 6","9 + 9 ÷ 3 − 2 = 10","8 ÷ (2 + 3 − 4) = 8","(7 + 6 + 5) ÷ 3 = 6","(3 − 3) ÷ 2 + 8 = 8"],"quality":{"floor2":60,"chipAll":19,"chipLikely":32,"fracAll":13,"fracLikely":14,"cleanCount":2396,"cleanPct":70}},{"n":4,"ops":"+−÷","band":2,"rangeBefore":[16,729],"rangeAfter":[11,36],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[98,7,0,100],"block":59,"patterns":6,"top":41,"h":1.81,"shapes":[["n+n+n÷n",41],["n+n÷(n÷n)",37],["(n+n)÷(n÷n)",15],["n+n÷(n−n)",5]]},"after":{"repOps":[100,49,0,75],"block":42,"patterns":13,"top":9,"h":3.69,"shapes":[["n+n+n÷n",9],["n+n÷(n−n)",9],["n+n−n÷n",9],["(n+n)÷n+n",9]]},"pool":{"count":2119,"repOps":[100,46,0,45],"block":11,"patterns":13,"top":31,"h":2.57,"shapes":[["n+n+n−n",31],["n+n+n÷n",25],["n+n+n+n",22],["n+n−n÷n",7]]},"samples":["(7 + 5) ÷ 2 + 8 = 14","1 + 9 + 8 − 1 = 17","8 + 9 ÷ (1 + 2) = 11","9 + 8 ÷ 1 ÷ 4 = 11","5 + 9 ÷ 1 − 3 = 11","5 + 4 + 4 + 1 = 14","7 + 8 − 1 − 3 = 11","(9 + 9 + 6) ÷ 2 = 12"],"quality":{"floor2":61,"chipAll":41,"chipLikely":48,"fracAll":72,"fracLikely":72,"cleanCount":731,"cleanPct":24}},{"n":4,"ops":"×÷","band":0,"rangeBefore":[1,16],"rangeAfter":[1,15],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,94],"block":0,"patterns":3,"top":81,"h":0.87,"shapes":[["n×n×n÷n",81],["n×n÷n÷n",13],["n×n×n×n",6]]},"after":{"repOps":[0,0,100,77],"block":0,"patterns":3,"top":39,"h":1.55,"shapes":[["n×n×n÷n",39],["n×n÷n÷n",38],["n×n×n×n",24]]},"pool":{"count":368,"repOps":[0,0,100,95],"block":0,"patterns":3,"top":66,"h":1.14,"shapes":[["n×n×n÷n",66],["n×n÷n÷n",29],["n×n×n×n",5]]},"samples":["2 × 6 × 6 ÷ 9 = 8","7 × 8 ÷ 2 ÷ 2 = 14","6 × 2 × 6 ÷ 8 = 9","3 × 1 × 1 × 1 = 3","6 × 6 ÷ 3 ÷ 3 = 4","6 × 2 × 5 ÷ 4 = 15","8 × 3 ÷ 6 ÷ 2 = 2","4 × 5 × 2 ÷ 4 = 10"],"quality":{"floor2":0,"chipAll":11,"chipLikely":39,"fracAll":0,"fracLikely":0,"cleanCount":343,"cleanPct":87}},{"n":4,"ops":"×÷","band":1,"rangeBefore":[16,72],"rangeAfter":[16,75],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,76],"block":0,"patterns":2,"top":76,"h":0.8,"shapes":[["n×n×n÷n",76],["n×n×n×n",24]]},"after":{"repOps":[0,0,100,52],"block":0,"patterns":3,"top":49,"h":1.18,"shapes":[["n×n×n÷n",49],["n×n×n×n",48],["n×n÷n÷n",4]]},"pool":{"count":399,"repOps":[0,0,100,81],"block":0,"patterns":3,"top":81,"h":0.74,"shapes":[["n×n×n÷n",81],["n×n×n×n",19],["n×n÷n÷n",1]]},"samples":["8 × 7 × 3 ÷ 8 = 21","2 × 3 × 3 × 4 = 72","2 × 9 × 8 ÷ 3 = 48","6 × 2 × 6 × 1 = 72","6 × 7 × 4 ÷ 7 = 24","3 × 1 × 8 × 3 = 72","9 × 4 × 8 ÷ 4 = 72","5 × 4 × 1 × 2 = 40"],"quality":{"floor2":0,"chipAll":8,"chipLikely":24,"fracAll":0,"fracLikely":0,"cleanCount":365,"cleanPct":92}},{"n":4,"ops":"×÷","band":2,"rangeBefore":[72,980],"rangeAfter":[80,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,0,100,17],"block":0,"patterns":2,"top":84,"h":0.65,"shapes":[["n×n×n×n",84],["n×n×n÷n",17]]},"after":{"repOps":[0,0,100,50],"block":0,"patterns":2,"top":50,"h":1,"shapes":[["n×n×n÷n",50],["n×n×n×n",50]]},"pool":{"count":367,"repOps":[0,0,100,23],"block":0,"patterns":2,"top":77,"h":0.78,"shapes":[["n×n×n×n",77],["n×n×n÷n",23]]},"samples":["6 × 8 × 8 ÷ 4 = 96","5 × 2 × 3 × 8 = 240","7 × 9 × 8 ÷ 2 = 252","5 × 6 × 6 × 4 = 720","9 × 8 × 4 ÷ 3 = 96","2 × 5 × 2 × 8 = 160","8 × 3 × 7 ÷ 2 = 84","7 × 2 × 5 × 8 = 560"],"quality":{"floor2":0,"chipAll":1,"chipLikely":1,"fracAll":0,"fracLikely":0,"cleanCount":389,"cleanPct":99}},{"n":4,"ops":"+×÷","band":0,"rangeBefore":[1,28],"rangeAfter":[1,20],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,100],"block":81,"patterns":4,"top":39,"h":1.93,"shapes":[["(n+n÷n)×n",39],["(n+n×n)÷n",24],["n×n+n÷n",19],["n×n÷(n+n)",19]]},"after":{"repOps":[91,0,58,82],"block":64,"patterns":24,"top":8,"h":4.35,"shapes":[["(n+n)÷n+n",8],["n+n+n÷n",8],["(n+n+n)÷n",7],["n+n×n÷n",7]]},"pool":{"count":4871,"repOps":[93,0,58,80],"block":46,"patterns":30,"top":14,"h":4.09,"shapes":[["n+n×n÷n",14],["n+n+n÷n",13],["(n+n)×n÷n",10],["(n+n)÷n+n",10]]},"samples":["2 × 9 × 5 ÷ 6 = 15","(7 + 6) ÷ (9 + 4) = 1","2 × 9 ÷ (2 + 4) = 3","(8 + 8) ÷ 2 + 3 = 11","(9 + 1) ÷ 5 ÷ 2 = 1","3 + 5 + 6 ÷ 6 = 9","3 + 2 × 2 × 4 = 19","(6 + 7 + 7) ÷ 2 = 10"],"quality":{"floor2":85,"chipAll":14,"chipLikely":26,"fracAll":5,"fracLikely":6,"cleanCount":5371,"cleanPct":81}},{"n":4,"ops":"+×÷","band":1,"rangeBefore":[28,82],"rangeAfter":[21,50],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,100],"block":54,"patterns":4,"top":51,"h":1.18,"shapes":[["(n+n÷n)×n",51],["n×n+n÷n",46],["(n+n×n)÷n",3],["n×n÷(n+n)",1]]},"after":{"repOps":[93,0,99,44],"block":56,"patterns":17,"top":8,"h":3.94,"shapes":[["n+n+n×n",8],["(n+n)×n+n",8],["(n+n+n)×n",8],["n×n×n÷n",7]]},"pool":{"count":4345,"repOps":[95,0,95,24],"block":49,"patterns":18,"top":22,"h":3.51,"shapes":[["n+n+n×n",22],["(n+n)×n+n",21],["n+n×n×n",7],["(n+n÷n)×n",7]]},"samples":["(4 + 8 ÷ 2) × 6 = 48","(4 + 8) × (1 + 2) = 36","8 + 8 × 6 ÷ 3 = 24","9 × 2 + 4 × 6 = 42","5 + 9 + 3 × 5 = 29","(7 + 8 + 1) × 3 = 48","(1 + 9 × 9) ÷ 2 = 41","(5 + 2 × 3) × 2 = 22"],"quality":{"floor2":95,"chipAll":6,"chipLikely":11,"fracAll":6,"fracLikely":6,"cleanCount":5675,"cleanPct":88}},{"n":4,"ops":"+×÷","band":2,"rangeBefore":[82,980],"rangeAfter":[51,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,0,100,50],"block":43,"patterns":5,"top":42,"h":1.81,"shapes":[["n+n×n×n",42],["(n+n÷n)×n",37],["n×n+n÷n",13],["(n+n)×n×n",6]]},"after":{"repOps":[85,0,100,30],"block":54,"patterns":13,"top":8,"h":3.7,"shapes":[["(n+n)×n×n",8],["(n+n)×n+n",8],["(n+n)×(n+n)",8],["(n+n×n)×n",8]]},"pool":{"count":9339,"repOps":[95,0,100,5],"block":75,"patterns":13,"top":23,"h":3.12,"shapes":[["(n+n×n)×n",23],["(n+n)×n×n",17],["(n+n)×n+n",17],["n+n×n×n",11]]},"samples":["7 × 9 + 6 ÷ 2 = 66","2 × 2 × 6 × 9 = 216","(4 + 7) × 9 × 9 = 891","(3 + 7) × 9 + 3 = 93","(9 + 7) × (7 + 1) = 128","(3 + 9 × 5) × 7 = 336","1 + 6 × 8 × 3 = 145","9 × 7 × 5 ÷ 3 = 105"],"quality":{"floor2":95,"chipAll":0,"chipLikely":1,"fracAll":0,"fracLikely":0,"cleanCount":6416,"cleanPct":99}},{"n":4,"ops":"−×÷","band":0,"rangeBefore":[1,15],"rangeAfter":[1,12],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,98],"block":81,"patterns":11,"top":41,"h":2.34,"shapes":[["(n−n÷n)×n",41],["(n×n−n)÷n",24],["n×n−n÷n",16],["n×n÷(n−n)",10]]},"after":{"repOps":[0,97,76,56],"block":63,"patterns":34,"top":7,"h":4.8,"shapes":[["(n−n)×n−n",7],["n−(n−n)×n",6],["n×n−n−n",6],["n×n÷n−n",6]]},"pool":{"count":4942,"repOps":[0,93,75,49],"block":59,"patterns":48,"top":10,"h":4.67,"shapes":[["n×n÷n−n",10],["(n−n)×n−n",10],["n×n−n−n",8],["n−(n−n)×n",6]]},"samples":["2 × 5 − 2 × 2 = 6","8 − (9 − 4) ÷ 5 = 7","(2 × 8 − 1) ÷ 3 = 5","1 − (8 − 8) × 5 = 1","4 × 5 − 9 − 2 = 9","(6 − 2) × 4 − 9 = 7","(9 ÷ 3 − 2) × 8 = 8","5 − 8 ÷ (6 − 8) = 9"],"quality":{"floor2":62,"chipAll":6,"chipLikely":18,"fracAll":1,"fracLikely":5,"cleanCount":5511,"cleanPct":92}},{"n":4,"ops":"−×÷","band":1,"rangeBefore":[15,44],"rangeAfter":[13,40],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,100],"block":55,"patterns":5,"top":47,"h":1.43,"shapes":[["(n−n÷n)×n",47],["n×n−n÷n",46],["n×n÷(n−n)",4],["(n÷n−n)×n",3]]},"after":{"repOps":[0,95,98,35],"block":65,"patterns":20,"top":8,"h":4.17,"shapes":[["n×n−(n−n)",8],["n×n−n−n",8],["(n×n−n)×n",7],["n−(n−n)×n",7]]},"pool":{"count":5673,"repOps":[0,95,93,21],"block":69,"patterns":29,"top":15,"h":3.93,"shapes":[["n×n−(n−n)",15],["(n−n)×n−n",12],["n−(n−n)×n",11],["n×n−n−n",10]]},"samples":["8 × 6 ÷ 3 − 3 = 13","7 × 8 ÷ (9 − 5) = 14","(7 − 3 − 1) × 8 = 24","3 × 1 × 7 − 4 = 17","3 × 4 − (2 − 4) = 14","7 × 7 − 6 − 5 = 38","(3 × 3 − 7) × 8 = 16","(2 − 7) × (1 − 6) = 25"],"quality":{"floor2":90,"chipAll":5,"chipLikely":9,"fracAll":5,"fracLikely":7,"cleanCount":5158,"cleanPct":90}},{"n":4,"ops":"−×÷","band":2,"rangeBefore":[44,980],"rangeAfter":[41,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[0,100,100,97],"block":53,"patterns":3,"top":53,"h":1.16,"shapes":[["(n−n÷n)×n",53],["n×n−n÷n",45],["n×n×n−n",3]]},"after":{"repOps":[0,87,100,22],"block":57,"patterns":15,"top":8,"h":3.83,"shapes":[["(n−n)×n×n",8],["n×n−(n−n)",8],["n×n×n−n",8],["(n×n−n)×n",8]]},"pool":{"count":5884,"repOps":[0,91,100,7],"block":66,"patterns":15,"top":34,"h":2.95,"shapes":[["(n×n−n)×n",34],["n×n×n−n",17],["(n−n)×n×n",13],["n×n−(n−n)",11]]},"samples":["(8 − 1) × 8 − 3 = 53","(1 − 8) × (2 − 8) = 42","(5 − 2) × 2 × 8 = 48","8 × 7 − 8 ÷ 4 = 54","8 × 6 − (5 − 4) = 47","(7 − 1 − 1) × 9 = 45","3 × 2 × 8 − 1 = 47","(5 × 4 − 1) × 6 = 114"],"quality":{"floor2":91,"chipAll":2,"chipLikely":3,"fracAll":3,"fracLikely":3,"cleanCount":5445,"cleanPct":95}},{"n":4,"ops":"+−×÷","band":0,"rangeBefore":[1,26],"rangeAfter":[1,15],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[77,73,97,54],"block":84,"patterns":14,"top":27,"h":3.13,"shapes":[["(n+n)×n−n",27],["(n+n−n)×n",17],["(n+n÷n)×n",12],["(n−n÷n)×n",10]]},"after":{"repOps":[71,69,59,64],"block":49,"patterns":51,"top":6,"h":5.22,"shapes":[["n+n+n÷n",6],["n+n×n−n",6],["n+n−n÷n",5],["(n+n)÷n+n",5]]},"pool":{"count":6646,"repOps":[84,74,43,42],"block":22,"patterns":80,"top":17,"h":4.64,"shapes":[["n+n+n−n",17],["n+n×n−n",10],["n+n−n−n",9],["n+n+n÷n",8]]},"samples":["1 × 9 ÷ 3 − 2 = 1","6 × 8 − 6 × 6 = 12","(5 × 9 − 9) ÷ 3 = 12","6 + 7 − 3 × 4 = 1","5 × 6 − 8 − 9 = 13","7 − (6 + 4) ÷ 5 = 5","(5 + 5 − 9) × 6 = 6","(5 + 7) ÷ 4 + 6 = 9"],"quality":{"floor2":71,"chipAll":6,"chipLikely":16,"fracAll":2,"fracLikely":3,"cleanCount":9718,"cleanPct":92}},{"n":4,"ops":"+−×÷","band":1,"rangeBefore":[26,73],"rangeAfter":[16,40],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[91,68,100,41],"block":62,"patterns":7,"top":55,"h":1.68,"shapes":[["(n+n)×n−n",55],["n×n+n÷n",30],["n×n−n÷n",9],["(n+n−n)×n",3]]},"after":{"repOps":[72,54,97,32],"block":55,"patterns":34,"top":7,"h":4.82,"shapes":[["n+n×n−n",7],["(n+n)×n+n",7],["n+n+n×n",6],["(n+n)×n−n",6]]},"pool":{"count":7532,"repOps":[80,52,90,18],"block":42,"patterns":44,"top":14,"h":4.57,"shapes":[["n+n×n−n",14],["n+n+n×n",12],["(n+n)×n+n",8],["(n+n)×n−n",5]]},"samples":["1 + 6 × 7 − 8 = 35","(9 × 6 − 3) ÷ 3 = 17","(1 + 1) × 7 × 2 = 28","(5 − 7 ÷ 7) × 7 = 28","(9 + 9 × 9) ÷ 5 = 18","(8 + 6) × (7 − 5) = 28","5 × 6 − 8 − 1 = 21","(1 + 2) × 8 + 4 = 28"],"quality":{"floor2":97,"chipAll":4,"chipLikely":8,"fracAll":5,"fracLikely":5,"cleanCount":9662,"cleanPct":91}},{"n":4,"ops":"+−×÷","band":2,"rangeBefore":[73,980],"rangeAfter":[41,980],"bandsBefore":3,"bandsAfter":3,"before":{"repOps":[100,95,100,6],"block":95,"patterns":2,"top":95,"h":0.31,"shapes":[["(n+n)×n−n",95],["n×n+n÷n",6]]},"after":{"repOps":[72,47,100,9],"block":66,"patterns":26,"top":8,"h":4.4,"shapes":[["(n+n)×n+n",8],["(n+n×n)×n",7],["(n×n−n)×n",7],["(n+n)×n×n",7]]},"pool":{"count":16483,"repOps":[75,39,100,4],"block":70,"patterns":30,"top":13,"h":4.09,"shapes":[["(n+n×n)×n",13],["(n+n)×n+n",11],["(n+n)×n×n",10],["(n×n−n)×n",9]]},"samples":["(5 + 4) × (3 + 6) = 81","(2 + 9 × 6) × 6 = 336","5 + 7 × 6 − 2 = 45","(3 + 2 + 3) × 7 = 56","(7 + 6 − 4) × 9 = 81","(8 − 1) × 6 + 1 = 43","(1 + 4) × 8 + 7 = 47","(5 + 8 ÷ 2) × 6 = 54"],"quality":{"floor2":96,"chipAll":0,"chipLikely":1,"fracAll":0,"fracLikely":0,"cleanCount":10462,"cleanPct":99}}]}</script>
+<script>
+(function(){
+  "use strict";
+  var ROWS = JSON.parse(document.getElementById("report-data").textContent).rows;
+  var OPS = ["+","−","×","÷"];
+  var OPVAR = ["--op-add","--op-sub","--op-mul","--op-div"];
+  var NAMES = { 1:["beliebig"], 2:["klein","groß"], 3:["klein","mittel","groß"] };
+  var state = { n:"4", sort:"gain", open:null };
+
+  function el(tag, cls, text){
+    var e = document.createElement(tag);
+    if (cls) e.className = cls;
+    if (text != null) e.textContent = text;
+    return e;
+  }
+  var pct = function(v){ return v + "%"; };
+  function bandName(r){ return (NAMES[r.bandsAfter] || NAMES[3])[r.band]; }
+  function opsSpan(ops){
+    var s = el("span","ops");
+    for (var i=0;i<ops.length;i++) s.appendChild(el("span","o"+OPS.indexOf(ops.charAt(i)), ops.charAt(i)));
+    return s;
+  }
+  function selCell(r){
+    var td = el("td");
+    var sel = el("div","sel");
+    sel.appendChild(el("span","n", String(r.n)));
+    sel.appendChild(opsSpan(r.ops));
+    td.appendChild(sel);
+    return td;
+  }
+  /** Two bars, before over after, with both numbers. */
+  function deltaCell(was, now, invert){
+    var td = el("td");
+    var d = el("div","delta");
+    var nums = el("span","pairnums");
+    if (was == null) {
+      nums.appendChild(el("span","was","—"));
+    } else {
+      nums.appendChild(el("span","was", pct(was)));
+    }
+    nums.appendChild(el("span","arrow","→"));
+    nums.appendChild(document.createTextNode(pct(now)));
+    d.appendChild(nums);
+    var b1 = el("div","dbar was"), i1 = document.createElement("i");
+    i1.style.width = (was == null ? 0 : was) + "%";
+    b1.appendChild(i1);
+    var b2 = el("div","dbar now"), i2 = document.createElement("i");
+    i2.style.width = now + "%";
+    b2.appendChild(i2);
+    d.appendChild(b1); d.appendChild(b2);
+    d.title = (was == null ? "not comparable" : "before " + pct(was)) + " · after " + pct(now);
+    td.appendChild(d);
+    return td;
+  }
+
+  function buildSeg(id, items, key){
+    var host = document.getElementById(id);
+    items.forEach(function(it){
+      var b = el("button", null, it[1]);
+      b.type = "button";
+      b.setAttribute("aria-pressed", String(state[key] === it[0]));
+      b.addEventListener("click", function(){
+        state[key] = it[0]; state.open = null;
+        Array.prototype.forEach.call(host.children, function(c){ c.setAttribute("aria-pressed", String(c === b)); });
+        render();
+      });
+      host.appendChild(b);
+    });
+  }
+  buildSeg("seg-n", [["2","2"],["3","3"],["4","4"],["all","alle"]], "n");
+  buildSeg("seg-sort", [["gain","biggest change"],["order","selection"]], "sort");
+
+  /* ---- headline cards ---- */
+  (function(){
+    var host = document.getElementById("headline");
+    function card(title, rows, note){
+      var a = el("article");
+      a.appendChild(el("h3", null, title));
+      rows.forEach(function(row){
+        var p = el("p","num");
+        var was = el("s", null, row[1]);
+        p.appendChild(was);
+        p.appendChild(el("span","arrow","→"));
+        p.appendChild(document.createTextNode(row[2]));
+        a.appendChild(p);
+        a.appendChild(el("p","small", row[0]));
+      });
+      if (note) a.appendChild(el("p","small", note));
+      host.appendChild(a);
+    }
+    var d3 = ROWS.filter(function(r){ return r.n===3 && r.ops==="+−×÷"; });
+    var d4 = ROWS.filter(function(r){ return r.n===4 && r.ops==="+−×÷" && r.band===d4band(); });
+    function d4band(){ var m=ROWS.filter(function(r){return r.n===4&&r.ops==="+−×÷";}); return m.length-1; }
+    function rng(list, pick){
+      var vals = list.map(pick).filter(function(v){ return v != null; });
+      if (!vals.length) return "—";
+      var lo = Math.min.apply(null, vals), hi = Math.max.apply(null, vals);
+      return lo === hi ? lo + "%" : lo + "–" + hi + "%";
+    }
+    card("3 Zahlen, alle vier — the default", [
+      ["share of draws on the most common shape", rng(d3, function(r){ return r.before && r.before.top; }), rng(d3, function(r){ return r.after.top; })],
+      ["puzzles that require a bracket", rng(d3, function(r){ return r.before && r.before.block; }), rng(d3, function(r){ return r.after.block; })],
+      ["÷ in the likely solution", rng(d3, function(r){ return r.before && r.before.repOps[3]; }), rng(d3, function(r){ return r.after.repOps[3]; })],
+    ], "Across all three bands. The target ranges narrowed too, so these are not like-for-like bands — but they are like-for-like settings, which is what a player picks.");
+    var b = d4[0];
+    if (b) card("4 Zahlen, alle vier, größtes Ziel — the worst case", [
+      ["share of draws on the most common shape", b.before ? b.before.top + "%" : "—", b.after.top + "%"],
+      ["distinct shapes in 200 draws", b.before ? String(b.before.patterns) : "—", String(b.after.patterns)],
+      ["÷ in the likely solution", b.before ? b.before.repOps[3] + "%" : "—", b.after.repOps[3] + "%"],
+    ], "Before, eleven draws in twelve were (a + b) × c − d.");
+  })();
+
+  /* ---- matrix ---- */
+  function samplePanel(r){
+    var wrap = el("div","detail-inner");
+    var col = el("div","samplecol");
+    var h = el("h4");
+    h.appendChild(el("em", null, "eight consecutive draws today"));
+    h.appendChild(document.createTextNode(" · " + r.after.patterns + " distinct shapes in 200"));
+    col.appendChild(h);
+    var ol = el("ol");
+    (r.samples || []).forEach(function(s){ ol.appendChild(el("li", null, s)); });
+    col.appendChild(ol);
+    var grid = el("div","samplegrid");
+    grid.appendChild(col);
+    if (r.quality) {
+      var q = el("div","samplecol");
+      q.appendChild(el("h4", null, "this band’s pool"));
+      var list = el("ol");
+      list.appendChild(el("li", null, (r.pool ? r.pool.count : "?") + " puzzles offerable"));
+      list.appendChild(el("li", null, q0(r.quality.chipLikely) + " would waste a chip"));
+      list.appendChild(el("li", null, q0(r.quality.fracLikely) + " left the whole numbers (now refused)"));
+      q.appendChild(list);
+      grid.appendChild(q);
+    }
+    function q0(v){ return v + "%"; }
+    wrap.appendChild(grid);
+    wrap.appendChild(el("p","detail-note",
+      "Shape shares before and after are not measured over the same band where the range changed — the range is shown on the row."));
+    return wrap;
+  }
+
+  function gainOf(r){ return r.before ? (r.before.top - r.after.top) : -1; }
+
+  function render(){
+    var tbody = document.getElementById("rows");
+    tbody.textContent = "";
+    var list = ROWS.filter(function(r){ return state.n === "all" || r.n === Number(state.n); });
+    if (state.sort === "gain") list = list.slice().sort(function(a,b){ return gainOf(b) - gainOf(a); });
+
+    list.forEach(function(r){
+      var tr = el("tr","data");
+      tr.tabIndex = 0;
+      var id = r.n + "|" + r.ops + "|" + r.band;
+      if (state.open === id) tr.classList.add("open");
+      tr.appendChild(selCell(r));
+
+      var tdBand = el("td","bandcell", bandName(r));
+      if (r.bandsAfter !== r.bandsBefore) tdBand.appendChild(el("span","flag", r.bandsBefore + "→" + r.bandsAfter));
+      tr.appendChild(tdBand);
+
+      var tdRange = el("td","rangecell");
+      if (r.rangeBefore) {
+        tdRange.appendChild(el("span","was","[" + r.rangeBefore[0] + "," + r.rangeBefore[1] + "]"));
+        tdRange.appendChild(el("span","arrow"," → "));
+      }
+      tdRange.appendChild(document.createTextNode("[" + r.rangeAfter[0] + "," + r.rangeAfter[1] + "]"));
+      tr.appendChild(tdRange);
+
+      tr.appendChild(deltaCell(r.before ? r.before.top : null, r.after.top));
+      tr.appendChild(el("td","num", (r.before ? r.before.patterns : "—") + " → " + r.after.patterns));
+      tr.appendChild(deltaCell(r.before ? r.before.block : null, r.after.block));
+      tr.appendChild(deltaCell(r.before ? r.before.repOps[3] : null, r.after.repOps[3]));
+
+      function toggle(){ state.open = (state.open === id) ? null : id; render(); }
+      tr.addEventListener("click", toggle);
+      tr.addEventListener("keydown", function(e){ if (e.key === "Enter" || e.key === " "){ e.preventDefault(); toggle(); } });
+      tbody.appendChild(tr);
+
+      if (state.open === id) {
+        var dtr = el("tr","detail"), dtd = el("td");
+        dtd.colSpan = 7;
+        dtd.appendChild(samplePanel(r));
+        dtr.appendChild(dtd);
+        tbody.appendChild(dtr);
+      }
+    });
+
+    var improved = list.filter(function(r){ return r.before && r.after.top < r.before.top; }).length;
+    var comparable = list.filter(function(r){ return r.before; }).length;
+    document.getElementById("matrix-note").textContent =
+      list.length + " rows shown. The most common shape got less dominant in " + improved + " of " + comparable +
+      " comparable cells. Where it did not, the cell was already varied — the fix cannot improve a band whose pool holds two shapes.";
+  }
+
+  /* ---- band table ---- */
+  (function(){
+    var seen = {}, out = [];
+    ROWS.forEach(function(r){
+      var k = r.n + "|" + r.ops;
+      if (!seen[k]) { seen[k] = []; out.push({ n:r.n, ops:r.ops, rows:seen[k], bandsBefore:r.bandsBefore, bandsAfter:r.bandsAfter }); }
+      seen[k].push(r);
+    });
+    var tbody = document.getElementById("bandrows");
+    out.forEach(function(g){
+      var tr = el("tr","data");
+      tr.style.cursor = "default";
+      tr.appendChild(selCell(g));
+      var tdN = el("td");
+      var rec = el("span","rec");
+      var dots = el("span","dots");
+      for (var i=1;i<=3;i++){ var d = document.createElement("i"); if (i <= g.bandsAfter) d.className = "on"; dots.appendChild(d); }
+      rec.appendChild(dots);
+      rec.appendChild(document.createTextNode(String(g.bandsAfter)));
+      tdN.appendChild(rec);
+      if (g.bandsAfter !== g.bandsBefore) tdN.appendChild(el("span","flag", "war " + g.bandsBefore));
+      tr.appendChild(tdN);
+      var was = g.rows.map(function(r){ return r.rangeBefore ? "[" + r.rangeBefore[0] + "," + r.rangeBefore[1] + "]" : null; }).filter(Boolean).join(" ");
+      var now = g.rows.map(function(r){ return r.rangeAfter[0] + "–" + r.rangeAfter[1]; }).join("  ·  ");
+      var t1 = el("td","mono", was || "—"); t1.style.fontSize = "11.5px"; t1.style.color = "var(--muted)"; t1.style.whiteSpace = "nowrap";
+      var t2 = el("td","mono", now); t2.style.fontSize = "12px"; t2.style.whiteSpace = "nowrap";
+      tr.appendChild(t1); tr.appendChild(t2);
+      tbody.appendChild(tr);
+    });
+  })();
+
+  render();
+})();
+</script>
