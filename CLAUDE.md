@@ -44,18 +44,18 @@ filled crown), then work through 19's manifest/icons/offline requirements
 alongside the animation and landscape work 16's own table groups into this
 one step.
 
-### Two open questions from the bug-fix round
+### One open question from the bug-fix round
 
-Both are real gaps found by a scripted browser pass, both need a product
-decision before anyone writes code for them, and neither is a regression —
-they have been true since the feature was built. Do them before, after or
-alongside step 6, but don't fix them silently: the fix shape depends on the
-answer.
+A real gap found by a scripted browser pass, needing a product decision
+before anyone writes code for it, and not a regression — it has been true
+since the feature was built. Do it before, after or alongside step 6, but
+don't fix it silently: the fix shape depends on the answer. (Its sibling
+question, the negative-result notation line, was resolved by the
+negative-result-display round below — PO decision: show the actual number.)
 
 | Frage | Was fehlt, und was zu entscheiden ist |
 |---|---|
 | **Tastaturbedienung** | The chips are real `<button>`s and take focus, but pressing Enter or Space does nothing: `onClick` is dropped wherever the drag handlers are wired (`Tray.tsx`, `Expression.tsx` — a plain `onClick` alongside `useDrag` double-fires on a real tap, see `NumberCell`'s own note), and `useDrag` listens to pointer events only. Concept 5 states the opposite intent — tapping "hält aber Sechsjährige, **Tastaturbedienung** und Screenreader im Spiel". The mechanical fix is small (an `onKeyDown` for Enter/Space in `useDrag`'s handler set, which can't double-fire because a keyboard press produces no pointer event), but the product question isn't: what does keyboard-only *placement* mean for a game whose second half is dragging, and how far should it go — placing and returning only, or a full keyboard path to a bracket? |
-| **Ein negatives Ergebnis zeigt gar kein Ergebnis** | `evaluate` returns `null` for a negative final result (concept 8: "das Endergebnis muss ≥ 0 sein"), so the notation line shows bare notation with no `= …`. Since the result-on-submit round (below) the readout no longer appears live at all, only after `=` is pressed — but a negative-result expression still shows bare notation with no visible number even *after* pressing `=`, just now colored red (the "wrong" verdict) instead of neutral. Concept 9.2 wants the line to show "das eigene Ergebnis" precisely so a wrong answer teaches something. Decide what it should read: `… = −3` (contradicting the ≥ 0 rule the evaluator enforces), a neutral marker, or nothing at all as now. |
 
 **If asked to "implement next step" with nothing more specific, this is the
 step** — but start with the two blockers above, not the animation/PWA work
@@ -72,6 +72,25 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
+
+**A negative-result-display round (PO decision) resolved the "Ein
+negatives Ergebnis zeigt gar kein Ergebnis" open question: a wrong,
+negative-result attempt now shows its own number instead of bare
+notation.** `evaluate.ts`'s `evaluate()` still enforces concept 8's ≥0 rule
+exactly as before — solver.ts, puzzles.ts and hints.ts all still need a
+puzzle target, and a hint's own completion, to only ever be built around a
+non-negative route, so nothing about generation or hinting changed. What
+changed is `useGame.ts`'s own `result` (what `Board.tsx`'s readout reads):
+it now comes from a new `evaluateAttempt()`, which is `evaluate()` minus
+the `< 0 → null` step — same incomplete/division-by-zero handling,
+negative kept instead of discarded. The submit comparison (`result ===
+target`) needed no change: a target is always non-negative, so a negative
+attempt already compared unequal under the old `evaluate()`, and still
+does under the new one — only the *display* gained a case it didn't have
+before. `notation.ts` gained `formatResult()` so a negative result prints
+with the same typographic minus (`−`) the rest of the line already uses
+for the `-` operator, rather than JS's plain `-` sitting in a different
+glyph next to it.
 
 **A result-on-submit round (PO decision) withheld the notation line's `=
 result` until the player presses `=`, and moved the line itself.** Both

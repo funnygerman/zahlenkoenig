@@ -16,7 +16,7 @@ import {
   absorbIntoGroup, absorbPairIntoGroup, insertLeafIntoGroup, moveGroup,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
-import { evaluate } from '../core/evaluate'
+import { evaluateAttempt } from '../core/evaluate'
 import type { HintMove } from '../core/hints'
 import type { TrayNumberSlot } from './Tray'
 import { parseZoneId } from './Expression'
@@ -290,7 +290,12 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   const placedIds = useMemo(() => collectPlacedIds(expr.root.children), [expr])
   const blocksUsed = useMemo(() => countGroups(expr.root.children), [expr])
   const complete = useMemo(() => isExpressionComplete(expr), [expr])
-  const result = useMemo(() => (complete ? evaluate(expr) : null), [expr, complete])
+  // evaluateAttempt, not evaluate: a submitted attempt's own notation line
+  // (concept 9.2, result-on-submit round) shows a negative result rather
+  // than hiding it, unlike a puzzle's own generated/hinted target — the
+  // target comparison below still only ever matches a non-negative target,
+  // so a negative attempt compares unequal exactly as it did before.
+  const result = useMemo(() => (complete ? evaluateAttempt(expr) : null), [expr, complete])
 
   const trayNumbers: TrayNumberSlot[] = useMemo(
     () => tray.map(leaf => ({ id: leaf.id, value: leaf.value, used: placedIds.has(leaf.id) })),
