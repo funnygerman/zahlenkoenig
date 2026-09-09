@@ -18,7 +18,17 @@ import { operatorGlyph, type Operator } from '../core/expression'
 import styles from './Header.module.css'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
-const BAND_LABELS = ['klein', 'mittel', 'groß']
+/**
+ * Band names by how many bands the selection actually offers (puzzles.ts's
+ * BandRow). Calling the only band "klein" would be a lie — it covers the
+ * selection's whole range — and with two, "klein · mittel" reads as though a
+ * third were missing rather than impossible.
+ */
+const BAND_LABELS: Record<number, string[]> = {
+  1: ['beliebig'],
+  2: ['klein', 'groß'],
+  3: ['klein', 'mittel', 'groß'],
+}
 const NUMBER_OPTIONS: Settings['numbers'][] = [2, 3, 4]
 
 export interface HeaderProps {
@@ -144,7 +154,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
                     aria-pressed={settings.band === i}
                     onClick={() => onSetBand(i as Settings['band'])}
                   >
-                    <span className={styles.bandLabel}>{BAND_LABELS[i]}</span>
+                    <span className={styles.bandLabel}>{(BAND_LABELS[ranges.length] ?? BAND_LABELS[3])[i]}</span>
                     <span className={styles.bandRange}>{bandLo}–{bandHi}</span>
                   </button>
                 ))}
