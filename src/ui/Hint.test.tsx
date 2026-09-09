@@ -1,6 +1,6 @@
 import { createRef } from 'react'
 import { describe, it, expect } from 'vitest'
-import { render, screen, act } from '@testing-library/react'
+import { render, screen, act, fireEvent } from '@testing-library/react'
 import { Board, type BoardHandle } from './Board'
 import type { Operator } from '../core/expression'
 
@@ -46,6 +46,11 @@ describe('Board — the hint button (concept 10.3)', () => {
     // numbers + 3 operators + 2 blocks = 9 taps, plus the first pulse-only press
     for (let i = 0; i < 12; i++) press(ref)
 
+    // The hint lays chips the same way a tap does — it never presses `=`
+    // itself, so the readout still holds back the result until it's pressed.
+    expect(screen.getByRole('status').textContent).not.toMatch(/=/)
+    act(() => fireEvent.click(screen.getByText('=', { selector: 'button' })))
+
     // Not necessarily "(6 + 2) × (9 − 3)": 48 is also reachable flat, with
     // no blocks at all (6 × 9 − 2 × 3), and concept 10.2 ranks fewer blocks
     // as *smaller* — so the canonical continuation prefers that one. Only
@@ -78,6 +83,7 @@ describe('Board — the hint never walks the board into a dead end', () => {
 
     // 1 pulse press + at most 3 numbers + 2 operators + 1 block
     for (let i = 0; i < 10; i++) press(ref)
+    act(() => fireEvent.click(screen.getByText('=', { selector: 'button' })))
 
     expect(screen.getByRole('status').textContent).toMatch(/= 8$/)
     expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
@@ -87,6 +93,7 @@ describe('Board — the hint never walks the board into a dead end', () => {
     const ref = createRef<BoardHandle>()
     render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
     for (let i = 0; i < 12; i++) press(ref)
+    act(() => fireEvent.click(screen.getByText('=', { selector: 'button' })))
 
     expect(screen.getByRole('status').textContent).toMatch(/= 48$/)
     expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
