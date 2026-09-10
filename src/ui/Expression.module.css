@@ -31,6 +31,14 @@
   background: var(--zk-group-bg);
 }
 
+/* The hint round (PO): a block can itself be what stands between the board
+ * and the target, and marking it means marking its brackets — the block has
+ * no chip of its own, and dissolving it is the gesture that takes it back.
+ * Same amber as the field's dead-end border and the marked chips inside it. */
+.group.blocking > .bracketEdge {
+  border-color: var(--zk-amber);
+}
+
 /* concept 12.5: absolutely positioned so the bracket edges cost NO width —
  * the single most load-bearing rule in the whole layout (12.5's warning:
  * making these real flex children instead overflows by 50-80px). concept

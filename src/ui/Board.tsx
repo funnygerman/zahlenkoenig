@@ -35,6 +35,8 @@ export interface BoardProps {
    * aria-label comes out in.
    */
   language?: Language
+  /** whether a hint press would still do anything here — see the effect in Board that reports it, and Game.tsx, which mutes the header's icon on it. */
+  onHintAvailable?: (available: boolean) => void
 }
 
 /** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
@@ -97,7 +99,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de' }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintAvailable }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -108,6 +110,14 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
     onApplyMove: game.applyHintMove,
   })
   useImperativeHandle(ref, () => ({ pressHint: hint.onPressHint }), [hint.onPressHint])
+
+  // The header's hint icon is a sibling in Game.tsx's tree, so it can't read
+  // this board's hint state the way the imperative `pressHint` above lets it
+  // *write* to it — and it has to mute itself once a press would do nothing
+  // (the two-hint budget spent, or the puzzle already correctly built).
+  // Reported upward rather than lifted: the hint still belongs to the board
+  // it is about, and Board is remounted per puzzle while Header is not.
+  useEffect(() => { onHintAvailable?.(hint.available) }, [hint.available, onHintAvailable])
 
   // Concept 6.7's dissolve fade: the real trigger is a tap detected by
   // useDrag (handleTap below), not Expression's own onClick (that path
@@ -199,6 +209,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}
           deadEnd={hint.deadEnd}
+          blockingIds={hint.blockingIds}
           flipRef={flipRef}
           dissolvingGroupId={dissolvingId}
         />
@@ -227,7 +238,6 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         onTapOperator={game.onTapOperator}
         onSubmit={game.onSubmit}
         dragHandlers={drag.dragHandlers}
-        pulsingIds={hint.pulseIds}
         flipRef={flipRef}
       />
 

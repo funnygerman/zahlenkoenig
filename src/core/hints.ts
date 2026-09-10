@@ -24,7 +24,7 @@
 
 import {
   type Expression, type Group, type Leaf, type NumberLeaf, type Operator, type Slot,
-  createOperatorLeaf, isExpressionComplete,
+  createOperatorLeaf, dissolveGroup, isExpressionComplete, trimTrailingGaps,
 } from './expression'
 import { evaluate } from './evaluate'
 
@@ -47,14 +47,6 @@ export type HintMove =
 export interface Hint {
   /** the taps, in order, that complete the puzzle from here — 10.3's "ein Chip pro Druck". */
   moves: HintMove[]
-  /**
-   * The two tray numbers to pulse on the hint's first press (10.3): the
-   * operands of the continuation's first still-fully-unplaced block, or —
-   * "hat sie keinen Block, die ersten beiden benachbarten Operanden" — the
-   * continuation's first two numbers, whatever position they land in, when
-   * it introduces no new block at all.
-   */
-  pulseIds: [string, string] | null
 }
 
 const OP_PRIORITY: Operator[] = ['+', '-', '*', '/']
@@ -206,15 +198,6 @@ function diffMoves(fixed: readonly Slot[], resolved: readonly (Leaf | Group | nu
   return moves
 }
 
-function findPulseIds(moves: readonly HintMove[]): [string, string] | null {
-  const blockIndex = moves.findIndex(m => m.kind === 'block')
-  const numbersFrom = (start: number): string[] =>
-    moves.slice(start).filter((m): m is { kind: 'number'; leafId: string } => m.kind === 'number').slice(0, 2).map(m => m.leafId)
-
-  const scoped = blockIndex === -1 ? numbersFrom(0) : numbersFrom(blockIndex + 1)
-  return scoped.length === 2 ? [scoped[0], scoped[1]] : null
-}
-
 /**
  * The current board's hint, or `null` when the target is no longer
  * reachable (concept 10.1/10.2's dead-end case) — the caller decides
@@ -241,12 +224,121 @@ export function computeHint(
   }
   if (!best) return null
 
-  const moves = diffMoves(expr.root.children, best.root)
-  return { moves, pulseIds: findPulseIds(moves) }
+  return { moves: diffMoves(expr.root.children, best.root) }
 }
 
 /** Concept 10.1's dead-end check on its own, for callers that don't also need the continuation. */
 export function isStuck(expr: Expression, tray: readonly NumberLeaf[], target: number, opsAllowed: Operator[], numbersCount: number): boolean {
   if (isExpressionComplete(expr)) return false
   return computeHint(expr, tray, target, opsAllowed, numbersCount) === null
+}
+
+// --------------------------------------------------------------- blockers
+// What to mark when the board can no longer reach the target (PO decision,
+// hint round: a hint press on a dead-end board marks the chips in the way
+// rather than taking them back — "nur die falschen Chips markieren", never
+// touch what the player built).
+//
+// "The chips in the way" is defined the only way that can't be argued
+// with: the *smallest* set of already-placed chips whose removal makes the
+// target reachable again. A block counts as one chip in that set (marking
+// it means marking its brackets — dissolving it is the gesture that
+// removes it), exactly as a number or an operator does.
+
+/**
+ * Every chip on the board, in document order — a block counts as one of
+ * them alongside the leaves inside it, since it is one thing a player can
+ * take back (by dissolving it) and one thing that can be what's wrong.
+ */
+function placedIds(children: readonly Slot[]): string[] {
+  const ids: string[] = []
+  for (const slot of children) {
+    if (slot === null) continue
+    ids.push(slot.id)
+    if (slot.kind === 'group') for (const child of slot.children) if (child !== null) ids.push(child.id)
+  }
+  return ids
+}
+
+/**
+ * The board without that one chip — by id rather than by position, so a
+ * sequence of removals composes: dissolving a block moves its contents up
+ * to the root, and a leaf removed after that is found there instead.
+ * Removing a block means dissolving it (its contents stay, exactly as
+ * concept 6.5 has it); removing a leaf leaves its position open for the
+ * Restlöser to try refilling.
+ */
+function withoutId(children: readonly Slot[], id: string): Slot[] {
+  const index = children.findIndex(slot => slot !== null && slot.id === id)
+  if (index !== -1) {
+    const slot = children[index]!
+    if (slot.kind === 'group') return trimTrailingGaps(dissolveGroup(children, index))
+    return trimTrailingGaps(children.map((s, i) => (i === index ? null : s)))
+  }
+  return children.map(slot => (slot === null || slot.kind !== 'group' ? slot : {
+    ...slot,
+    children: slot.children.map(child => (child !== null && child.id === id ? null : child)),
+  }))
+}
+
+/**
+ * How deep the search goes before it gives up and calls the whole board
+ * blocked. Three removals is already far past what a player builds into a
+ * dead end in practice, and the cost is a `computeHint` per subset.
+ */
+const MAX_BLOCKER_SET = 3
+
+/**
+ * The placed chips standing between this board and the target — empty both
+ * when the target is still reachable (nothing is in the way) and when the
+ * board is beside the point because the *puzzle* can't be reached from an
+ * empty field either: nothing the player placed is to blame there, and
+ * marking their chips would say something untrue. When something is to
+ * blame but no set of up to `MAX_BLOCKER_SET` removals rescues the board,
+ * the answer is every placed chip — honest, if unhelpful: nothing short of
+ * taking it apart will do.
+ *
+ * Ties are broken toward *later* chips: of two equally small sets, the one
+ * further right wins, because a player's own most recent move is the one
+ * they can still picture making.
+ */
+export function findBlockers(
+  expr: Expression,
+  tray: readonly NumberLeaf[],
+  target: number,
+  opsAllowed: Operator[],
+  numbersCount: number
+): string[] {
+  if (computeHint(expr, tray, target, opsAllowed, numbersCount) !== null) return []
+
+  // reversed, so that combinations generated in index order come out
+  // preferring the chips furthest to the right
+  const ids = placedIds(expr.root.children).reverse()
+
+  const rescues = (subset: readonly string[]): boolean => {
+    let children: Slot[] = expr.root.children.slice()
+    for (const id of subset) children = withoutId(children, id)
+    return computeHint({ root: { ...expr.root, children } }, tray, target, opsAllowed, numbersCount) !== null
+  }
+
+  // Nothing the player placed is to blame if the empty field doesn't reach
+  // the target either — the dead-end border already says the puzzle is
+  // over, and marking their chips on top of it would be saying something
+  // untrue about them.
+  if (!rescues(ids)) return []
+
+  for (let size = 1; size <= Math.min(MAX_BLOCKER_SET, ids.length); size++) {
+    const pick = (start: number, acc: string[]): string[] | null => {
+      if (acc.length === size) return rescues(acc) ? acc : null
+      for (let i = start; i < ids.length; i++) {
+        const found = pick(i + 1, [...acc, ids[i]])
+        if (found) return found
+      }
+      return null
+    }
+    const found = pick(0, [])
+    if (found) return found
+  }
+
+  return ids
 }

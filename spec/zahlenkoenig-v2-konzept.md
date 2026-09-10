@@ -632,13 +632,40 @@ jedem Level dasselbe Verhalten:
 | Druck | Wirkung |
 |---|---|
 | **kostenlos, dauerhaft** | *Sackgassen-Anzeige*: existiert keine Fortsetzung, färbt sich der Rahmen des Ausdrucks bernstein |
-| 1. Druck | die zwei zusammengehörigen Zahlen **pulsieren in der Ablage** |
-| jeder weitere | das Spiel **setzt einen weiteren Chip** – einen pro Druck |
+| **kostenlos, auf Druck** | steht das Brett in einer Sackgasse, **markiert** der Druck die Chips, die im Weg stehen – und rührt sie nicht an |
+| jeder Druck | das Spiel **setzt einen weiteren Chip** – zwei pro Rätsel, dann ist das Symbol gedämpft |
 
-Welche zwei Zahlen pulsieren, war bisher offen. Jetzt ist es festgelegt: die
-beiden Operanden des **ersten Blocks der kanonischen Fortsetzung**, der noch
-vollständig in der Ablage liegt; hat sie keinen Block, die ersten beiden
-benachbarten Operanden.
+**Revision (Tipp-Runde, PO).** Die frühere Fassung dieser Tabelle gab dem
+ersten Druck eine eigene Wirkung: die beiden Operanden des ersten Blocks der
+kanonischen Fortsetzung **pulsierten in der Ablage**, gesetzt wurde nichts.
+Beides ist gestrichen, und beides aus gemessenen Gründen:
+
+- Das Pulsieren zeigte die Chips, die **zuletzt** an die Reihe kommen. Die
+  Fortsetzung wird in Dokumentreihenfolge abgearbeitet, das Pulsieren nannte
+  aber den Inhalt der ersten Klammer – in **jedem** gemessenen Fall mit
+  Klammer lag zwischen dem Pulsieren und dem Setzen des ersten pulsierenden
+  Chips im Mittel 3,67 Drücke, in denen ganz andere Chips erschienen.
+- Der erste Druck war oft **unsichtbar**: liegt höchstens noch eine Zahl in
+  der Ablage, gibt es kein Paar zu zeigen, und der Druck tat schlicht nichts.
+  Das betrifft die gesamte zweite Hälfte jeder Lösung.
+- In einer Sackgasse kehrte der Druck zurück, ohne irgend etwas zu tun.
+
+**Zwei Tipps pro Rätsel** (PO). Gezählt werden **Chips, nicht Drücke**: ein
+Tipp gilt so lange als verbraucht, wie der Chip, den er beigesteuert hat, auf
+dem Brett liegt. Nimmt der Spieler ihn zurück, steht der Tipp wieder zur
+Verfügung. Eine Anzeige der verbleibenden Tipps gibt es nicht (PO); ist das
+Kontingent verbraucht, dämpft sich das Symbol – dieselbe Sprache, die die
+Ablage für erschöpfte Operatoren und den Block schon spricht.
+
+**Die Sackgassen-Markierung** ist die kleinste Menge gesetzter Chips, deren
+Rücknahme das Ziel wieder erreichbar macht; bei Gleichstand gewinnt die
+weiter rechts liegende Menge, weil der Spieler seinen letzten Zug noch vor
+Augen hat. Ein Block zählt dabei als **ein** Chip – ihn zu markieren heißt,
+seine Klammern zu markieren, denn Auflösen ist die Geste, die ihn zurücknimmt.
+Der Druck **repariert nichts** (PO: „nur die falschen Chips markieren") und
+markiert **gar nichts**, wenn auch das leere Feld das Ziel nicht erreicht:
+dann liegt es nicht an dem, was der Spieler gelegt hat, und die dauerhafte
+Sackgassen-Anzeige hat das bereits gesagt.
 
 Drei Eigenschaften, jede gegen einen der drei Mängel:
 
@@ -656,11 +683,19 @@ Drei Eigenschaften, jede gegen einen der drei Mängel:
 
 ### 10.4 Aufgeben ist kein eigener Knopf mehr
 
-Wer weiterdrückt, bekommt Chip für Chip die vollständige Lösung gelegt. **Das
-ist das Aufgeben** – kein zweiter Knopf, kein Bestätigungsdialog, keine Schwelle
-„erst alle Tipps".
+Es gibt weiterhin **keinen Aufgeben-Knopf** – kein zweiter Knopf, kein
+Bestätigungsdialog, keine Schwelle „erst alle Tipps".
 
-Entscheidend ist, was danach passiert: **das gelöste Brett bleibt stehen.** Die
+**Revision (Tipp-Runde, PO).** Der Weg dorthin ist ein anderer. Diese Stelle
+sagte bisher: *„Wer weiterdrückt, bekommt Chip für Chip die vollständige
+Lösung gelegt. Das ist das Aufgeben."* Mit zwei Tipps pro Rätsel (10.3) legt
+der Knopf die Lösung nicht mehr fertig – *„aber lass uns nicht vollständig
+lösen"* (PO). Aufgeben ist damit gar keine Handlung mehr, die das Spiel
+anbietet: wer nicht weiterkommt, bekommt zwei Chips und die Markierung
+dessen, was im Weg steht, und geht sonst zum nächsten Rätsel weiter.
+
+Was davon unberührt bleibt, ist der Umgang mit dem gelösten Brett: **das
+gelöste Brett bleibt stehen.** Die
 Notationszeile zeigt den vollständigen Ausdruck mit `= Zielzahl`, die Chips
 liegen an ihrem Platz, und der Spieler kann sich das ansehen, solange er will.
 Weiterzugehen ist eine eigene, bewusste Geste. In v1 schloss Aufgeben das Rätsel

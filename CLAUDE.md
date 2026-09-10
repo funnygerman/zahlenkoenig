@@ -111,6 +111,85 @@ than sitting there looking clickable.
 
 ## Where v2 stands
 
+**The hint round (PO play-testing plus a QA browser pass) replaced what
+the hint button does, and closed two of its own bugs.** The report was
+"I'm not sure pulsing really helps", "often different numbers are pulsing
+than the next press places", and "sometimes, if there are already numbers
+in the expression field, clicking hint does nothing". All three were real,
+and a scripted QA pass measured each one against HEAD before anything was
+built:
+
+*The pulse is gone.* Concept 10.3's first press pulsed two tray chips and
+placed nothing. Measured: the next press placed a chip that was **not** one
+of the pulsed ones in **30.3%** of the states that showed a pulse at all —
+and in **100%** of the states whose plan contains a bracket, where the
+pulse named the two operands going *inside* the block while `diffMoves`
+walks the plan in document order, so every chip left of the bracket landed
+first (mean **3.67** presses before a pulsed chip appeared). The pulse was
+truthful about *which* chips end up in the bracket (157/158 walkthroughs) —
+it was wrong about *when*. Worse, it was invisible exactly when a board was
+half-built: `pulseIds` is null whenever ≤ 1 number is still unplaced
+(verified, 0 violations over 510 live states), which is **30.0%** of live
+states and the whole second half of every solve, so the first press
+routinely did nothing at all. `Chip`'s `pulsing` prop, its `@keyframes`,
+and `Tray`'s `pulsingIds` are all deleted; **every press places a chip
+now** (PO).
+
+*A puzzle gives two hints, counted in chips rather than presses* (PO). The
+budget is spent while the chip a hint contributed is still on the board, so
+taking that chip back gives the hint back — "count chips, not presses" was
+the PO's own wording. Which chips those are is read off the tree rather
+than predicted: `placeOperator`/`placeBlockAt` mint their own ids inside
+`useGame`, so a press records the board's ids first and attributes whatever
+appears next (`useHint.ts`'s `beforePressRef`). No counter is shown (PO);
+the header's icon simply mutes once a press would do nothing — genuinely
+`disabled`, unlike the tray's spent operator chips, which stay muted-but-
+droppable because dragging onto them is still a gesture. `Board` reports
+that upward through a new `onHintAvailable` prop rather than having the
+hint state lifted: `Header` is a *sibling* in `Game.tsx`'s tree, and Board
+is remounted per puzzle while Header is not — the same asymmetry that made
+`pressHint` an imperative handle in the first place, seen from the other
+direction.
+
+*A dead-end board is marked, never repaired* (PO). The other half of
+"nothing happens" was `useHint`'s `if (!hint) return` — on a board that can
+no longer reach the target the press exited before touching anything, and
+the dead-end border it might have been taken for was already on screen from
+the previous render. Measured at **45.8%** of randomly tap-built states,
+and **70.8%** of boards holding a drag-grown three-number group (a shape
+`computeHint` structurally cannot produce, so those boards are dead ends far
+more often). `core/hints.ts`'s new `findBlockers` answers it: the
+**smallest set of placed chips whose removal makes the target reachable
+again**, ties broken toward the *right* (a player's most recent move is the
+one they can still picture making), searched to three removals before
+giving up and marking everything. A block counts as one chip in that set —
+marking it marks its brackets, since dissolving it is how a block is taken
+back. Two things it deliberately does not do: it never touches the board
+(the PO chose "only mark the wrong chips" over three offered repair
+behaviours), and it marks **nothing** when the empty field can't reach the
+target either — nothing the player placed is to blame there, and the
+dead-end border has already said the puzzle is over. Marking costs no hint,
+so a blunder can't eat the budget.
+
+Three things the QA pass **disproved**, which is worth as much as what it
+confirmed: the chosen continuation is *not* unstable as chips are placed
+one at a time (the recomputed plan was exactly the tail of the previous one
+in **1079/1079** presses), a hint move is *never* refused by the placement
+function it is dispatched to (`resolveBlockDrop` returned null 0 times and
+the operator-budget guard blocked 0 times over 4113 moves — both are
+structurally unreachable from a hint), and the pulse never lied about which
+chips end up in the bracket. Two of those were the first explanations that
+came to mind for the PO's report, and both were wrong.
+
+`Hint.test.tsx`'s "press through to the end" tests could no longer press
+through to the end — two hints is by design not a solution — so that
+regression coverage moved down a level: it drives `useGame.applyHintMove`
+over a freshly recomputed `computeHint` via `renderHook`, which is exactly
+what a press does minus the budget. `Game.history.test.tsx` solved its
+puzzles the same way and now mocks `nextPuzzle` to a fixed sequence of
+two-number sums instead, which makes those tests deterministic rather than
+merely unblocked.
+
 **A footer/history round added two things outside concept 16's roadmap
 entirely** — the roadmap itself is finished (see "Next v2 step" above), so
 this isn't a step, it's new scope the PO asked for afterward: a page
@@ -151,14 +230,21 @@ whatever's currently selected.
 
 `Game.tsx` holds one new piece of state, `historyIndex: number | null` —
 `null` means "showing the live puzzle" (the normal case), a number is a
-position in the archive. Browsing doesn't touch the live puzzle's own state
-at all: it only changes *what's displayed*, so navigating away mid-solve
-and back again resumes exactly where the player left off (Board's key stays
-`live-${puzzleKey}` when the live puzzle hasn't changed underneath, so React
-never remounts it — the same "don't reset a tree that doesn't need
-resetting" reasoning `Board`'s own key already uses for a *new* puzzle,
-just extended to "browsed away and back" as a case that shouldn't reset
-either). Solving a replayed puzzle doesn't log a second archive entry or
+position in the archive. Browsing doesn't touch the live puzzle's own
+*puzzle* state at all: it only changes what's displayed.
+
+**It does throw away the in-progress board, though, and this file used to
+claim the opposite — a browser QA pass (hint round) disproved it.** The
+claim was that Board's key stays `live-${puzzleKey}` when the live puzzle
+hasn't changed underneath, so React never remounts it and a player browsing
+away mid-solve resumes exactly where they left off. React unmounts on *any*
+key change: the key goes `live-N → hist-0 → live-N`, and the Board that
+comes back is a brand-new instance with an empty field. Measured directly —
+place two chips, browse back, browse forward, and the field is empty.
+Keeping the board would mean leaving the live Board mounted (hidden)
+alongside the archived one rather than swapping keys, which is a change to
+how `Game.tsx` renders rather than to the key expression. Known, unfixed,
+and written down here rather than claimed away. Solving a replayed puzzle doesn't log a second archive entry or
 advance the live puzzle — Board.tsx's `onSolved` fires the same way either
 path, so `Game.tsx`'s `handleSolved` is the one place that has to tell them
 apart. Live (the normal case): logs the puzzle and draws the next one,

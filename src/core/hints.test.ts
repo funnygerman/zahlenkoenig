@@ -1,9 +1,9 @@
 import { describe, it, expect } from 'vitest'
-import { computeHint, isStuck, type HintMove } from './hints'
+import { computeHint, findBlockers, isStuck, type HintMove } from './hints'
 import {
   createExpression, createTray, createOperatorLeaf,
-  nextOpenSurface, resolveBlockDrop, applyBlockDrop, placeAt, trimTrailingGaps, withMinimumShape,
-  type Expression, type Group, type NumberLeaf, type Operator,
+  nextOpenSurface, resolveBlockDrop, applyBlockDrop, dissolveGroup, placeAt, trimTrailingGaps, withMinimumShape,
+  type Expression, type Group, type NumberLeaf, type Operator, type Slot,
 } from './expression'
 import { evaluate } from './evaluate'
 
@@ -97,19 +97,83 @@ describe('computeHint — continues the built tree, never contradicts it (concep
   })
 })
 
-describe('computeHint — pulseIds (concept 10.3)', () => {
-  it('pulses the two operands of the continuation\'s first new block', () => {
+describe('findBlockers — what a hint press marks on a dead-end board (PO, hint round)', () => {
+  // Replaces the pulse this round removed: a press on a board that can no
+  // longer reach the target marks the chips in the way and stops there —
+  // taking them back stays the player's own move.
+
+  it('marks nothing while the target is still reachable — there is nothing in the way', () => {
     const tray = createTray([6, 2, 9, 3])
-    const hint = computeHint(createExpression(), tray, 48, ALL_OPS, 4)!
-    expect(hint.pulseIds).not.toBeNull()
-    const [a, b] = hint.pulseIds!
-    expect([tray.map(t => t.id).includes(a), tray.map(t => t.id).includes(b)]).toEqual([true, true])
+    expect(findBlockers(createExpression(), tray, 48, ALL_OPS, 4)).toEqual([])
   })
 
-  it('falls back to the first two numbers when the continuation opens no block', () => {
+  it('marks the one chip in the way, and taking just that one back reaches the target again', () => {
+    // 3 + 4 is 7, not 12 — but 3 × 4 is, so the `+` is the whole problem
+    // and neither the 3 nor the (still unplaced) 4 is to blame.
     const tray = createTray([3, 4])
-    const hint = computeHint(createExpression(), tray, 7, ['+'], 2)!
-    expect(hint.pulseIds).toEqual([tray[0].id, tray[1].id])
+    const plus = createOperatorLeaf('+')
+    const expr: Expression = { root: { id: 'root', kind: 'group', children: [tray[0], plus] } }
+
+    expect(findBlockers(expr, tray, 12, ['+', '*'], 2)).toEqual([plus.id])
+  })
+
+  it('marks nothing when the puzzle itself is unreachable — the board is not what is wrong', () => {
+    // [1,1,1,1] can't reach 1000 from an empty field either (solver.test.ts
+    // pins that down), so blaming the one chip the player did place would
+    // be saying something untrue about it. The dead-end border, which is
+    // free and always on, has already said the puzzle is over.
+    const tray = createTray([1, 1, 1, 1])
+    const expr: Expression = { root: { id: 'root', kind: 'group', children: [tray[0]] } }
+
+    expect(computeHint(expr, tray, 1000, ALL_OPS, 4)).toBeNull()
+    expect(findBlockers(expr, tray, 1000, ALL_OPS, 4)).toEqual([])
+  })
+
+  it('whatever it marks always rescues the board once removed — over several dead ends', () => {
+    // The contract, stated as the property rather than as one expected
+    // answer: `findBlockers` never marks a set that leaves the board stuck.
+    const cases: { numbers: number[]; target: number; ops: Operator[]; build: (t: NumberLeaf[]) => Slot[] }[] = [
+      // 6 + 2 + 9 + 3 = 20, complete and wrong — 48 is still reachable from these four numbers
+      { numbers: [6, 2, 9, 3], target: 48, ops: ALL_OPS, build: t => [t[0], createOperatorLeaf('+'), t[1], createOperatorLeaf('+'), t[2], createOperatorLeaf('+'), t[3]] },
+      // a bracket in the wrong place: (6 + 2) leads nowhere at this target, flat 6 × 9 − 2 × 3 does
+      { numbers: [6, 2, 9, 3], target: 48, ops: ALL_OPS, build: t => [{ id: 'g1', kind: 'group', children: [t[0], createOperatorLeaf('/'), t[1]] }, createOperatorLeaf('/'), t[2]] },
+      // a single wrong operator early on
+      { numbers: [2, 1, 3], target: 8, ops: ALL_OPS, build: t => [t[0], createOperatorLeaf('-')] },
+    ]
+
+    for (const { numbers, target, ops, build } of cases) {
+      const tray = createTray(numbers)
+      const expr: Expression = { root: { id: 'root', kind: 'group', children: build(tray) } }
+      expect(computeHint(expr, tray, target, ops, numbers.length)).toBeNull() // the case really is a dead end
+
+      const marked = findBlockers(expr, tray, target, ops, numbers.length)
+      expect(marked.length).toBeGreaterThan(0)
+
+      // every marked id is really on the board, and removing exactly them frees it
+      const onBoard = new Set<string>()
+      for (const slot of expr.root.children) {
+        if (slot === null) continue
+        onBoard.add(slot.id)
+        if (slot.kind === 'group') for (const c of slot.children) if (c !== null) onBoard.add(c.id)
+      }
+      for (const id of marked) expect(onBoard.has(id)).toBe(true)
+
+      // Removed the way the game removes — a leaf's position stays open
+      // (nulled in place, so the row's operand/operator parity survives),
+      // a block is dissolved and its contents stay put (concept 6.5).
+      // Same mirroring `applyMove` above does for the placement side.
+      let children: Slot[] = expr.root.children.slice()
+      for (const id of marked) {
+        const at = children.findIndex(slot => slot !== null && slot.id === id)
+        if (at !== -1) {
+          const slot = children[at]!
+          children = slot.kind === 'group' ? trimTrailingGaps(dissolveGroup(children, at)) : trimTrailingGaps(children.map((s, i) => (i === at ? null : s)))
+          continue
+        }
+        children = children.map(slot => (slot === null || slot.kind !== 'group' ? slot : { ...slot, children: slot.children.map(c => (c !== null && c.id === id ? null : c)) }))
+      }
+      expect(computeHint({ root: { ...expr.root, children } }, tray, target, ops, numbers.length)).not.toBeNull()
+    }
   })
 })
 
