@@ -33,6 +33,40 @@ function prefersReducedMotion(): boolean {
 }
 
 /**
+ * `getBoundingClientRect()` reports the *painted* box, transform included —
+ * so a chip that's still mid-flight from an earlier FLIP (this hook's own
+ * spring runs 280ms, comfortably longer than two taps placed in quick
+ * succession) gets measured wherever the transition happens to be at that
+ * instant, not the resting layout position it's headed for. That
+ * mid-flight reading then gets stored as this chip's new baseline
+ * (`points.current`), so the *next* render sees a "move" that never really
+ * happened and restarts the spring from there — which is what turned into
+ * every other placed chip visibly animating on a normal, quick playthrough
+ * (not just the one chip actually placed or removed): each was still
+ * settling from its own last hop when the following tap's render measured
+ * it. Subtracting the transform this hook itself is currently applying
+ * (always a pure 2D translate — never scale/rotate) recovers the true
+ * layout position regardless of where the animation has gotten to, so a
+ * chip that hasn't structurally moved stays at dx/dy 0 even while its
+ * predecessor's spring is still playing out.
+ */
+function translateOffset(el: HTMLElement): { x: number; y: number } {
+  const value = getComputedStyle(el).transform
+  if (!value || value === 'none') return { x: 0, y: 0 }
+  const match = /^matrix\(\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*[^,]+,\s*([^,]+),\s*([^,)]+)\)$/.exec(value)
+  if (!match) return { x: 0, y: 0 } // not a plain 2D matrix — this hook never produces anything else
+  return { x: parseFloat(match[1]), y: parseFloat(match[2]) }
+}
+
+interface FlipPoint { left: number; top: number }
+
+function layoutPoint(el: HTMLElement): FlipPoint {
+  const rect = el.getBoundingClientRect()
+  const { x, y } = translateOffset(el)
+  return { left: rect.left - x, top: rect.top - y }
+}
+
+/**
  * Returns a ref-callback: pass `(el) => registerFlipNode(id, el)` as a
  * chip's `ref`. Call this hook once per surface that shares one set of
  * moving ids (Board.tsx calls it once, covering both Tray and Expression,
@@ -40,7 +74,7 @@ function prefersReducedMotion(): boolean {
  */
 export function useFlip() {
   const nodes = useRef(new Map<string, HTMLElement>())
-  const rects = useRef(new Map<string, DOMRect>())
+  const points = useRef(new Map<string, FlipPoint>())
 
   const registerFlipNode = useCallback((id: string, el: HTMLElement | null) => {
     if (el) nodes.current.set(id, el)
@@ -52,18 +86,22 @@ export function useFlip() {
   // layout, or the chip would flash in its new position for a frame first.
   useLayoutEffect(() => {
     const reduced = prefersReducedMotion()
-    const nextRects = new Map<string, DOMRect>()
+    const nextPoints = new Map<string, FlipPoint>()
 
     for (const [id, el] of nodes.current) {
-      const nextRect = el.getBoundingClientRect()
-      nextRects.set(id, nextRect)
+      const nextPoint = layoutPoint(el)
+      nextPoints.set(id, nextPoint)
       if (reduced) continue
 
-      const prevRect = rects.current.get(id)
-      if (!prevRect) continue // new chip, nothing to FLIP from
-      const dx = prevRect.left - nextRect.left
-      const dy = prevRect.top - nextRect.top
-      if (!dx && !dy) continue
+      const prevPoint = points.current.get(id)
+      if (!prevPoint) continue // new chip, nothing to FLIP from
+      const dx = prevPoint.left - nextPoint.left
+      const dy = prevPoint.top - nextPoint.top
+      // Sub-pixel-only: `getComputedStyle`'s matrix string only carries a
+      // few decimal places, so recovering the pre-transform position above
+      // is exact to about that, not to the float. A real move is always
+      // several pixels; this floor only ever swallows that rounding noise.
+      if (Math.abs(dx) < 0.5 && Math.abs(dy) < 0.5) continue
 
       el.style.transition = 'none'
       el.style.transform = `translate(${dx}px, ${dy}px)`
@@ -78,7 +116,7 @@ export function useFlip() {
       el.addEventListener('transitionend', clear)
     }
 
-    rects.current = nextRects
+    points.current = nextPoints
   })
 
   return registerFlipNode
