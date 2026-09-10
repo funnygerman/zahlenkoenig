@@ -105,13 +105,20 @@ export function Game() {
   // answer, whichever puzzle it was given — Board.tsx doesn't know or care
   // whether that puzzle came from a fresh draw or the archive, so this is
   // the one place the two paths diverge. Browsing (historyEntry set): this
-  // was a replay, already in the archive — log nothing new, just hand the
-  // player back to the live puzzle they left. Live (the normal case): log
-  // the puzzle just solved and draw the next one, same as before this
-  // round existed.
+  // was a replay, and re-solving one keeps the player moving *through* the
+  // archive rather than bouncing them out to live the moment they solve
+  // whichever entry they happened to land on first — the same step
+  // `handleHistoryForward`'s own arrow takes, all the way to the newest
+  // entry, and only past that back to live. (First reported after browsing
+  // all the way back to the oldest entry and solving it: landing on live —
+  // "the newest one the player hasn't solved yet" — skipped over every
+  // other already-solved entry in between, when stepping to the next one
+  // in the archive is what continuing a review actually means.) Live (the
+  // normal case): log the puzzle just solved and draw the next one, same
+  // as before this round existed.
   const handleSolved = useCallback(() => {
     if (historyEntry) {
-      setHistoryIndex(null)
+      handleHistoryForward()
       return
     }
     setSolved(prev => {
@@ -120,7 +127,7 @@ export function Game() {
       return next
     })
     draw()
-  }, [historyEntry, puzzle, settings.ops, draw])
+  }, [historyEntry, handleHistoryForward, puzzle, settings.ops, draw])
 
   // A fresh key whenever *what's displayed* changes identity — a new live
   // puzzle (puzzleKey, as before) or a different point in the archive —
