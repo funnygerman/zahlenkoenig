@@ -116,6 +116,27 @@ never presses submit — so those tests now click the submit chip
 (`screen.getByText('=', { selector: 'button' })`) before asserting the
 result appears, matching what the UI actually requires now.
 
+**A follow-up to the target-ranges-display round removed 3 numbers' XXL
+band, on the PO's own hunch that it was "only solvable by multiplication"
+— checked before building anything, per this file's own "verify claims
+rather than estimating them" rule, and confirmed true for 3 numbers but
+not for 4.** Measured against the exhaustive pool: everything a 3-number ×
+selection holds above 150 is 96–100% pure-× (0% or, at most, 4% also using
++ or −) with 0–2 unique-solution puzzles per selection — the "only
+solvable by multiplication" slice the PO suspected, and only 2–5% of the
+pool for a mixed-operator selection. `generateBandTable.ts` caps 3 numbers'
+× pool at 150 before computing anything (not merely displaying it that
+way — those targets are never drawn), leaving three bands: "M" 1–50, "L"
+51–100, "XL" 101–150 — no XXL. The same check on 4 numbers found the
+opposite: everything above 300 there still needs + or − 65–90% of the time
+and holds hundreds of unique-solution puzzles (7–11% of the pool for a
+mixed selection) — not a boring slice, so 4 numbers keeps its fourth band
+exactly as the target-ranges-display round shipped it (M/L/XL/XXL,
+1–50/51–100/101–250/251–max). `Header.tsx`'s `BAND_LABELS` needed no new
+entry for the 3-band case: `MULT_BAND_LABELS` (`['M','L','XL','XXL']`) is
+indexed by position already, so a selection with 3 bands and one with 4
+read `M`/`L`/`XL` off the same array without a lookup keyed by band count.
+
 **The target-ranges-display round replaced how many bands a selection
 offers, and how they're named — a direct PO decision, not a measured
 recommendation this time.** The tertile/operator-floor search
