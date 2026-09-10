@@ -54,8 +54,6 @@ export interface TrayProps {
   onTapBlock: () => void
   onTapOperator: (op: Operator) => void
   onSubmit: () => void
-  /** the hint's first-press pulse (concept 10.3) — the two tray numbers still forming its next block. */
-  pulsingIds?: readonly [string, string] | null
   /**
    * Wires a chip into the shared drag layer (concept 5.1) — pass useDrag's
    * `dragHandlers`, lifted to a common ancestor of Tray and Expression so a
@@ -77,7 +75,7 @@ export interface TrayProps {
   flipRef?: (id: string, el: HTMLElement | null) => void
 }
 
-function NumberCell({ slot, onTap, drag, pulsing, flipRef }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers']; pulsing?: boolean; flipRef?: TrayProps['flipRef'] }) {
+function NumberCell({ slot, onTap, drag, flipRef }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers']; flipRef?: TrayProps['flipRef'] }) {
   // When drag is wired up, useDrag's own tap-vs-drag detection (below the
   // 6px threshold, concept 5.1) is the only tap path — a plain onClick
   // alongside it would double-fire, since both a native click and
@@ -97,7 +95,6 @@ function NumberCell({ slot, onTap, drag, pulsing, flipRef }: { slot: TrayNumberS
       variant="number"
       value={slot.value}
       placeholder={slot.used}
-      pulsing={pulsing}
       onClick={hasDrag ? undefined : () => onTap(slot.id)}
       // Keyboard operation isn't supported (open product question, CLAUDE.md) —
       // once drag is wired up the onClick above is gone, so Enter/Space would
@@ -124,7 +121,6 @@ export function Tray({
   onTapOperator,
   onSubmit,
   dragHandlers,
-  pulsingIds,
   flipRef,
 }: TrayProps) {
   const emptyCount = Math.max(0, numberColumns - numberSlots.length)
@@ -137,7 +133,7 @@ export function Tray({
           <div key={`empty-${i}`} className={styles.emptyCell} aria-hidden="true" />
         ))}
         {numberSlots.map(slot => (
-          <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} pulsing={pulsingIds?.includes(slot.id)} flipRef={flipRef} />
+          <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} flipRef={flipRef} />
         ))}
         <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
       </div>

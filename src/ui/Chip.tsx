@@ -47,7 +47,7 @@ export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>,
    */
   ghost?: boolean
   /** highlighted for the hint's first press (concept 10.3). */
-  pulsing?: boolean
+  blocking?: boolean
   /**
    * Dimmed like a disabled chip, but still a live button: a tap does
    * nothing (there is nowhere for it to go) while a drag from it is still
@@ -63,7 +63,7 @@ function cx(...parts: Array<string | false | undefined>): string {
 }
 
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
-  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, pulsing = false, muted = false, className, children, disabled, ...rest },
+  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, blocking = false, muted = false, className, children, disabled, ...rest },
   ref
 ) {
   // Only the operator chip is round; the block is a normal square chip
@@ -79,7 +79,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
     inGroup && styles.inGroup,
     placeholder && styles.placeholder,
     ghost && styles.ghostSlot,
-    pulsing && styles.pulsing,
+    blocking && styles.blocking,
     muted && styles.muted,
     className
   )

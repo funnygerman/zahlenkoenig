@@ -48,6 +48,10 @@ export function Game() {
   // built from the *previous* puzzle's leaf ids would otherwise survive
   // the swap (its `numbers` prop changing doesn't imply its state should).
   const [puzzleKey, setPuzzleKey] = useState(0)
+  // Board's own hint state, reported upward so the header icon (a sibling,
+  // not a child) can mute itself once a press would do nothing — the two
+  // hints this puzzle gives are spent, or it is already correctly built.
+  const [hintAvailable, setHintAvailable] = useState(true)
 
   const draw = useCallback(() => {
     setPuzzle(nextPuzzle(settings, recentRef.current ?? [], shapesRef.current ?? []))
@@ -132,10 +136,18 @@ export function Game() {
   // A fresh key whenever *what's displayed* changes identity — a new live
   // puzzle (puzzleKey, as before) or a different point in the archive —
   // so Board.tsx always remounts onto the puzzle it's now showing rather
-  // than reusing a tree built around a different one's leaf ids. Returning
-  // to an *unchanged* live puzzle (browsed away from mid-solve, then back)
-  // keeps the same key on purpose: nothing about the live puzzle changed,
-  // so Board's own in-progress expression is still there, not reset.
+  // than reusing a tree built around a different one's leaf ids.
+  //
+  // Browsing into the archive and back therefore starts the live puzzle
+  // from an empty field: the key goes `live-N → hist-0 → live-N`, and React
+  // unmounts on *any* key change, so the Board that comes back is a new
+  // instance. This line used to claim the opposite — that the same key on
+  // the way back kept Board's in-progress tree — and a browser QA pass
+  // disproved it. **PO: not a bug.** Browsing away is a deliberate step out
+  // of the puzzle, and coming back to a clean board is a fine thing for it
+  // to mean. Keeping the tree would take leaving the live Board mounted
+  // (hidden) beside the archived one instead of swapping keys; there is no
+  // reason to.
   const boardKey = historyIndex !== null ? `hist-${historyIndex}` : `live-${puzzleKey}`
   const displayed = historyEntry ?? puzzle
   const displayedOps = historyEntry ? historyEntry.ops : settings.ops
@@ -165,10 +177,11 @@ export function Game() {
           onSetBand={setBand}
           onSetUniqueOnly={setUniqueOnly}
           onPressHint={() => boardRef.current?.pressHint()}
+          hintMuted={!hintAvailable}
           updateAvailable={updateAvailable}
           onUpdate={onUpdate}
         />
-        <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} />
+        <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} onHintAvailable={setHintAvailable} />
       </div>
 
       {/* footer/history round (PO): attribution only, no rules/legal

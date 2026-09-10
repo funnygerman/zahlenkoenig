@@ -141,23 +141,19 @@
   opacity: .55;
 }
 
-/* ------------------------------------------------------------------ pulsing
- * concept 10.3: the hint's first press pulses the two operands it names. */
+/* ----------------------------------------------------------------- blocking
+ * The hint round (PO): on a dead-end board a hint press marks the chips
+ * standing between this board and the target, and stops there — taking them
+ * back stays the player's own move. Amber, the same colour the field's own
+ * dead-end border already carries, so the two read as one statement about
+ * one board rather than two unrelated warnings. Deliberately static: it is a
+ * mark on a chip, not something asking to be looked at right now — which is
+ * also why it needs no prefers-reduced-motion branch, unlike the pulse this
+ * replaced. */
 
-.pulsing {
-  box-shadow: 0 0 0 3px hsl(var(--hue) 62% 42% / .3);
-  animation: chip-pulse 1s ease-in-out infinite;
-}
-
-@keyframes chip-pulse {
-  0%, 100% { box-shadow: 0 0 0 2px hsl(var(--hue) 62% 42% / .22); }
-  50% { box-shadow: 0 0 0 7px hsl(var(--hue) 62% 42% / .05); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .pulsing {
-    animation: none;
-  }
+.blocking {
+  border-color: var(--zk-amber);
+  box-shadow: 0 0 0 2px var(--zk-amber);
 }
 
 /* -------------------------------------------------------------- target label */

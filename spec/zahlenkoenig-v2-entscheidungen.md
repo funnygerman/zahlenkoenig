@@ -325,6 +325,38 @@ die Lösung zu zeigen."* Drei Mängel, drei Antworten:
 Sprachen · Tipps aus `puzzle.solutions` ableiten · Aufgeben als eigener Knopf mit
 Bestätigung · Aufgeben mit automatischem Wechsel zum nächsten Rätsel.
 
+### 7.1 Der Tippknopf, nach dem Spieltest (Tipp-Runde)
+
+Der PO: *„Ich bin nicht sicher, ob das Pulsieren wirklich hilft. Und sehr
+seltsam: oft pulsieren andere Zahlen, als der nächste Druck ins Ausdrucksfeld
+setzt. Manchmal passiert beim Druck auf den Tippknopf gar nichts, wenn schon
+Zahlen im Feld liegen."* Ein QA-Durchgang im echten Browser hat alle drei
+Punkte **vor** dem Umbau gemessen (Zahlen in 10.3 und in CLAUDE.md).
+
+| Entscheidung | Begründung |
+|---|---|
+| **Das Pulsieren entfällt ersatzlos** | Es zeigte die Chips, die zuletzt gesetzt werden (Fortsetzung in Dokumentreihenfolge, Pulsieren nach Klammerinhalt): in 100 % der gemessenen Fälle mit Klammer setzte der nächste Druck einen anderen Chip. Und es war unsichtbar, sobald höchstens eine Zahl in der Ablage lag – die halbe Lösung lang tat der erste Druck damit nichts. |
+| **Jeder Druck setzt einen Chip** (PO) | Der erste Druck war der einzige, der nichts tat; genau er war es, den der PO als „gar nichts passiert" meldete. |
+| **Zwei Tipps pro Rätsel** (PO) | *„Aber lass uns nicht vollständig lösen. Vielleicht nur eine begrenzte Anzahl Tipps?"* Zwei genügen, um wieder in Gang zu kommen, und legen nie die Lösung. |
+| **Gezählt werden Chips, nicht Drücke** (PO) | Nimmt der Spieler einen getippten Chip zurück, steht der Tipp wieder zur Verfügung. Ein versehentlicher Druck kostet damit nichts Bleibendes. |
+| **Keine Anzeige der Resttipps** (PO) | Aus drei angebotenen Formen (Ziffer am Symbol, Punkte, nichts) wählte der PO „nichts, bis es aufgebraucht ist". Das Symbol dämpft sich dann – dieselbe Sprache wie erschöpfte Operatoren und der Block in der Ablage. |
+| **In der Sackgasse: nur markieren** (PO) | Angeboten waren vier Verhalten (zurücknehmen und setzen · kostenlos zurücknehmen · zurücknehmen für einen Tipp · nur markieren). Der PO wählte *„nur die falschen Chips markieren"*: das Spiel fasst nicht an, was der Spieler gebaut hat. Das Zurücknehmen bleibt seine Geste. |
+| **Markieren kostet keinen Tipp** | Folgt aus „gezählt werden Chips": eine Markierung setzt keinen Chip. Ein Fehlgriff kann das Kontingent damit nicht aufbrauchen. |
+| **Nichts markieren, wenn das Rätsel selbst nicht erreichbar ist** | Sonst behauptete die Markierung etwas Unwahres über Chips, die nichts dafür können. Die dauerhafte Sackgassen-Anzeige hat in dem Fall schon alles gesagt. |
+
+**Verworfen:** das Pulsieren „richtig herum" zu ziehen (auf den Chip, den der
+nächste Druck setzt) – der PO wollte das Pulsieren gar nicht · unbegrenzt viele
+Tipps · ein festes Kontingent von drei · „nie den letzten Chip" als Grenze ·
+die Zahl der Resttipps am Symbol anzeigen · die falschen Chips automatisch
+zurücknehmen, mit oder ohne Kosten.
+
+**Drei Vermutungen, die die Messung widerlegt hat** – sie stehen hier, damit
+sie nicht ein zweites Mal geprüft werden: die kanonische Fortsetzung ist
+**nicht** instabil, wenn Chip für Chip gesetzt wird (1079 von 1079 Drücken
+ergaben genau den Rest des vorigen Plans); ein Tippzug wird **nie** von der
+Setzfunktion abgelehnt, an die er geht (0 von 4113 Zügen); und das Pulsieren
+log **nicht** über den späteren Klammerinhalt. Falsch war nur der Zeitpunkt.
+
 ---
 
 ## 8. Level entfallen (Runde 4)

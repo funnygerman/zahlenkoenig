@@ -13,7 +13,7 @@
 // only highlights the currently-hit zone (`activeZoneId`) plainly, without
 // previewing brackets.
 
-import type { ReactNode } from 'react'
+import { useMemo, type ReactNode } from 'react'
 import type { AbsorbSide, Expression as ExpressionTree, Group, Leaf, Operator } from '../core/expression'
 import { dropZones } from '../core/expression'
 import type { DragHandlers } from './useDrag'
@@ -85,6 +85,15 @@ export interface ExpressionProps {
   activeZoneId?: string | null
   /** concept 10.3's free, permanent dead-end indicator: the target is no longer reachable from here (core/hints.ts's Restlöser). */
   deadEnd?: boolean
+  /**
+   * The chips a hint press has marked as standing between this board and
+   * the target (PO, hint round) — `null` until one is pressed on a
+   * dead-end board, and gone again the moment the player moves anything.
+   * Like `dissolvingGroupId` this is decided a level up, in Board.tsx: the
+   * marks are the *press's* answer, not a property of the tree, and this
+   * component only renders what it is told.
+   */
+  blockingIds?: readonly string[] | null
   /** concept 13.3's FLIP animation (`useFlip.ts`) — see Tray.tsx's own note on the shared id this rides. */
   flipRef?: (id: string, el: HTMLElement | null) => void
   /**
@@ -107,12 +116,14 @@ function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; act
 }
 
 function LeafChip({
-  leaf, inGroup, zoneId, active, onTapLeaf, registerZone, dragHandlers, flipRef,
+  leaf, inGroup, zoneId, active, blocking = false, onTapLeaf, registerZone, dragHandlers, flipRef,
 }: {
   leaf: Leaf
   inGroup: boolean
   zoneId: string
   active: boolean
+  /** marked by a hint press on a dead-end board as standing in the way of the target (core/hints.ts's `findBlockers`). */
+  blocking?: boolean
   onTapLeaf: (id: string) => void
   registerZone?: ExpressionProps['registerZone']
   dragHandlers?: ExpressionProps['dragHandlers']
@@ -135,6 +146,7 @@ function LeafChip({
       operator={leaf.kind === 'operator' ? leaf.value : undefined}
       scale="field"
       inGroup={inGroup}
+      blocking={blocking}
       className={active ? styles.activeZone : undefined}
       onClick={dragHandlers ? undefined : () => onTapLeaf(leaf.id)}
       // Keyboard operation isn't supported (open product question, CLAUDE.md) —
@@ -182,7 +194,7 @@ function EmptySlot({
 }
 
 function GroupView({
-  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId, flipRef, dissolving = false,
+  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId, flipRef, dissolving = false, blockingIds,
 }: {
   group: Group
   onTapLeaf: (id: string) => void
@@ -194,6 +206,8 @@ function GroupView({
   flipRef?: ExpressionProps['flipRef']
   /** Concept 6.7: the bracket's own chrome fades over ~150ms rather than vanishing instantly — the chips inside don't move at all. */
   dissolving?: boolean
+  /** the dead-end marks (see ExpressionProps) — the block itself can be one of them, which marks its brackets rather than any one chip inside. */
+  blockingIds?: ReadonlySet<string>
 }) {
   const zones = dropZones(group.children)
   // The group's own trailing frontier (concept 6.2: a third number joins a
@@ -228,7 +242,7 @@ function GroupView({
   // `dragHandlers` still go on the edges only, never on the wrapper — a
   // press on a child chip must stay that chip's own drag.
   return (
-    <div className={cx(styles.group, dissolving && styles.dissolving)}>
+    <div className={cx(styles.group, dissolving && styles.dissolving, blockingIds?.has(group.id) && styles.blocking)}>
       <button
         type="button"
         ref={el => registerZone?.(beforeZone, 'both', true, el)}
@@ -250,6 +264,7 @@ function GroupView({
             inGroup
             zoneId={zoneId}
             active={active}
+            blocking={blockingIds?.has(child.id)}
             onTapLeaf={onTapLeaf}
             registerZone={registerZone}
             dragHandlers={dragHandlers}
@@ -274,10 +289,11 @@ function GroupView({
 }
 
 export function Expression({
-  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false, flipRef, dissolvingGroupId = null,
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false, flipRef, dissolvingGroupId = null, blockingIds = null,
 }: ExpressionProps) {
   const { children } = expr.root
   const zones = dropZones(children)
+  const blocking = useMemo(() => (blockingIds === null ? null : new Set(blockingIds)), [blockingIds])
 
   const rendered = children.map((slot, i) => {
     const zoneId = rootZoneId(i)
@@ -298,6 +314,7 @@ export function Expression({
           activeZoneId={activeZoneId}
           flipRef={flipRef}
           dissolving={dissolvingGroupId === slot.id}
+          blockingIds={blocking ?? undefined}
         />
       )
     }
@@ -308,6 +325,7 @@ export function Expression({
         inGroup={false}
         zoneId={zoneId}
         active={active}
+        blocking={blocking?.has(slot.id)}
         onTapLeaf={onTapLeaf}
         registerZone={registerZone}
         dragHandlers={dragHandlers}

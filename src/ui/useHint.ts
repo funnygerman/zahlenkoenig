@@ -1,15 +1,45 @@
 // Drives the hint button (concept 10.3) on top of core/hints.ts's pure
-// Restlöser: tracks how many times the button has been pressed for this
-// puzzle (0 — nothing shown yet), and turns that into what the board should
-// display. Recomputing the hint fresh on every press (rather than indexing
-// into a plan captured once) means a player who places a chip by hand
-// between two hint presses still gets the right next move — the plan is
-// never stale, because there never is a stored plan, only "the hint for the
-// board as it is right now".
+// Restlöser. Recomputing the hint fresh on every press (rather than
+// indexing into a plan captured once) means a player who places a chip by
+// hand between two hint presses still gets the right next move — the plan
+// is never stale, because there never is a stored plan, only "the hint for
+// the board as it is right now".
+//
+// Three PO decisions from the hint round shape what a press does, and each
+// one replaces something concept 10.3 originally asked for:
+//
+// 1. **Every press places a chip.** 10.3's first press used to pulse two
+//    tray chips and place nothing. It was dropped for two reasons. It read
+//    as a dead button ("sometimes nothing happens when I press hint" — the
+//    pulse is also invisible whenever fewer than two numbers are left to
+//    place, which is most of a half-built board), and the two chips it
+//    pulsed were routinely not the chips the following presses went on to
+//    place: the pulse named the operands of the continuation's first
+//    block, while the presses after it walked a *freshly recomputed*
+//    continuation, and recomputing after the block landed can pick a
+//    different — equally correct — filling of it. Nothing pulses now.
+//
+// 2. **Two hints per puzzle, counted in chips, not presses.** A hint is
+//    spent while the chip it contributed is on the board; take that chip
+//    off again and the hint comes back (PO: "count chips, not presses").
+//    Which chips those are is read off the tree rather than predicted:
+//    `placeOperator`/`placeBlockAt` mint their own ids inside `useGame`, so
+//    a press records the board's ids first and attributes whatever appears
+//    next to the hint.
+//
+// 3. **A dead-end board is marked, never repaired.** Pressing hint on a
+//    board that can no longer reach the target used to do literally
+//    nothing (`computeHint` returns null, and the press returned early) —
+//    the other half of the "nothing happens" report. It marks the chips in
+//    the way now (`findBlockers`) and still refuses to touch them: taking
+//    them back is the player's own move (PO), and it costs no hint.
 
-import { useCallback, useMemo, useState } from 'react'
-import { computeHint, type HintMove } from '../core/hints'
-import type { Expression, NumberLeaf, Operator } from '../core/expression'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { computeHint, findBlockers, type HintMove } from '../core/hints'
+import type { Expression, NumberLeaf, Operator, Slot } from '../core/expression'
+
+/** concept 10.3 as revised (PO): a puzzle gives two hints, and no more. */
+export const HINT_BUDGET = 2
 
 export interface UseHintOptions {
   expr: Expression
@@ -20,9 +50,21 @@ export interface UseHintOptions {
   onApplyMove: (move: HintMove) => void
 }
 
-export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyMove }: UseHintOptions) {
-  const [pressCount, setPressCount] = useState(0)
+/** Every id currently on the board — leaves and the blocks around them alike, since a block is a chip the hint can contribute too. */
+function placedIds(children: readonly Slot[]): Set<string> {
+  const ids = new Set<string>()
+  const visit = (list: readonly Slot[]) => {
+    for (const slot of list) {
+      if (slot === null) continue
+      ids.add(slot.id)
+      if (slot.kind === 'group') visit(slot.children)
+    }
+  }
+  visit(children)
+  return ids
+}
 
+export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyMove }: UseHintOptions) {
   // concept 10.3's "kostenlos, dauerhaft" dead-end border reads this too —
   // computed on every board change, not just on a hint press. Not gated on
   // isExpressionComplete: concept 2.1 gives the root no minimum length, so
@@ -37,17 +79,42 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
   )
   const deadEnd = hint === null
 
+  const onBoard = useMemo(() => placedIds(expr.root.children), [expr])
+
+  // ------------------------------------------------------------- budget
+  const [contributed, setContributed] = useState<readonly string[]>([])
+  const beforePressRef = useRef<Set<string> | null>(null)
+
+  useEffect(() => {
+    const before = beforePressRef.current
+    if (!before) return
+    beforePressRef.current = null
+    const added = [...onBoard].filter(id => !before.has(id))
+    if (added.length > 0) setContributed(prev => [...prev, ...added])
+  }, [onBoard])
+
+  const hintsLeft = Math.max(0, HINT_BUDGET - contributed.filter(id => onBoard.has(id)).length)
+
+  // ------------------------------------------------------------- marking
+  // Held against the exact tree it was computed for, so the marks clear
+  // themselves the moment the player moves anything — no effect, and no
+  // way for a stale mark to outlive the board it was about.
+  const [marked, setMarked] = useState<{ expr: Expression; ids: string[] } | null>(null)
+  const blockingIds = marked !== null && marked.expr === expr ? marked.ids : null
+
+  const canPlace = hint !== null && hint.moves.length > 0 && hintsLeft > 0
+  /** Whether a press would do anything at all — what mutes the header's hint button. */
+  const available = deadEnd || canPlace
+
   const onPressHint = useCallback(() => {
-    if (!hint) return
-    const next = pressCount + 1
-    // 1st press: pulse only. Every press after that places one more chip
-    // (concept 10.3) — always `moves[0]` of a freshly recomputed hint, so
-    // this is correct however the board got here.
-    if (next > 1 && hint.moves.length > 0) onApplyMove(hint.moves[0])
-    setPressCount(next)
-  }, [hint, pressCount, onApplyMove])
+    if (hint === null) {
+      setMarked({ expr, ids: findBlockers(expr, tray, target, opsAllowed, numbersCount) })
+      return
+    }
+    if (hint.moves.length === 0 || hintsLeft === 0) return
+    beforePressRef.current = onBoard
+    onApplyMove(hint.moves[0])
+  }, [hint, expr, tray, target, opsAllowed, numbersCount, hintsLeft, onBoard, onApplyMove])
 
-  const pulseIds = pressCount === 1 ? hint?.pulseIds ?? null : null
-
-  return { deadEnd, pulseIds, onPressHint }
+  return { deadEnd, blockingIds, hintsLeft, available, onPressHint }
 }

@@ -49,6 +49,16 @@ export interface HeaderProps {
   /** concept 10.3: one button, the same on every press — see Board.tsx's useHint for what a press actually does. */
   onPressHint: () => void
   /**
+   * Whether a press would do nothing at all, in which case the button says
+   * so rather than looking live (the hint round's own report was "sometimes
+   * clicking hint does nothing"). `disabled`, not merely dimmed like the
+   * tray's spent operator chips: those stay droppable targets for a drag,
+   * and this is a plain button with nothing but its click — the same reason
+   * the `=` chip is genuinely disabled, and rejoins the tab order the
+   * moment it isn't.
+   */
+  hintMuted?: boolean
+  /**
    * Concept 19.3's update surface — "ein knapper Hinweis in der
    * Kopfzeile... statt eines Popup-Dialogs". Optional: `Game.tsx` always
    * passes both (from `useUpdateAvailable`), but nothing here requires a
@@ -74,7 +84,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, updateAvailable = false, onUpdate }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, updateAvailable = false, onUpdate }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -127,7 +137,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
         <span className={styles.range}>{lo}–{hi}</span>
       </button>
 
-      <button type="button" className={styles.hintButton} onClick={onPressHint} aria-label={t(settings.language, 'hintLabel')}>
+      <button type="button" className={styles.hintButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
         <HintIcon />
       </button>
 

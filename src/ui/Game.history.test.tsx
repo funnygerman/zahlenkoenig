@@ -6,19 +6,44 @@ import { Game } from './Game'
 // The footer/history round's replay wiring — Game.tsx is the one place
 // core/solvedHistory.ts and Board.tsx are actually joined (same reasoning
 // Game.test.tsx's own banner gives for tap/drag: neither half's own tests
-// can see a mistake in how they're wired together). Solves via repeated
-// hint presses rather than building a known expression: nextPuzzle() draws
-// at random here (unlike Game.test.tsx's own fixture), so there's no fixed
-// solution to build by hand — Hint.test.tsx's own "press through to the
-// end" pattern, just driven through the header button rather than a ref.
+// can see a mistake in how they're wired together).
+//
+// The draw is mocked to a fixed sequence of two-number sums rather than
+// left random. It used to be random, and each puzzle was solved by pressing
+// the hint button until the board filled itself — which the hint round's
+// two-hint budget (PO) ended: the hint deliberately can't finish a puzzle
+// any more. A deterministic, trivially solvable draw is what replaces it,
+// and it makes these tests better on their own terms too: the three
+// archived entries are now known puzzles rather than whatever came up.
 //
 // vitest.setup.ts pins jsdom's navigator.language to German, so every
 // label asserted here is the German copy, matching every other Game-level
 // test in this codebase.
 
+vi.mock('../core/puzzles', async importOriginal => {
+  const actual = await importOriginal<typeof import('../core/puzzles')>()
+  let drawn = 0
+  return {
+    ...actual,
+    // 1+2=3, then 2+3=5, then 3+4=7, … — every one solvable with two taps
+    // and an operator, and no puzzle whose target collides with its own
+    // numbers (which would make "the tray chip showing 3" ambiguous).
+    nextPuzzle: () => {
+      drawn += 1
+      return { numbers: [drawn, drawn + 1], target: 2 * drawn + 1 }
+    },
+  }
+})
+
+/** The tray's own number chips, unplaced ones first — the field's are field-scale, the target's isn't in the tray at all. */
+const trayNumbers = () =>
+  [...document.querySelectorAll<HTMLButtonElement>('[class*="_tray_"] button[class*="_chip_"]')]
+    .filter(b => /^\d+$/.test(b.textContent?.trim() ?? ''))
+
 async function solveCurrentPuzzle(user: ReturnType<typeof userEvent.setup>) {
-  const hint = screen.getByRole('button', { name: 'Tipp' })
-  for (let i = 0; i < 12; i++) await user.click(hint) // generous upper bound, same margin Hint.test.tsx uses
+  await user.click(trayNumbers().find(b => !b.disabled)!)
+  await user.click(screen.getAllByText('+', { selector: 'button' })[0])
+  await user.click(trayNumbers().find(b => !b.disabled)!)
   await user.click(screen.getByText('=', { selector: 'button' }))
 }
 

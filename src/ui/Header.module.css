@@ -46,9 +46,16 @@
   border-radius: 50%;
 }
 
-.hintButton:hover {
+.hintButton:hover:not(:disabled) {
   color: var(--zk-accent);
   background: hsl(var(--hue) 62% 42% / 0.08);
+}
+
+/* The hint round: a press that would do nothing (this puzzle's two hints
+ * spent, or nothing left to hint about) shows as spent rather than live. */
+.hintButton:disabled {
+  opacity: .3;
+  cursor: default;
 }
 
 /* Concept 19.3's update hint — mirrors .hintButton's own left/right
