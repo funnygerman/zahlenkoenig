@@ -8,11 +8,14 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Header } from './Header'
+import { HistoryNav } from './HistoryNav'
 import { Board, type BoardHandle } from './Board'
 import { useSettings } from './useSettings'
 import { useUpdateAvailable } from './useUpdateAvailable'
 import { nextPuzzle, type Puzzle } from '../core/puzzles'
 import { loadRecent, loadRecentShapes, saveRecent, saveRecentShapes, withPuzzle, withShape } from '../core/history'
+import { loadSolved, saveSolved, withSolved, type SolvedPuzzle } from '../core/solvedHistory'
+import { t } from '../core/i18n'
 import './tokens.css'
 import styles from './Game.module.css'
 
@@ -51,6 +54,28 @@ export function Game() {
     setPuzzleKey(k => k + 1)
   }, [settings])
 
+  // The solved-puzzle archive (footer/history round, core/solvedHistory.ts)
+  // and where in it the player is currently browsing. `null` means "showing
+  // the live puzzle" — the normal state; a number is an index into `solved`
+  // (oldest first), set by HistoryNav's arrows below. Loaded with the same
+  // "state, not a ref" choice history.ts's own windows deliberately don't
+  // make: those never render anything, this drives whether the arrows are
+  // enabled and what position they show.
+  const [solved, setSolved] = useState<SolvedPuzzle[]>(() => loadSolved())
+  const [historyIndex, setHistoryIndex] = useState<number | null>(null)
+  const historyEntry = historyIndex !== null ? solved[historyIndex] : null
+
+  const handleHistoryBack = useCallback(() => {
+    setHistoryIndex(i => (i === null ? solved.length - 1 : Math.max(0, i - 1)))
+  }, [solved.length])
+
+  const handleHistoryForward = useCallback(() => {
+    // Already live: nothing "ahead" to go to (HistoryNav disables the
+    // button in that case, but stay a no-op regardless). Otherwise step
+    // toward the newest entry, and one step past it is back to live.
+    setHistoryIndex(i => (i === null ? null : i < solved.length - 1 ? i + 1 : null))
+  }, [solved.length])
+
   // Recorded when a puzzle is actually shown rather than when it is drawn:
   // StrictMode runs a state initializer twice in development, and this way
   // the history holds what the player saw either way (`withPuzzle` drops
@@ -76,8 +101,48 @@ export function Game() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settings.numbers, settings.ops.join(''), settings.band, settings.uniqueOnly])
 
+  // Board's own onSolved (concept 12.8) fires once, 1200ms after a correct
+  // answer, whichever puzzle it was given — Board.tsx doesn't know or care
+  // whether that puzzle came from a fresh draw or the archive, so this is
+  // the one place the two paths diverge. Browsing (historyEntry set): this
+  // was a replay, already in the archive — log nothing new, just hand the
+  // player back to the live puzzle they left. Live (the normal case): log
+  // the puzzle just solved and draw the next one, same as before this
+  // round existed.
+  const handleSolved = useCallback(() => {
+    if (historyEntry) {
+      setHistoryIndex(null)
+      return
+    }
+    setSolved(prev => {
+      const next = withSolved(prev, { numbers: puzzle.numbers, target: puzzle.target, ops: settings.ops })
+      saveSolved(next)
+      return next
+    })
+    draw()
+  }, [historyEntry, puzzle, settings.ops, draw])
+
+  // A fresh key whenever *what's displayed* changes identity — a new live
+  // puzzle (puzzleKey, as before) or a different point in the archive —
+  // so Board.tsx always remounts onto the puzzle it's now showing rather
+  // than reusing a tree built around a different one's leaf ids. Returning
+  // to an *unchanged* live puzzle (browsed away from mid-solve, then back)
+  // keeps the same key on purpose: nothing about the live puzzle changed,
+  // so Board's own in-progress expression is still there, not reset.
+  const boardKey = historyIndex !== null ? `hist-${historyIndex}` : `live-${puzzleKey}`
+  const displayed = historyEntry ?? puzzle
+  const displayedOps = historyEntry ? historyEntry.ops : settings.ops
+
   return (
     <div className={styles.page}>
+      <HistoryNav
+        index={historyIndex}
+        total={solved.length}
+        onBack={handleHistoryBack}
+        onForward={handleHistoryForward}
+        backLabel={t(settings.language, 'historyBackLabel')}
+        forwardLabel={t(settings.language, 'historyForwardLabel')}
+      />
       <Header
         settings={settings}
         onSetNumbers={setNumbers}
@@ -88,7 +153,17 @@ export function Game() {
         updateAvailable={updateAvailable}
         onUpdate={onUpdate}
       />
-      <Board ref={boardRef} key={puzzleKey} numbers={puzzle.numbers} target={puzzle.target} ops={settings.ops} language={settings.language} onSolved={draw} />
+      <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} />
+
+      {/* footer/history round (PO): attribution only, no rules/legal
+          content asked for. `footerCoffee` is plain text, not a link — no
+          URL exists yet; once there is one, wrap just that span in an
+          `<a>` rather than the whole footer, so "made with" stays plain
+          text regardless. */}
+      <footer className={styles.footer}>
+        <span>{t(settings.language, 'footerMade')}</span>
+        <span className={styles.footerCoffee}>{t(settings.language, 'footerCoffee')}</span>
+      </footer>
     </div>
   )
 }

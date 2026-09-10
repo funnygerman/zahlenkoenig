@@ -50,6 +50,14 @@ interface Strings {
   dissolveGroup: string
   /** The service-worker-update hint (concept 19.3: "ein knapper Hinweis... statt eines Popup-Dialogs"). */
   updateHint: string
+  /** HistoryNav.tsx's back arrow (footer/history round) — steps into the archive of already-solved puzzles. */
+  historyBackLabel: string
+  /** HistoryNav.tsx's forward arrow — steps toward the live puzzle again. */
+  historyForwardLabel: string
+  /** The page footer's attribution line. */
+  footerMade: string
+  /** The page footer's second line — no link exists yet (PO, footer/history round), so this renders as plain text; see Game.tsx's own note on where a real link would go. */
+  footerCoffee: string
 }
 
 const de: Strings = {
@@ -64,6 +72,10 @@ const de: Strings = {
   uniqueOnlyUnavailable: ' (für diese Auswahl nicht verfügbar)',
   dissolveGroup: 'Klammer auflösen',
   updateHint: 'Aktualisieren',
+  historyBackLabel: 'Vorheriges gelöstes Rätsel',
+  historyForwardLabel: 'Nächstes Rätsel',
+  footerMade: 'Mit ❤️ und Claude gemacht',
+  footerCoffee: 'Kaffee spendieren ☕',
 }
 
 const en: Strings = {
@@ -78,6 +90,10 @@ const en: Strings = {
   uniqueOnlyUnavailable: ' (not available for this selection)',
   dissolveGroup: 'Dissolve bracket',
   updateHint: 'Update',
+  historyBackLabel: 'Previous solved puzzle',
+  historyForwardLabel: 'Next puzzle',
+  footerMade: 'Made with ❤️ and Claude',
+  footerCoffee: 'Buy me a coffee ☕',
 }
 
 const ru: Strings = {
@@ -92,6 +108,10 @@ const ru: Strings = {
   uniqueOnlyUnavailable: ' (недоступно для этого выбора)',
   dissolveGroup: 'Убрать скобки',
   updateHint: 'Обновить',
+  historyBackLabel: 'Предыдущая решённая задача',
+  historyForwardLabel: 'Следующая задача',
+  footerMade: 'Сделано с ❤️ и Claude',
+  footerCoffee: 'Угостить кофе ☕',
 }
 
 // `Record<Language, Strings>` is what gives every language compile-time key

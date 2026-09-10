@@ -111,6 +111,73 @@ than sitting there looking clickable.
 
 ## Where v2 stands
 
+**A footer/history round added two things outside concept 16's roadmap
+entirely** — the roadmap itself is finished (see "Next v2 step" above), so
+this isn't a step, it's new scope the PO asked for afterward: a page
+footer, and a way to step back into already-solved puzzles.
+
+*The footer is attribution only, on the PO's own two lines: "made with ❤️
+and Claude", and a coffee mention with no link yet.* Neither is translated
+content beyond the usual three languages — `i18n.ts` gained `footerMade`/
+`footerCoffee` alongside the existing keys, same `Record<Language,
+Strings>` key-parity guarantee as everything else there. `footerCoffee`
+renders as plain text, not an `<a>`: there's no URL to point it at yet, and
+a fake or placeholder one isn't something this file's own "never generate
+or guess URLs" rule allows working around. `Game.tsx`'s own comment marks
+where a real link would go — wrapping just that span, not the whole
+footer, so "made with ❤️ and Claude" stays plain text regardless of
+whether the coffee line ever becomes clickable.
+
+*Puzzle history is `core/solvedHistory.ts` (new) plus a two-arrow strip
+above the header (`HistoryNav.tsx`, new), and Board.tsx needed no changes
+at all* — it already took numbers/target/ops as plain props with no
+opinion about whether they came from a fresh draw or an old one, so
+feeding it an archived puzzle instead of the live one was a `Game.tsx`-only
+change. `solvedHistory.ts` mirrors `history.ts`'s own storage conventions
+(same try/catch-everything load, same "slice to a window" cap — 20 here,
+the same order of magnitude as `history.ts`'s 30/12) but keeps a different
+kind of thing: `history.ts`'s window exists only so the generator can avoid
+an immediate repeat and holds nothing but a signature string, while this is
+an actual replayable log — `{ numbers, target, ops }` per entry, logged
+every time a *live* puzzle is solved, never deduplicated (solving the same
+puzzle twice is honestly two entries, not one moved to the end the way
+`history.ts`'s repeat-avoidance window does it). `ops` is stored per entry
+rather than read from today's `settings.ops` at replay time on purpose: a
+player can change which operators are enabled between solving a puzzle and
+later browsing back to it, and replaying with the *puzzle's own* operators
+keeps the tray matching the solution that puzzle actually has, rather than
+whatever's currently selected.
+
+`Game.tsx` holds one new piece of state, `historyIndex: number | null` —
+`null` means "showing the live puzzle" (the normal case), a number is a
+position in the archive. Browsing doesn't touch the live puzzle's own state
+at all: it only changes *what's displayed*, so navigating away mid-solve
+and back again resumes exactly where the player left off (Board's key stays
+`live-${puzzleKey}` when the live puzzle hasn't changed underneath, so React
+never remounts it — the same "don't reset a tree that doesn't need
+resetting" reasoning `Board`'s own key already uses for a *new* puzzle,
+just extended to "browsed away and back" as a case that shouldn't reset
+either). Solving a replayed puzzle doesn't log a second archive entry or
+advance the live puzzle — Board.tsx's `onSolved` fires the same way either
+path, so `Game.tsx`'s `handleSolved` is the one place that has to tell them
+apart, and it does: browsing (`historyEntry` set) just returns to live after
+the same 1200ms delay concept 12.8 already uses; live (the normal case)
+logs the puzzle and draws the next one, unchanged from before this round.
+
+The arrows themselves are deliberately not part of `Header.tsx` — Header
+owns the selection chip and the hint icon (concept 12.7), a different
+concern from browsing what's already been solved, and its own left/right
+slots are already spoken for (the update-hint pill, the hint icon). Placed
+as their own row above the header instead (PO's own suggestion), sized to
+the same width so it lines up rather than reading as an unrelated element.
+The position indicator between the arrows is deliberately just digits
+("2/8"), no translated label — the same reasoning Header's own mini
+number/operator chips in its selection chip already follow: digits read
+the same to a first-grader as to an adult, and need no i18n. The strip
+renders nothing at all until at least one puzzle has been solved, rather
+than showing two permanently-disabled arrows on a brand-new install with
+nothing yet to browse.
+
 Steps 0–5 of concept section 16 are done and merged to `main`: vitest is set
 up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`

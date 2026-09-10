@@ -1,0 +1,44 @@
+/* Sized to match Header.tsx's own width (5 * --cell + 4 * --gap), so this
+ * strip lines up with the header and board beneath it rather than being a
+ * different width that reads as an unrelated element. */
+
+.nav {
+  width: calc(5 * var(--cell) + 4 * var(--gap));
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+
+/* Mirrors Header.module.css's .hintButton — same circular tap target,
+ * same muted-until-hovered treatment — so this reads as the same family
+ * of icon button rather than a one-off. */
+.arrow {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border: none;
+  background: transparent;
+  color: var(--zk-muted);
+  cursor: pointer;
+  border-radius: 50%;
+}
+
+.arrow:hover:not(:disabled) {
+  color: var(--zk-accent);
+  background: hsl(var(--hue) 62% 42% / 0.08);
+}
+
+.arrow:disabled {
+  opacity: 0.3;
+  cursor: default;
+}
+
+.position {
+  min-width: 2.6em;
+  text-align: center;
+  font-size: 0.72rem;
+  color: var(--zk-muted);
+  font-variant-numeric: tabular-nums;
+}
