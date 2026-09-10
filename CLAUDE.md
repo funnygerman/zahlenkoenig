@@ -87,6 +87,54 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
 
+**An i18n round added English and Russian, on a PO decision that closes
+concept 12.7's own long-open question about the header-left menu icon —
+there isn't one, and won't be.** `Settings.language` (concept section 11)
+existed from the start but was completely inert — stored, never read.
+Grepping the whole UI tree found the entire translatable surface to be
+eight short strings, none of them taking a parameter or needing
+pluralization (numbers here are small integers, rendered with plain
+`String()` — no `Intl`/locale-sensitive formatting exists or was needed):
+Header.tsx's three panel-row labels, its hint button's aria-label, the
+uniqueOnly checkbox's sentence (split into three fragments around the one
+word concept 15.6's own copy bolds, so the emphasis survives translation),
+the "beliebig" single-band label, and Expression.tsx's "Klammer auflösen"
+aria-label (used on both bracket edges). `core/i18n.ts` holds all of it —
+a flat `Record<Language, Strings>` and a `t(language, key)` lookup;
+`Record`'s own key parity means TypeScript refuses to build if any
+language is missing a key. v1's own i18n (`src/i18n/`, deleted in step 5)
+was a hand-rolled module-singleton-plus-listener-Set system built for
+streaks/levels/hints text that no longer exists — not worth reviving, and
+this round doesn't.
+Math notation itself (×, ÷, −) never goes through this file — `notation.ts`'s
+`operatorGlyph`/`formatResult` stay locale-invariant, matching how German,
+English and Russian schooling all typeset it the same way.
+**No language switcher exists, on purpose (PO decision, this round):**
+`settings.ts`'s `detectLanguage()` reads `navigator.language` once, on a
+player's first visit (`loadSettings()`'s `!raw` branch — a value already in
+storage always wins over a fresh detection, so it only ever runs once per
+player), and falls back to English — not German — for anything it doesn't
+recognize; `DEFAULT_SETTINGS.language` changed from `'de'` to `'en'` to
+match. Concept 12.7's header-left "Menü (Sprache, Regeln)" icon, reserved
+but never built since v2 started (`Header.tsx`'s own comment used to say so
+directly), stays unbuilt — a player's language is decided once, by their
+browser, and that's the whole feature. `Game.tsx` also keeps
+`document.documentElement.lang` in sync with it (a screen reader's own
+pronunciation depends on that attribute, independent of anything this app
+renders) — the one place a language value crosses into a DOM API rather
+than a translated string. `index.html`'s static meta description stays
+German-only: it's not part of gameplay, and rewriting a `<meta>` tag from
+JS after the fact buys little a search engine would ever see.
+`Board.tsx`/`Expression.tsx` both default their language-derived props to
+German rather than requiring them everywhere, so the many existing tests
+that don't care what language a label renders in didn't all need updating
+— only `vitest.setup.ts` did, stubbing jsdom's own `navigator.language`
+default (`'en-US'`) to `'de-DE'` so a fresh `<Game>` in a test keeps
+exercising German exactly as every existing assertion already expected;
+`core/i18n.test.ts` and `core/settings.test.ts`'s own `detectLanguage`
+tests cover English/Russian/unsupported-locale detection directly,
+independent of that stub.
+
 **A negative-result-display round (PO decision) resolved the "Ein
 negatives Ergebnis zeigt gar kein Ergebnis" open question: a wrong,
 negative-result attempt now shows its own number instead of bare

@@ -16,6 +16,7 @@ import { Expression } from './Expression'
 import { Chip } from './Chip'
 import { formatResult, notate } from '../core/notation'
 import type { Operator } from '../core/expression'
+import { t, type Language } from '../core/i18n'
 import './tokens.css'
 import styles from './Game.module.css'
 
@@ -25,6 +26,14 @@ export interface BoardProps {
   ops: Operator[]
   /** called 1200ms after a correct submit (concept 12.8) — the caller's cue to bring in the next puzzle. */
   onSolved?: () => void
+  /**
+   * Defaults to German — Game.tsx always passes the real `settings.language`
+   * (detected once, no switcher — see settings.ts's `detectLanguage`); the
+   * default only matters for tests that render `Board` directly with a
+   * fixed puzzle and don't care which language its one translated
+   * aria-label comes out in.
+   */
+  language?: Language
 }
 
 /** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
@@ -74,7 +83,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de' }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -143,6 +152,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           scaffoldOperators={game.scaffoldOperators}
           onTapLeaf={game.onTapLeaf}
           onDissolveGroup={game.onDissolveGroup}
+          dissolveLabel={t(language, 'dissolveGroup')}
           registerZone={drag.registerZone}
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}

@@ -19,3 +19,17 @@ if (typeof Element !== 'undefined' && !Element.prototype.setPointerCapture) {
   Element.prototype.releasePointerCapture = () => {}
   Element.prototype.hasPointerCapture = () => false
 }
+
+// jsdom's own navigator.language defaults to 'en-US', which — now that
+// settings.ts's loadSettings() detects a first visit's language from it
+// (negative-result-display round's i18n follow-up) — would make every
+// component test that renders a fresh `<Game>` (no stored settings) see
+// English instead of the German every existing assertion was written
+// against. Pinning it to German here keeps those tests exercising exactly
+// what they did before detection existed; `core/i18n.test.ts` and
+// `core/settings.test.ts` cover English/Russian detection directly,
+// independent of this stub, by overriding `navigator.language` themselves
+// for the one assertion that needs it.
+if (typeof navigator !== 'undefined') {
+  Object.defineProperty(navigator, 'language', { value: 'de-DE', configurable: true })
+}
