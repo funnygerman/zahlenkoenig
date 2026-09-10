@@ -193,6 +193,24 @@ renders nothing at all until at least one puzzle has been solved, rather
 than showing two permanently-disabled arrows on a brand-new install with
 nothing yet to browse.
 
+**The footer sat glued to the board on anything taller than the game
+itself, and that was `.page`'s own `justify-content: center` — reported
+against a desktop window, fixed by splitting `.page` into two flex
+children.** `Game.module.css`'s `.page` used to center HistoryNav, Header,
+Board and the footer as one block; on a viewport much taller than that
+block (any desktop window, not just an extreme one) that puts the whole
+group — footer included — in the vertical middle of the screen, reading as
+"the footer is right under the board" rather than as a page footer.
+`Game.tsx` now wraps HistoryNav/Header/Board in their own `.gameArea` div;
+`.gameArea` takes `flex: 1` (claims whatever vertical space `.footer`
+doesn't need) and centers its own children inside that, so the game stays
+exactly as centered as before while `.footer` — a normal flex item after
+it — gets pushed down to sit near the bottom of the viewport instead.
+Checked at both a 1280×900 desktop window (footer ~23px from the bottom
+edge, was flush against the board before) and a 390×780 phone (nothing
+changed there — `.gameArea`'s `flex: 1` barely grows on a short viewport,
+so the whole page still reads the same as it did).
+
 Steps 0–5 of concept section 16 are done and merged to `main`: vitest is set
 up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
