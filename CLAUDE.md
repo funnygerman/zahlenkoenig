@@ -31,18 +31,27 @@ the v2 concept wins for anything being built now.
 
 **Step 6** (concept section 16, "Feinschliff"): animations, landscape
 (Querformat), and the PWA work in concept section 19. Concept section 18's
-"Vor Schritt 6" names two things not yet done, and both block starting this
-step for real:
+"Vor Schritt 6" named two things not yet done; one is resolved now, one
+still blocks starting this step for real:
+
+**The `--cell` caps (88px/104px) are confirmed, not provisional any more.**
+Concept 12.5 always flagged them as "am Gerät zu bestätigen" against the
+worst case (four numbers, three operators, two blocks — `(a op b) op (c op
+d)`) rather than just a resized browser window. Confirmed on a real iPad,
+in both orientations (portrait hits the 88px cap, landscape the 104px one
+via `tokens.css`'s `@media (min-aspect-ratio: 1/1)` switch) — screenshots
+of `(7×1)÷(8+3)`, the worst case built for real, show both brackets sitting
+inside the field with a clean margin before the rounded corner, neither
+orientation clipping the way the earlier tablet/desktop-window report
+described. `tokens.css`'s own comment is updated to say so.
 
 | Fehlt | Warum es blockiert |
 |---|---|
-| **Die beiden Konstanten in `--cell`** (12.5's `88px`/`104px` caps) | Provisional, "am Gerät zu bestätigen" against the worst case (four numbers, three operators, two blocks) — needs a real device, not just a viewport resize. |
 | **App-Icons in allen Größen** | Concept 19.2 names the sizes; they're generated from `public/crown.svg` (13.2), which doesn't yet have a filled, small-icon-legible version — the current one is unfilled/line art, tuned as a favicon, not as a 48×48 home-screen icon. |
 
-Resolve those first (or bring back device-confirmed numbers and a proper
-filled crown), then work through 19's manifest/icons/offline requirements
-alongside the animation and landscape work 16's own table groups into this
-one step.
+Resolve that first (or bring a proper filled crown), then work through 19's
+manifest/icons/offline requirements alongside the animation and landscape
+work 16's own table groups into this one step.
 
 Both open questions from the bug-fix round are resolved now — the
 negative-result notation line by the negative-result-display round, and
@@ -72,8 +81,8 @@ rejoins it the moment it's enabled, and everything else is skipped rather
 than sitting there looking clickable.
 
 **If asked to "implement next step" with nothing more specific, this is the
-step** — but start with the two blockers above, not the animation/PWA work
-itself. Before ending your turn: if concept section 16's stated result for
+step** — but start with the remaining blocker above, not the animation/PWA
+work itself. Before ending your turn: if concept section 16's stated result for
 this step is actually true, update this section — in the same PR — to name
 the *following* step instead (there isn't one currently listed past 6; check
 whether concept section 16 has grown one). If the step isn't fully done,
