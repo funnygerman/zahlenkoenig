@@ -59,10 +59,12 @@ html, body {
   --zk-group-bg: hsl(var(--hue) 48% 42% / .17);
   --zk-group-chip: hsl(var(--hue) 30% 100%);
 
-  /* concept 12.5's formula — 88px/104px are provisional, "am Gerät zu
-   * bestätigen" (concept 17/18, not yet confirmed). entwurf.html fixes
-   * --cell at a flat 64px instead, since it's a static side-by-side
-   * comparison tool, not the responsive app. */
+  /* concept 12.5's formula — 88px/104px were "am Gerät zu bestätigen"
+   * (concept 17/18), and now are: confirmed on a real iPad in both
+   * orientations, against the worst case (four numbers, three operators,
+   * two blocks) — CLAUDE.md's "Next v2 step" has the screenshots' own
+   * account. entwurf.html fixes --cell at a flat 64px instead, since it's
+   * a static side-by-side comparison tool, not the responsive app. */
   --cell: min(16vw, 13dvh, 88px);
   /* Was a flat 10px — which never actually matched concept 12.5's own
    * formula ("Die Formel") either, which derives the page-fit width from
