@@ -18,6 +18,15 @@ import styles from './Game.module.css'
 export function Game() {
   const { settings, setNumbers, toggleOp, setBand, setUniqueOnly } = useSettings()
 
+  // `<html lang>` matters to a screen reader (it picks pronunciation from
+  // it) independent of anything this app itself renders, and there's no
+  // language switcher to leave this in the wrong state for long — it's set
+  // once per detected/stored language, same as everything else in
+  // `settings.language` (no menu, PO decision — see settings.ts's own note).
+  useEffect(() => {
+    document.documentElement.lang = settings.language
+  }, [settings.language])
+
   // The last few puzzles played, so the generator can draw around them
   // (history.ts): without it an immediate repeat is just how a memoryless
   // draw behaves, and in a thin selection — two numbers, a narrow band —
@@ -75,7 +84,7 @@ export function Game() {
         onSetUniqueOnly={setUniqueOnly}
         onPressHint={() => boardRef.current?.pressHint()}
       />
-      <Board ref={boardRef} key={puzzleKey} numbers={puzzle.numbers} target={puzzle.target} ops={settings.ops} onSolved={draw} />
+      <Board ref={boardRef} key={puzzleKey} numbers={puzzle.numbers} target={puzzle.target} ops={settings.ops} language={settings.language} onSolved={draw} />
     </div>
   )
 }

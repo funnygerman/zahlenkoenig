@@ -70,6 +70,14 @@ export interface ExpressionProps {
   onTapLeaf: (id: string) => void
   /** tapping a bracket edge dissolves that group; its content stays put (concept 6.5). */
   onDissolveGroup: (groupId: string) => void
+  /**
+   * The bracket edges' shared aria-label (i18n.ts's `dissolveGroup`) — this
+   * component stays free of language lookups itself, same as Chip.tsx/
+   * Tray.tsx. Defaults to German, matching Board.tsx's own default, so the
+   * many tests in this file that don't care what the label says (only the
+   * one dissolve test does) don't all have to pass it.
+   */
+  dissolveLabel?: string
   registerZone?: (zoneId: string, kind: 'operand' | 'operator' | 'both', occupied: boolean, el: HTMLElement | null) => void
   /** `data.role` tells the drop handler what kind of chip this is without guessing from the id string. */
   dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
@@ -157,11 +165,12 @@ function EmptySlot({
 }
 
 function GroupView({
-  group, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId,
+  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId,
 }: {
   group: Group
   onTapLeaf: (id: string) => void
   onDissolveGroup: (groupId: string) => void
+  dissolveLabel: string
   registerZone?: ExpressionProps['registerZone']
   dragHandlers?: ExpressionProps['dragHandlers']
   activeZoneId?: string | null
@@ -205,7 +214,7 @@ function GroupView({
         ref={el => registerZone?.(beforeZone, 'both', true, el)}
         className={cx(styles.bracketEdge, styles.bracketLeft, activeZoneId === beforeZone && styles.activeEdge)}
         onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
-        aria-label="Klammer auflösen"
+        aria-label={dissolveLabel}
         {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
       />
       {group.children.map((child, i) => {
@@ -236,7 +245,7 @@ function GroupView({
         ref={el => registerZone?.(afterZone, 'both', true, el)}
         className={cx(styles.bracketEdge, styles.bracketRight, activeZoneId === afterZone && styles.activeEdge)}
         onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
-        aria-label="Klammer auflösen"
+        aria-label={dissolveLabel}
         {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
       />
     </div>
@@ -244,7 +253,7 @@ function GroupView({
 }
 
 export function Expression({
-  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, registerZone, dragHandlers, activeZoneId, deadEnd = false,
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false,
 }: ExpressionProps) {
   const { children } = expr.root
   const zones = dropZones(children)
@@ -262,6 +271,7 @@ export function Expression({
           group={slot}
           onTapLeaf={onTapLeaf}
           onDissolveGroup={onDissolveGroup}
+          dissolveLabel={dissolveLabel}
           registerZone={registerZone}
           dragHandlers={dragHandlers}
           activeZoneId={activeZoneId}

@@ -15,15 +15,18 @@ import { useEffect, useRef, useState } from 'react'
 import type { Settings } from '../core/settings'
 import { bandRanges, uniqueOnlyAvailable } from '../core/puzzles'
 import { operatorGlyph, type Operator } from '../core/expression'
+import { t } from '../core/i18n'
 import styles from './Header.module.css'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 /**
  * Band names (target-ranges-display round, PO decision, puzzles.ts's
- * BandRow): a single band spanning the selection's whole range is
- * "beliebig" — calling it "klein" would be a lie. A × selection's fixed
- * cut points are positional (M, then L, then XL, then XXL if there is one)
- * rather than looked up by how many bands a selection has: 4 numbers get
+ * BandRow): a single band spanning the selection's whole range gets its
+ * own single translated label (`anyBand`, "beliebig"/"any"/"любая") —
+ * calling it "klein" would be a lie. A × selection's fixed cut points are
+ * positional (M, then L, then XL, then XXL if there is one) rather than
+ * looked up by how many bands a selection has, and stay untranslated —
+ * they're language-neutral size shorthand, not German words: 4 numbers get
  * all four (1–50/51–100/101–250/251–max), 3 numbers stop at XL
  * (101–150 — no XXL, negative-result-display round's follow-up: measured,
  * everything a 3-number pool holds above 150 is nearly pure-× and not
@@ -32,8 +35,8 @@ const ALL_OPS: Operator[] = ['+', '-', '*', '/']
  * separate entry needed for 3.
  */
 const MULT_BAND_LABELS = ['M', 'L', 'XL', 'XXL']
-const BAND_LABELS: Record<number, string[]> = {
-  1: ['beliebig'],
+function bandLabels(language: Settings['language']): Record<number, string[]> {
+  return { 1: [t(language, 'anyBand')] }
 }
 const NUMBER_OPTIONS: Settings['numbers'][] = [2, 3, 4]
 
@@ -85,6 +88,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
   const ranges = bandRanges(settings.numbers, settings.ops)
   const [lo, hi] = ranges[settings.band]
   const uniqueAvailable = uniqueOnlyAvailable(settings.numbers, settings.ops)
+  const bandLabelsForLanguage = bandLabels(settings.language)
 
   return (
     <div className={styles.header} ref={rootRef}>
@@ -104,7 +108,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
         <span className={styles.range}>{lo}–{hi}</span>
       </button>
 
-      <button type="button" className={styles.hintButton} onClick={onPressHint} aria-label="Tipp">
+      <button type="button" className={styles.hintButton} onClick={onPressHint} aria-label={t(settings.language, 'hintLabel')}>
         <HintIcon />
       </button>
 
@@ -116,7 +120,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
             onClick={e => e.stopPropagation()}
           >
             <div className={styles.row}>
-              <span className={styles.label}>Wie viele Zahlen</span>
+              <span className={styles.label}>{t(settings.language, 'numbersLabel')}</span>
               <div className={styles.options}>
                 {NUMBER_OPTIONS.map(n => (
                   <button
@@ -133,7 +137,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
             </div>
 
             <div className={styles.row}>
-              <span className={styles.label}>Welche Rechenzeichen</span>
+              <span className={styles.label}>{t(settings.language, 'opsLabel')}</span>
               <div className={styles.options}>
                 {ALL_OPS.map(op => (
                   <button
@@ -150,7 +154,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
             </div>
 
             <div className={styles.row}>
-              <span className={styles.label}>Wie groß das Ziel</span>
+              <span className={styles.label}>{t(settings.language, 'targetLabel')}</span>
               <div className={styles.options}>
                 {ranges.map(([bandLo, bandHi], i) => (
                   <button
@@ -160,7 +164,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
                     aria-pressed={settings.band === i}
                     onClick={() => onSetBand(i as Settings['band'])}
                   >
-                    <span className={styles.bandLabel}>{(BAND_LABELS[ranges.length] ?? MULT_BAND_LABELS)[i]}</span>
+                    <span className={styles.bandLabel}>{(bandLabelsForLanguage[ranges.length] ?? MULT_BAND_LABELS)[i]}</span>
                     <span className={styles.bandRange}>{bandLo}–{bandHi}</span>
                   </button>
                 ))}
@@ -174,7 +178,12 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
                 disabled={!uniqueAvailable}
                 onChange={e => onSetUniqueOnly(e.target.checked)}
               />
-              <span>nur Rätsel mit <b>einer</b> Lösung{!uniqueAvailable && ' (für diese Auswahl nicht verfügbar)'}</span>
+              <span>
+                {t(settings.language, 'uniqueOnlyPrefix')}
+                <b>{t(settings.language, 'uniqueOnlyBold')}</b>
+                {t(settings.language, 'uniqueOnlySuffix')}
+                {!uniqueAvailable && t(settings.language, 'uniqueOnlyUnavailable')}
+              </span>
             </label>
           </div>
         </div>
