@@ -75,7 +75,7 @@ const de: Strings = {
   historyBackLabel: 'Vorheriges gelöstes Rätsel',
   historyForwardLabel: 'Nächstes Rätsel',
   footerMade: 'Mit ❤️ und Claude gemacht',
-  footerCoffee: 'Kaffee spendieren ☕',
+  footerCoffee: 'Auf einen Kaffee einladen ☕',
 }
 
 const en: Strings = {
