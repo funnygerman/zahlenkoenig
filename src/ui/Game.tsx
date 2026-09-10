@@ -142,25 +142,34 @@ export function Game() {
 
   return (
     <div className={styles.page}>
-      <HistoryNav
-        index={historyIndex}
-        total={solved.length}
-        onBack={handleHistoryBack}
-        onForward={handleHistoryForward}
-        backLabel={t(settings.language, 'historyBackLabel')}
-        forwardLabel={t(settings.language, 'historyForwardLabel')}
-      />
-      <Header
-        settings={settings}
-        onSetNumbers={setNumbers}
-        onToggleOp={toggleOp}
-        onSetBand={setBand}
-        onSetUniqueOnly={setUniqueOnly}
-        onPressHint={() => boardRef.current?.pressHint()}
-        updateAvailable={updateAvailable}
-        onUpdate={onUpdate}
-      />
-      <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} />
+      {/* Everything the game itself needs (concept 12.1) lives in its own
+          flexible area, separate from the footer below — see .gameArea's
+          own comment in Game.module.css for why: without this split, a
+          viewport taller than the game (any desktop window) centers the
+          footer along with the board as one block, landing it right under
+          the board instead of down at the bottom of the page where a
+          footer belongs. */}
+      <div className={styles.gameArea}>
+        <HistoryNav
+          index={historyIndex}
+          total={solved.length}
+          onBack={handleHistoryBack}
+          onForward={handleHistoryForward}
+          backLabel={t(settings.language, 'historyBackLabel')}
+          forwardLabel={t(settings.language, 'historyForwardLabel')}
+        />
+        <Header
+          settings={settings}
+          onSetNumbers={setNumbers}
+          onToggleOp={toggleOp}
+          onSetBand={setBand}
+          onSetUniqueOnly={setUniqueOnly}
+          onPressHint={() => boardRef.current?.pressHint()}
+          updateAvailable={updateAvailable}
+          onUpdate={onUpdate}
+        />
+        <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} />
+      </div>
 
       {/* footer/history round (PO): attribution only, no rules/legal
           content asked for. `footerCoffee` is the one link on the page —

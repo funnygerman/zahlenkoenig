@@ -3,13 +3,33 @@
 .page {
   display: flex;
   flex-direction: column;
-  justify-content: center;
   align-items: center; /* the header and board are their own fixed width now, not stretched to fill this container — center them, rather than leaving them flush against the left edge */
-  gap: var(--gap);
   padding: var(--gap);
   min-height: 100dvh;
   background: var(--zk-bg);
   font-family: var(--font-board);
+}
+
+/* The game's own history strip/header/board, kept out of .page's own flow
+ * so the footer below can anchor to the bottom of the viewport instead of
+ * sitting glued to the board. Without this split, .page centering all of
+ * its children as one block (its old `justify-content: center`) put the
+ * footer right under the board on anything taller than the game itself —
+ * true of any desktop window, not just an extreme one — rather than down
+ * at the page's own bottom edge where a footer reads as a footer. `flex: 1`
+ * claims all the vertical space `.footer` doesn't need, and centers its own
+ * children inside whatever that turns out to be — on a short (mobile)
+ * viewport that's barely more than the game's own height, so nothing looks
+ * different there; on a tall one it's most of the screen, pushing `.footer`
+ * down to the bottom without moving the game itself off-center. */
+.gameArea {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: var(--gap);
+  width: 100%;
 }
 
 .board {
@@ -40,14 +60,17 @@
 }
 
 /* footer/history round: a quiet attribution line, not a call to action —
- * small and muted like .readout, sitting below the board rather than
- * fighting for attention above it. */
+ * small and muted like .readout, anchored to the bottom of the page
+ * (.gameArea's own comment above explains how) rather than fighting for
+ * attention right under the board. `padding-top` here is real whitespace
+ * of its own, not just the leftover from .gameArea's flex — worth keeping
+ * even on a short viewport where .gameArea barely grows at all. */
 .footer {
   display: flex;
   flex-direction: column;
   align-items: center;
   gap: 2px;
-  margin-top: 4px;
+  padding-top: calc(var(--gap) * 2);
   font-size: 0.72rem;
   color: var(--zk-muted);
   text-align: center;
