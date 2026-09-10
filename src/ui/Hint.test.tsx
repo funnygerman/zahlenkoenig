@@ -4,6 +4,7 @@ import { render, screen, act, renderHook } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Board, type BoardHandle } from './Board'
 import { useGame } from './useGame'
+import { hintBudget } from './useHint'
 import { computeHint } from '../core/hints'
 import type { Operator } from '../core/expression'
 
@@ -34,28 +35,55 @@ describe('Board — the hint button (concept 10.3, revised by the hint round)', 
     expect(document.querySelector('[class*="pulsing"]')).toBeNull() // the pulse is gone for good
   })
 
-  it('gives two chips and no more — the third press does nothing', () => {
+  it('gives half the chips this puzzle takes, rounded up, and no more', () => {
+    // 48 is reachable flat from 6, 2, 9, 3 (6 × 9 − 2 × 3), so the canonical
+    // continuation is four numbers and three operators — seven chips, four
+    // hints. A puzzle whose own solution needs brackets costs more chips and
+    // therefore gives more (PO: 9 chips → 5).
     const ref = createRef<BoardHandle>()
     render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
 
-    press(ref)
-    press(ref)
-    expect(placed()).toHaveLength(2)
+    for (let i = 0; i < 4; i++) press(ref)
+    expect(placed()).toHaveLength(4)
 
     press(ref)
     press(ref)
-    expect(placed()).toHaveLength(2) // still two: the budget is spent
+    expect(placed()).toHaveLength(4) // still four: the budget is spent
+  })
+
+  it('scales with the puzzle: three numbers give fewer than four do', () => {
+    const four = createRef<BoardHandle>()
+    const { unmount } = render(<Board ref={four} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
+    for (let i = 0; i < 9; i++) press(four)
+    const fourCount = placed().length
+    unmount()
+
+    const three = createRef<BoardHandle>()
+    render(<Board ref={three} numbers={[2, 1, 3]} target={8} ops={PUZZLE.ops} />)
+    for (let i = 0; i < 9; i++) press(three)
+
+    expect(placed().length).toBeLessThan(fourCount) // 3 numbers is at most 6 chips, 4 numbers at least 7
+  })
+
+  it('gives a two-number puzzle none at all, and says so rather than muting (PO)', () => {
+    const ref = createRef<BoardHandle>()
+    const seen: { offered: boolean; available: boolean }[] = []
+    render(<Board ref={ref} numbers={[3, 4]} target={7} ops={PUZZLE.ops} onHintState={s => seen.push(s)} />)
+
+    expect(seen[seen.length - 1]).toEqual({ offered: false, available: false })
+    press(ref)
+    press(ref)
+    expect(placed()).toHaveLength(0) // three chips is the whole board; a hint there is the answer
   })
 
   it('reports itself unavailable once the budget is spent, so the header can mute the icon', () => {
     const ref = createRef<BoardHandle>()
-    const seen: boolean[] = []
-    render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} onHintAvailable={a => seen.push(a)} />)
+    const seen: { offered: boolean; available: boolean }[] = []
+    render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} onHintState={s => seen.push(s)} />)
 
-    expect(seen[seen.length - 1]).toBe(true)
-    press(ref)
-    press(ref)
-    expect(seen[seen.length - 1]).toBe(false)
+    expect(seen[seen.length - 1]).toEqual({ offered: true, available: true })
+    for (let i = 0; i < 4; i++) press(ref)
+    expect(seen[seen.length - 1]).toEqual({ offered: true, available: false })
   })
 
   it('taking a hinted chip back gives the hint back — the budget counts chips on the board, not presses (PO)', async () => {
@@ -63,17 +91,65 @@ describe('Board — the hint button (concept 10.3, revised by the hint round)', 
     const ref = createRef<BoardHandle>()
     render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
 
-    press(ref)
-    press(ref)
-    press(ref)
-    expect(placed()).toHaveLength(2) // spent
+    for (let i = 0; i < 5; i++) press(ref)
+    const spent = placed().length // the whole budget
 
     // tap one of them back off the board (concept 6.6's inverse gesture)
-    await user.click(placed()[1])
-    expect(placed()).toHaveLength(1)
+    await user.click(placed()[spent - 1])
+    expect(placed()).toHaveLength(spent - 1)
 
     press(ref) // the returned chip released its hint, so this one lands
-    expect(placed()).toHaveLength(2)
+    expect(placed()).toHaveLength(spent)
+  })
+})
+
+describe('hintBudget — half the chips a puzzle takes, rounded up (PO)', () => {
+  // The PO's own three worked examples, verbatim.
+  it('four numbers and three operators is seven chips and four hints', () => {
+    expect(hintBudget(4, 7)).toBe(4)
+  })
+
+  it('the same plus one block is eight chips and still four hints', () => {
+    expect(hintBudget(4, 8)).toBe(4)
+  })
+
+  it('the same plus two blocks is nine chips and five hints', () => {
+    expect(hintBudget(4, 9)).toBe(5)
+  })
+
+  it('rounds in the player\'s favour — three numbers, five chips, three hints', () => {
+    expect(hintBudget(3, 5)).toBe(3)
+  })
+
+  it('two numbers get none, whatever the formula would say', () => {
+    expect(hintBudget(2, 3)).toBe(0)
+  })
+})
+
+describe('Board — the chip count comes from the puzzle\'s own solution, brackets included', () => {
+  // The block is what makes 7, 8 and 9 chips different puzzles at the same
+  // number count, so the budget has to read the canonical continuation
+  // rather than assume a flat row.
+  const count = (numbers: number[], target: number) => {
+    const ref = createRef<BoardHandle>()
+    const { unmount } = render(<Board ref={ref} numbers={numbers} target={target} ops={PUZZLE.ops} />)
+    let presses = 0
+    for (let i = 0; i < 12; i++) {
+      const before = document.querySelectorAll('button[class*="_chip_"][class*="_field_"], [class*="_group_"]').length
+      press(ref)
+      if (document.querySelectorAll('button[class*="_chip_"][class*="_field_"], [class*="_group_"]').length === before) break
+      presses++
+    }
+    unmount()
+    return presses
+  }
+
+  it('a solution needing one bracket is eight chips: four hints', () => {
+    expect(count([1, 1, 1, 4], 8)).toBe(4)
+  })
+
+  it('a solution needing two brackets is nine chips: five hints', () => {
+    expect(count([1, 1, 1, 3], 8)).toBe(5)
   })
 })
 
@@ -193,19 +269,22 @@ describe('Board — the hint lays chips the way a tap does', () => {
   it('never presses `=` itself: the readout holds the result back until the player does', async () => {
     const user = userEvent.setup()
     const ref = createRef<BoardHandle>()
-    render(<Board ref={ref} numbers={[3, 4]} target={7} ops={['+'] as Operator[]} />)
+    render(<Board ref={ref} numbers={[3, 4, 5]} target={12} ops={['+'] as Operator[]} />)
 
-    press(ref)
-    press(ref)
+    for (let i = 0; i < 4; i++) press(ref) // the whole budget: three of the five chips
     expect(screen.getByRole('status').textContent).not.toMatch(/=/)
 
-    // two hints are the whole of a two-number puzzle bar one chip; the
-    // player still places that one and submits it themselves. A real click,
-    // not fireEvent: once drag is wired the chips have no onClick at all
-    // and every tap goes through useDrag's own pointer detection.
-    const remaining = screen.getAllByText('4', { selector: 'button' }).find(b => !b.className.includes('_field_'))!
-    await user.click(remaining)
+    // the player places whatever the hints left and submits it themselves. A
+    // real click, not fireEvent: once drag is wired the chips have no onClick
+    // at all and every tap goes through useDrag's own pointer detection.
+    for (const value of ['3', '4', '5']) {
+      const chip = screen.getAllByText(value, { selector: 'button' }).find(b => !b.className.includes('_field_') && !(b as HTMLButtonElement).disabled)
+      if (chip) await user.click(chip)
+    }
+    while (screen.getByText('=', { selector: 'button' }).hasAttribute('disabled')) {
+      await user.click(screen.getAllByText('+', { selector: 'button' }).find(b => !b.className.includes('_field_'))!)
+    }
     await user.click(screen.getByText('=', { selector: 'button' }))
-    expect(screen.getByRole('status').textContent).toMatch(/= 7$/)
+    expect(screen.getByRole('status').textContent).toMatch(/= 12$/)
   })
 })

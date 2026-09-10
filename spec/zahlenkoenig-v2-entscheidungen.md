@@ -337,7 +337,10 @@ Punkte **vor** dem Umbau gemessen (Zahlen in 10.3 und in CLAUDE.md).
 |---|---|
 | **Das Pulsieren entfällt ersatzlos** | Es zeigte die Chips, die zuletzt gesetzt werden (Fortsetzung in Dokumentreihenfolge, Pulsieren nach Klammerinhalt): in 100 % der gemessenen Fälle mit Klammer setzte der nächste Druck einen anderen Chip. Und es war unsichtbar, sobald höchstens eine Zahl in der Ablage lag – die halbe Lösung lang tat der erste Druck damit nichts. |
 | **Jeder Druck setzt einen Chip** (PO) | Der erste Druck war der einzige, der nichts tat; genau er war es, den der PO als „gar nichts passiert" meldete. |
-| **Zwei Tipps pro Rätsel** (PO) | *„Aber lass uns nicht vollständig lösen. Vielleicht nur eine begrenzte Anzahl Tipps?"* Zwei genügen, um wieder in Gang zu kommen, und legen nie die Lösung. |
+| ~~**Zwei Tipps pro Rätsel**~~ → **halb so viele, wie das Rätsel Chips braucht, aufgerundet** (PO) | *„Aber lass uns nicht vollständig lösen. Vielleicht nur eine begrenzte Anzahl Tipps?"* – zunächst zwei, fest. Der Spieltest verwarf das noch am selben Tag: *„Ich habe ein Rätsel mit 4 Zahlen geöffnet, aber nur zwei Tipps bekommen."* Zwei Tipps sind bei vier Zahlen ein viel kleinerer Anteil des Bretts als bei drei. Neue Regel mit den drei Beispielen des PO: 7 Chips → 4, 8 Chips → 4, 9 Chips → 5. |
+| **Ein Block zählt als eigener Chip** (PO) | *„wir zählen jeden Block-Operator separat"* – deshalb sind dieselben vier Zahlen je nach Lösung 7, 8 oder 9 Chips wert. Gemessen wird an der kanonischen Fortsetzung des leeren Felds, einmal pro Rätsel. |
+| **Aufrunden** (PO) | *„und wir runden, damit es mehr Tipps gibt"* – bei ungerader Chipzahl bekommt der Spieler den halben Chip. |
+| **Zwei Zahlen bekommen gar keinen Tipp, und der Knopf verschwindet** (PO) | *„und übrigens keine Tipps für zwei Zahlen. Vielleicht können wir den Tipp-Knopf in diesen Fällen sogar ausblenden."* Drei Chips sind das ganze Brett. Ein dauerhaft gedämpfter Knopf wäre etwas anderes als ein fehlender: „nichts zu geben" ist keine Momentaufnahme. |
 | **Gezählt werden Chips, nicht Drücke** (PO) | Nimmt der Spieler einen getippten Chip zurück, steht der Tipp wieder zur Verfügung. Ein versehentlicher Druck kostet damit nichts Bleibendes. |
 | **Keine Anzeige der Resttipps** (PO) | Aus drei angebotenen Formen (Ziffer am Symbol, Punkte, nichts) wählte der PO „nichts, bis es aufgebraucht ist". Das Symbol dämpft sich dann – dieselbe Sprache wie erschöpfte Operatoren und der Block in der Ablage. |
 | **In der Sackgasse: nur markieren** (PO) | Angeboten waren vier Verhalten (zurücknehmen und setzen · kostenlos zurücknehmen · zurücknehmen für einen Tipp · nur markieren). Der PO wählte *„nur die falschen Chips markieren"*: das Spiel fasst nicht an, was der Spieler gebaut hat. Das Zurücknehmen bleibt seine Geste. |
@@ -346,7 +349,8 @@ Punkte **vor** dem Umbau gemessen (Zahlen in 10.3 und in CLAUDE.md).
 
 **Verworfen:** das Pulsieren „richtig herum" zu ziehen (auf den Chip, den der
 nächste Druck setzt) – der PO wollte das Pulsieren gar nicht · unbegrenzt viele
-Tipps · ein festes Kontingent von drei · „nie den letzten Chip" als Grenze ·
+Tipps · ein festes Kontingent (zwei war einen Spieltest lang in Betrieb, drei
+wurde angeboten) · „nie den letzten Chip" als Grenze · abrunden ·
 die Zahl der Resttipps am Symbol anzeigen · die falschen Chips automatisch
 zurücknehmen, mit oder ohne Kosten.
 
