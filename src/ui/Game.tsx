@@ -49,9 +49,10 @@ export function Game() {
   // the swap (its `numbers` prop changing doesn't imply its state should).
   const [puzzleKey, setPuzzleKey] = useState(0)
   // Board's own hint state, reported upward so the header icon (a sibling,
-  // not a child) can mute itself once a press would do nothing — the two
-  // hints this puzzle gives are spent, or it is already correctly built.
-  const [hintAvailable, setHintAvailable] = useState(true)
+  // not a child) can mute itself once a press would do nothing — this
+  // puzzle's hints are spent, or it is already correctly built — and hide
+  // itself entirely on a puzzle that has no hints to give (two numbers, PO).
+  const [hintState, setHintState] = useState({ offered: true, available: true })
 
   const draw = useCallback(() => {
     setPuzzle(nextPuzzle(settings, recentRef.current ?? [], shapesRef.current ?? []))
@@ -177,11 +178,12 @@ export function Game() {
           onSetBand={setBand}
           onSetUniqueOnly={setUniqueOnly}
           onPressHint={() => boardRef.current?.pressHint()}
-          hintMuted={!hintAvailable}
+          hintHidden={!hintState.offered}
+          hintMuted={!hintState.available}
           updateAvailable={updateAvailable}
           onUpdate={onUpdate}
         />
-        <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} onHintAvailable={setHintAvailable} />
+        <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} onHintState={setHintState} />
       </div>
 
       {/* footer/history round (PO): attribution only, no rules/legal

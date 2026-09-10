@@ -59,6 +59,13 @@ export interface HeaderProps {
    */
   hintMuted?: boolean
   /**
+   * Whether this puzzle gives no hints at all — two numbers (PO), where
+   * three chips is the whole board. The icon is left out entirely rather
+   * than shown permanently dead, the same call `HistoryNav` makes about
+   * rendering nothing until there is something to browse.
+   */
+  hintHidden?: boolean
+  /**
    * Concept 19.3's update surface — "ein knapper Hinweis in der
    * Kopfzeile... statt eines Popup-Dialogs". Optional: `Game.tsx` always
    * passes both (from `useUpdateAvailable`), but nothing here requires a
@@ -84,7 +91,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, updateAvailable = false, onUpdate }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -137,9 +144,11 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
         <span className={styles.range}>{lo}–{hi}</span>
       </button>
 
-      <button type="button" className={styles.hintButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
-        <HintIcon />
-      </button>
+      {!hintHidden && (
+        <button type="button" className={styles.hintButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
+          <HintIcon />
+        </button>
+      )}
 
       {open && (
         <div className={styles.backdrop} onClick={() => setOpen(false)}>

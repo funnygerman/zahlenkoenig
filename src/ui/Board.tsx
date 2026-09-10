@@ -35,8 +35,14 @@ export interface BoardProps {
    * aria-label comes out in.
    */
   language?: Language
-  /** whether a hint press would still do anything here — see the effect in Board that reports it, and Game.tsx, which mutes the header's icon on it. */
-  onHintAvailable?: (available: boolean) => void
+  /**
+   * How the header's hint icon should stand: `offered` false means this
+   * puzzle has no hints at all (two numbers — PO) and the icon is hidden
+   * rather than shown dead; `available` false means a press would do
+   * nothing right now (budget spent, or nothing left to hint about) and the
+   * icon mutes. See the effect in Board that reports it.
+   */
+  onHintState?: (state: { offered: boolean; available: boolean }) => void
 }
 
 /** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
@@ -99,7 +105,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintAvailable }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -117,7 +123,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // (the two-hint budget spent, or the puzzle already correctly built).
   // Reported upward rather than lifted: the hint still belongs to the board
   // it is about, and Board is remounted per puzzle while Header is not.
-  useEffect(() => { onHintAvailable?.(hint.available) }, [hint.available, onHintAvailable])
+  useEffect(() => { onHintState?.({ offered: hint.offered, available: hint.available }) }, [hint.offered, hint.available, onHintState])
 
   // Concept 6.7's dissolve fade: the real trigger is a tap detected by
   // useDrag (handleTap below), not Expression's own onClick (that path

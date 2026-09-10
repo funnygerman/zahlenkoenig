@@ -135,17 +135,33 @@ routinely did nothing at all. `Chip`'s `pulsing` prop, its `@keyframes`,
 and `Tray`'s `pulsingIds` are all deleted; **every press places a chip
 now** (PO).
 
-*A puzzle gives two hints, counted in chips rather than presses* (PO). The
-budget is spent while the chip a hint contributed is still on the board, so
-taking that chip back gives the hint back — "count chips, not presses" was
-the PO's own wording. Which chips those are is read off the tree rather
+*The budget is half the chips a puzzle takes, rounded up, and counted in
+chips rather than presses* (PO). It shipped as a flat two per puzzle first,
+and the PO's own play-test killed that within the hour: two hints on a
+four-number puzzle is a much smaller share of the board than two on a
+three-number one. `useHint.ts`'s `hintBudget(numbersCount, chipsNeeded)` is
+the rule now — the PO's own three worked examples are `Hint.test.tsx`'s
+first three assertions: 4 numbers + 3 operators = 7 chips → **4** hints;
++ 1 block = 8 chips → **4**; + 2 blocks = 9 chips → **5**. `chipsNeeded` is
+the length of the canonical continuation from an **empty** field — exactly
+"how many chips finish this puzzle", and the reason the same four numbers
+can be worth 7, 8 or 9: a block is a chip too. It is read once per puzzle
+rather than recomputed as the board fills, so the budget a player starts
+with is the budget they keep. **Two numbers get none at all** (PO), rather
+than the two the formula would give: three chips is the whole board. The
+header *hides* the icon there instead of showing a permanently dead one —
+`useHint` reports `offered` alongside `available`, and the two are
+different things (nothing to give, versus nothing to give *right now*).
+The budget is spent while the chip a hint contributed is still on the
+board, so taking that chip back gives the hint back — "count chips, not
+presses" was the PO's own wording. Which chips those are is read off the tree rather
 than predicted: `placeOperator`/`placeBlockAt` mint their own ids inside
 `useGame`, so a press records the board's ids first and attributes whatever
 appears next (`useHint.ts`'s `beforePressRef`). No counter is shown (PO);
 the header's icon simply mutes once a press would do nothing — genuinely
 `disabled`, unlike the tray's spent operator chips, which stay muted-but-
 droppable because dragging onto them is still a gesture. `Board` reports
-that upward through a new `onHintAvailable` prop rather than having the
+that upward through a new `onHintState` prop rather than having the
 hint state lifted: `Header` is a *sibling* in `Game.tsx`'s tree, and Board
 is remounted per puzzle while Header is not — the same asymmetry that made
 `pressHint` an imperative handle in the first place, seen from the other

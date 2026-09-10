@@ -633,7 +633,7 @@ jedem Level dasselbe Verhalten:
 |---|---|
 | **kostenlos, dauerhaft** | *Sackgassen-Anzeige*: existiert keine Fortsetzung, färbt sich der Rahmen des Ausdrucks bernstein |
 | **kostenlos, auf Druck** | steht das Brett in einer Sackgasse, **markiert** der Druck die Chips, die im Weg stehen – und rührt sie nicht an |
-| jeder Druck | das Spiel **setzt einen weiteren Chip** – zwei pro Rätsel, dann ist das Symbol gedämpft |
+| jeder Druck | das Spiel **setzt einen weiteren Chip** – halb so viele wie das Rätsel Chips braucht, dann ist das Symbol gedämpft |
 
 **Revision (Tipp-Runde, PO).** Die frühere Fassung dieser Tabelle gab dem
 ersten Druck eine eigene Wirkung: die beiden Operanden des ersten Blocks der
@@ -650,12 +650,35 @@ Beides ist gestrichen, und beides aus gemessenen Gründen:
   Das betrifft die gesamte zweite Hälfte jeder Lösung.
 - In einer Sackgasse kehrte der Druck zurück, ohne irgend etwas zu tun.
 
-**Zwei Tipps pro Rätsel** (PO). Gezählt werden **Chips, nicht Drücke**: ein
-Tipp gilt so lange als verbraucht, wie der Chip, den er beigesteuert hat, auf
-dem Brett liegt. Nimmt der Spieler ihn zurück, steht der Tipp wieder zur
-Verfügung. Eine Anzeige der verbleibenden Tipps gibt es nicht (PO); ist das
-Kontingent verbraucht, dämpft sich das Symbol – dieselbe Sprache, die die
-Ablage für erschöpfte Operatoren und den Block schon spricht.
+**Halb so viele Tipps, wie das Rätsel Chips braucht, aufgerundet** (PO).
+Zuerst waren es zwei pro Rätsel, fest; der Spieltest verwarf das sofort, weil
+zwei Tipps bei vier Zahlen ein viel kleinerer Anteil des Bretts sind als bei
+drei. Die drei Beispiele des PO:
+
+| Rätsel | Chips | Tipps |
+|---|---|---|
+| 4 Zahlen + 3 Operatoren | 7 | 4 |
+| dieselben + 1 Block | 8 | 4 |
+| dieselben + 2 Blöcke | 9 | 5 |
+
+**Ein Block ist dabei selbst ein Chip** – deshalb sind dieselben vier Zahlen
+je nach Lösung 7, 8 oder 9 Chips wert. Maßgeblich ist die kanonische
+Fortsetzung des **leeren** Felds, also genau „so viele Chips braucht dieses
+Rätsel", einmal pro Rätsel bestimmt und danach unverändert: das Kontingent,
+mit dem ein Spieler anfängt, ist das, das er behält.
+
+**Zwei Zahlen bekommen gar keinen Tipp** (PO), nicht die zwei, die die Formel
+ergäbe: drei Chips sind das ganze Brett. Dort **entfällt das Symbol**, statt
+dauerhaft gedämpft dazustehen – „nichts zu geben" und „gerade nichts zu
+geben" sind zwei verschiedene Dinge, und nur das zweite ist ein gedämpfter
+Knopf.
+
+Gezählt werden **Chips, nicht Drücke**: ein Tipp gilt so lange als
+verbraucht, wie der Chip, den er beigesteuert hat, auf dem Brett liegt. Nimmt
+der Spieler ihn zurück, steht der Tipp wieder zur Verfügung. Eine Anzeige der
+verbleibenden Tipps gibt es nicht (PO); ist das Kontingent verbraucht, dämpft
+sich das Symbol – dieselbe Sprache, die die Ablage für erschöpfte Operatoren
+und den Block schon spricht.
 
 **Die Sackgassen-Markierung** ist die kleinste Menge gesetzter Chips, deren
 Rücknahme das Ziel wieder erreichbar macht; bei Gleichstand gewinnt die
@@ -688,11 +711,11 @@ Bestätigungsdialog, keine Schwelle „erst alle Tipps".
 
 **Revision (Tipp-Runde, PO).** Der Weg dorthin ist ein anderer. Diese Stelle
 sagte bisher: *„Wer weiterdrückt, bekommt Chip für Chip die vollständige
-Lösung gelegt. Das ist das Aufgeben."* Mit zwei Tipps pro Rätsel (10.3) legt
+Lösung gelegt. Das ist das Aufgeben."* Mit einem begrenzten Kontingent (10.3) legt
 der Knopf die Lösung nicht mehr fertig – *„aber lass uns nicht vollständig
 lösen"* (PO). Aufgeben ist damit gar keine Handlung mehr, die das Spiel
-anbietet: wer nicht weiterkommt, bekommt zwei Chips und die Markierung
-dessen, was im Weg steht, und geht sonst zum nächsten Rätsel weiter.
+anbietet: wer nicht weiterkommt, bekommt etwa die halbe Lösung und die
+Markierung dessen, was im Weg steht, und geht sonst zum nächsten Rätsel weiter.
 
 Was davon unberührt bleibt, ist der Umgang mit dem gelösten Brett: **das
 gelöste Brett bleibt stehen.** Die

@@ -36,10 +36,30 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeHint, findBlockers, type HintMove } from '../core/hints'
-import type { Expression, NumberLeaf, Operator, Slot } from '../core/expression'
+import { createExpression, type Expression, type NumberLeaf, type Operator, type Slot } from '../core/expression'
 
-/** concept 10.3 as revised (PO): a puzzle gives two hints, and no more. */
-export const HINT_BUDGET = 2
+/**
+ * How many hints one puzzle gives (concept 10.3, revised twice by the PO):
+ * **half the chips it takes to solve, rounded up in the player's favour** —
+ * seven chips (four numbers, three operators) give four hints, nine (the
+ * same plus two blocks) give five.
+ *
+ * `chipsNeeded` is the length of the canonical continuation from an *empty*
+ * field, which is exactly "how many chips finish this puzzle" and is what
+ * makes the two counts differ: a puzzle whose own solution needs no bracket
+ * costs seven chips, one that needs two costs nine. It is read once per
+ * puzzle rather than recomputed as the board fills, so the budget a player
+ * starts with is the budget they keep.
+ *
+ * **Two numbers gives none at all** (PO), rather than the two the formula
+ * would otherwise hand out: three chips is the whole puzzle, and a hint
+ * there is most of the answer. `offered` is false for those, and the header
+ * hides the icon instead of showing one that can never do anything.
+ */
+export function hintBudget(numbersCount: number, chipsNeeded: number): number {
+  if (numbersCount <= 2) return 0
+  return Math.ceil(chipsNeeded / 2)
+}
 
 export interface UseHintOptions {
   expr: Expression
@@ -82,6 +102,17 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
   const onBoard = useMemo(() => placedIds(expr.root.children), [expr])
 
   // ------------------------------------------------------------- budget
+  // Read from the *empty* field, not the current one, so the budget is a
+  // property of the puzzle rather than of how far the player has got: the
+  // same search `computeHint` already runs, asked once about a board with
+  // nothing on it. `tray`/`target`/`opsAllowed`/`numbersCount` never change
+  // within one Board instance (a new puzzle remounts it), so this runs once
+  // per puzzle despite being a memo rather than an initializer.
+  const budget = useMemo(
+    () => hintBudget(numbersCount, computeHint(createExpression(), tray, target, opsAllowed, numbersCount)?.moves.length ?? 0),
+    [tray, target, opsAllowed, numbersCount]
+  )
+
   const [contributed, setContributed] = useState<readonly string[]>([])
   const beforePressRef = useRef<Set<string> | null>(null)
 
@@ -93,7 +124,7 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
     if (added.length > 0) setContributed(prev => [...prev, ...added])
   }, [onBoard])
 
-  const hintsLeft = Math.max(0, HINT_BUDGET - contributed.filter(id => onBoard.has(id)).length)
+  const hintsLeft = Math.max(0, budget - contributed.filter(id => onBoard.has(id)).length)
 
   // ------------------------------------------------------------- marking
   // Held against the exact tree it was computed for, so the marks clear
@@ -102,11 +133,14 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
   const [marked, setMarked] = useState<{ expr: Expression; ids: string[] } | null>(null)
   const blockingIds = marked !== null && marked.expr === expr ? marked.ids : null
 
+  /** Whether this puzzle has hints at all — false only for two numbers, where the header hides the icon rather than muting it (PO). */
+  const offered = budget > 0
   const canPlace = hint !== null && hint.moves.length > 0 && hintsLeft > 0
   /** Whether a press would do anything at all — what mutes the header's hint button. */
-  const available = deadEnd || canPlace
+  const available = offered && (deadEnd || canPlace)
 
   const onPressHint = useCallback(() => {
+    if (budget === 0) return
     if (hint === null) {
       setMarked({ expr, ids: findBlockers(expr, tray, target, opsAllowed, numbersCount) })
       return
@@ -114,7 +148,7 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
     if (hint.moves.length === 0 || hintsLeft === 0) return
     beforePressRef.current = onBoard
     onApplyMove(hint.moves[0])
-  }, [hint, expr, tray, target, opsAllowed, numbersCount, hintsLeft, onBoard, onApplyMove])
+  }, [budget, hint, expr, tray, target, opsAllowed, numbersCount, hintsLeft, onBoard, onApplyMove])
 
-  return { deadEnd, blockingIds, hintsLeft, available, onPressHint }
+  return { deadEnd, blockingIds, hintsLeft, offered, available, onPressHint }
 }
