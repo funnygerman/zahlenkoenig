@@ -30,17 +30,21 @@ const BANDS: PuzzleSettings['band'][] = [0, 1, 2, 3]
 // every large ÷ target is only reachable by dividing by a fraction.
 //
 // Target-ranges-display round (PO decision): a selection gets one band
-// covering its whole [min, max] unless it's 3 or 4 numbers with × selected,
-// which gets the fixed M/L/XL/XXL cut points (1–50/51–100/101–250/251–max)
-// instead — every 2-number selection collapses to one band regardless of
-// which operators are picked, since magnitude only ever tracked ×.
+// covering its whole [min, max] unless × is selected, which gets fixed cut
+// points instead — every 2-number selection collapses to one band
+// regardless of which operators are picked, since magnitude only ever
+// tracked ×. A follow-up round (negative-result-display's sibling) capped
+// 3 numbers' × pool at 150 with no XXL — measured, everything above it is
+// nearly pure-× — while 4 numbers keeps M/L/XL/XXL (1–50/51–100/101–250/
+// 251–max): the same measurement above 300 there still needs + or − most
+// of the time.
 const KNOWN_BANDS: { numbers: PuzzleSettings['numbers']; ops: Operator[]; bands: [number, number][] }[] = [
   { numbers: 2, ops: ['+'], bands: [[2, 18]] },
   { numbers: 4, ops: ['+', '-', '*', '/'], bands: [[1, 50], [51, 100], [101, 250], [251, 980]] },
   { numbers: 4, ops: ['-'], bands: [[1, 26]] },
   { numbers: 4, ops: ['/'], bands: [[1, 9]] },
   { numbers: 3, ops: ['/'], bands: [[1, 9]] },
-  { numbers: 3, ops: ['+', '*'], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
+  { numbers: 3, ops: ['+', '*'], bands: [[1, 50], [51, 100], [101, 150]] },
   // Two numbers always get one band, whatever the operators — no magnitude
   // range is worth offering a choice over with a single digit pair.
   { numbers: 2, ops: ['+', '-', '*', '/'], bands: [[1, 81]] },

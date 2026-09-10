@@ -59,17 +59,26 @@ interface BandRow {
   /** How many of those sit in each band — see uniqueOnlyAvailable. */
   uniqueBands: number[]
   /**
-   * One or four [lo, hi] target ranges — the target-ranges-display round's
-   * revision of concept 15.5, replacing the earlier tertile/operator-floor
-   * search entirely. Magnitude only tracks one operator: × is the one whose
-   * reach actually varies with the target size a player asks for (− and ÷
-   * on single digits barely move regardless of where the cut goes), so only
-   * a × selection is worth slicing by magnitude, and where it is, the cut
-   * points are fixed rather than fitted per selection — "M" 1–50, "L"
-   * 51–100, "XL" 101–250, "XXL" 251–max, the same four numbers on every ×
-   * selection a player can reach. Every 2-number selection, and every 3- or
-   * 4-number selection without ×, gets a single band covering its whole
-   * [min, max] instead.
+   * One, three or four [lo, hi] target ranges — the target-ranges-display
+   * round's revision of concept 15.5, replacing the earlier tertile/
+   * operator-floor search entirely. Magnitude only tracks one operator: ×
+   * is the one whose reach actually varies with the target size a player
+   * asks for (− and ÷ on single digits barely move regardless of where the
+   * cut goes), so only a × selection is worth slicing by magnitude at all.
+   * Every 2-number selection, and every 3- or 4-number selection without ×,
+   * gets a single band covering its whole [min, max] instead.
+   *
+   * Where a × selection is sliced, the cut points are fixed rather than
+   * fitted per selection — "M" 1–50, "L" 51–100, then "XL" 101–250 and an
+   * open-ended "XXL" 251–max for 4 numbers, or "XL" 101–150 with no XXL for
+   * 3 numbers (negative-result-display round's follow-up, PO decision):
+   * measured, everything a 3-number pool holds above 150 is 96–100% pure-×
+   * with 0–2 unique solutions, the "only solvable by multiplication" slice
+   * not worth a band — while the same measurement for 4 numbers above 300
+   * still needs + or − 65–90% of the time with hundreds of unique
+   * solutions, so its XXL stays. The 3-number pool is capped at 150 before
+   * anything else runs (`total`/`unique` above already exclude what's above
+   * it), not merely displayed that way — those targets are never drawn.
    */
   bands: [number, number][]
 }
@@ -102,18 +111,18 @@ const BAND_TABLE: Record<string, BandRow> = {
   '3-1': { total: 165, unique: 0, uniqueBands: [0], bands: [[3, 27]] },
   '3-2': { total: 385, unique: 61, uniqueBands: [61], bands: [[1, 17]] },
   '3-3': { total: 550, unique: 0, uniqueBands: [0], bands: [[1, 27]] },
-  '3-4': { total: 165, unique: 0, uniqueBands: [0, 0, 0, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
-  '3-5': { total: 1035, unique: 347, uniqueBands: [177, 134, 36, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
-  '3-6': { total: 1148, unique: 322, uniqueBands: [312, 10, 0, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
-  '3-7': { total: 1973, unique: 583, uniqueBands: [406, 141, 36, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
+  '3-4': { total: 114, unique: 0, uniqueBands: [0, 0, 0], bands: [[1, 50], [51, 100], [101, 150]] },
+  '3-5': { total: 982, unique: 345, uniqueBands: [177, 134, 34], bands: [[1, 50], [51, 100], [101, 150]] },
+  '3-6': { total: 1097, unique: 322, uniqueBands: [312, 10, 0], bands: [[1, 50], [51, 100], [101, 150]] },
+  '3-7': { total: 1920, unique: 581, uniqueBands: [406, 141, 34], bands: [[1, 50], [51, 100], [101, 150]] },
   '3-8': { total: 100, unique: 9, uniqueBands: [9], bands: [[1, 9]] },
   '3-9': { total: 520, unique: 74, uniqueBands: [74], bands: [[1, 27]] },
   '3-10': { total: 621, unique: 130, uniqueBands: [130], bands: [[1, 17]] },
   '3-11': { total: 976, unique: 114, uniqueBands: [114], bands: [[1, 27]] },
-  '3-12': { total: 297, unique: 0, uniqueBands: [0, 0, 0, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
-  '3-13': { total: 1370, unique: 412, uniqueBands: [242, 134, 36, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
-  '3-14': { total: 1309, unique: 267, uniqueBands: [257, 10, 0, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
-  '3-15': { total: 2253, unique: 569, uniqueBands: [392, 141, 36, 0], bands: [[1, 50], [51, 100], [101, 250], [251, 729]] },
+  '3-12': { total: 246, unique: 0, uniqueBands: [0, 0, 0], bands: [[1, 50], [51, 100], [101, 150]] },
+  '3-13': { total: 1317, unique: 410, uniqueBands: [242, 134, 34], bands: [[1, 50], [51, 100], [101, 150]] },
+  '3-14': { total: 1258, unique: 267, uniqueBands: [257, 10, 0], bands: [[1, 50], [51, 100], [101, 150]] },
+  '3-15': { total: 2200, unique: 567, uniqueBands: [392, 141, 34], bands: [[1, 50], [51, 100], [101, 150]] },
   '4-1': { total: 495, unique: 0, uniqueBands: [0], bands: [[4, 36]] },
   '4-2': { total: 2222, unique: 65, uniqueBands: [65], bands: [[1, 26]] },
   '4-3': { total: 2717, unique: 0, uniqueBands: [0], bands: [[1, 36]] },
