@@ -1,3 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
-  <text y=".9em" font-size="90">👑</text>
+  <!-- Zahlenkönig's app icon (concept 13.2: "die einzige illustrative Marke"),
+       favicon and PWA app-icon source in one file (concept 19.2). A real
+       vector crown, not the Unicode emoji this file used to be (concept
+       13.2's own "keine Emoji" rule, which the old <text>👑</text> version
+       broke) — an emoji glyph renders differently per OS/browser and can't
+       be trusted at small icon sizes, which was the whole blocker.
+
+       Two blue tones (peaks/band) match the app's own accent color
+       (tokens.css, hue 214) for brand consistency; gold jewels make it
+       read as a crown rather
+       than a plain blue shape; the "+ ×" in the band ties the icon to the
+       game itself. Checked at 16/32/48/192/512px and in a maskable
+       (circle-cropped) safe zone before landing here — see CLAUDE.md's
+       "Next v2 step" for the full account. -->
+  <path fill="#2962ae" d="M10 58 L21 28 L34 50 L50 14 L66 50 L79 28 L90 58 Z" />
+  <rect x="10" y="58" width="80" height="34" fill="#22508f" />
+  <g stroke="#fff" stroke-width="4.2" stroke-linecap="round">
+    <line x1="30" y1="75" x2="42" y2="75" />
+    <line x1="36" y1="69" x2="36" y2="81" />
+    <line x1="59" y1="69" x2="70" y2="81" />
+    <line x1="59" y1="81" x2="70" y2="69" />
+  </g>
+  <circle cx="21" cy="24" r="6.5" fill="#d9a441" />
+  <circle cx="50" cy="10" r="7.5" fill="#d9a441" />
+  <circle cx="79" cy="24" r="6.5" fill="#d9a441" />
 </svg>

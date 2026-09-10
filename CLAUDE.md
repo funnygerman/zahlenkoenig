@@ -31,8 +31,9 @@ the v2 concept wins for anything being built now.
 
 **Step 6** (concept section 16, "Feinschliff"): animations, landscape
 (Querformat), and the PWA work in concept section 19. Concept section 18's
-"Vor Schritt 6" named two things not yet done; one is resolved now, one
-still blocks starting this step for real:
+"Vor Schritt 6" named two things not yet done — both are resolved now, so
+step 6 itself is unblocked. Neither resolution did any of step 6's own
+work (no animations, no landscape layout, no manifest/service worker yet):
 
 **The `--cell` caps (88px/104px) are confirmed, not provisional any more.**
 Concept 12.5 always flagged them as "am Gerät zu bestätigen" against the
@@ -45,13 +46,28 @@ inside the field with a clean margin before the rounded corner, neither
 orientation clipping the way the earlier tablet/desktop-window report
 described. `tokens.css`'s own comment is updated to say so.
 
-| Fehlt | Warum es blockiert |
-|---|---|
-| **App-Icons in allen Größen** | Concept 19.2 names the sizes; they're generated from `public/crown.svg` (13.2), which doesn't yet have a filled, small-icon-legible version — the current one is unfilled/line art, tuned as a favicon, not as a 48×48 home-screen icon. |
-
-Resolve that first (or bring a proper filled crown), then work through 19's
-manifest/icons/offline requirements alongside the animation and landscape
-work 16's own table groups into this one step.
+**`public/crown.svg` is a real vector crown now, not the Unicode emoji it
+used to be — and that was the actual bug, not merely "unfilled line art"
+as concept 18's own description had it.** The old file was
+`<text y=".9em" font-size="90">👑</text>` inside an SVG wrapper: not vector
+art at all, just the emoji glyph, rendered however the OS/browser's own
+emoji font happens to draw it — precisely what concept 13.2's "keine
+Emoji" rule (inline-SVG stroke symbols only) exists to rule out, and
+exactly why it couldn't be trusted down to a 16px favicon or generated
+into the 192/512px PWA icons concept 19.2 needs. The replacement is actual
+`<path>`/`<circle>`/`<line>` geometry: a two-tone blue crown (both shades
+matching the app's own accent hue from `tokens.css`, not the crown's own
+separate palette) with three gold jewels, and — the product owner's own
+addition once shown the plain version — a small "+ ×" rendered as vector
+strokes in the band, tying the icon to the game itself rather than being a
+generic crown. An earlier draft used a 2×2 grid of all four operators;
+cut to two on the PO's own call once side-by-side renders showed the
+four-symbol version blurring into texture below ~48px while two stayed
+legible at every size tested, including a true (device-pixel-accurate)
+16px render. Checked in a real browser as the actual served favicon too,
+not just as a static file — the old file's literal bug (an XML comment
+containing `--`, from an early draft of this same round) only ever showed
+up that way, as a parse error on load, never in a plain file read.
 
 Both open questions from the bug-fix round are resolved now — the
 negative-result notation line by the negative-result-display round, and
@@ -81,10 +97,12 @@ rejoins it the moment it's enabled, and everything else is skipped rather
 than sitting there looking clickable.
 
 **If asked to "implement next step" with nothing more specific, this is the
-step** — but start with the remaining blocker above, not the animation/PWA
-work itself. Before ending your turn: if concept section 16's stated result for
-this step is actually true, update this section — in the same PR — to name
-the *following* step instead (there isn't one currently listed past 6; check
+step** — both blockers above are cleared now, so it means step 6's own
+work: animations, landscape (concept 16's own table), and concept 19's
+manifest/icons/service worker, none of which exists yet. Before ending
+your turn: if concept section 16's stated result for this step is
+actually true, update this section — in the same PR — to name the
+*following* step instead (there isn't one currently listed past 6; check
 whether concept section 16 has grown one). If the step isn't fully done,
 leave this section as it is; don't advance the pointer on a partial result.
 
