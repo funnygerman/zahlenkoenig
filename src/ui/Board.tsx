@@ -7,9 +7,10 @@
 // tap/drag wiring against a known, fixed puzzle and don't need (or want)
 // a random one from the generator.
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
 import { useGame } from './useGame'
 import { useHint } from './useHint'
+import { useFlip } from './useFlip'
 import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import { Tray } from './Tray'
 import { Expression } from './Expression'
@@ -64,6 +65,19 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
+function prefersReducedMotion(): boolean {
+  return typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches
+}
+
+/**
+ * Concept 6.7's own number: "die getönte Fläche fällt über rund 150 ms in
+ * den Feldhintergrund zurück". `.dissolving` in Expression.module.css uses
+ * the same 150 — the two aren't derived from one shared constant (CSS
+ * modules can't read a JS value), so a change to one has to carry over to
+ * the other by hand.
+ */
+const DISSOLVE_FADE_MS = 150
+
 const GHOST_VARIANT: Record<DragPayload['role'], 'number' | 'operator' | 'block'> = {
   number: 'number',
   operator: 'operator',
@@ -95,6 +109,30 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   })
   useImperativeHandle(ref, () => ({ pressHint: hint.onPressHint }), [hint.onPressHint])
 
+  // Concept 6.7's dissolve fade: the real trigger is a tap detected by
+  // useDrag (handleTap below), not Expression's own onClick (that path
+  // only fires in tests that don't wire drag) — so the fade's timing has
+  // to live here, one level above where the trigger actually is. Holding
+  // the group open under its own id for DISSOLVE_FADE_MS lets Expression
+  // render `.dissolving` on it before useGame actually removes the group
+  // and the chips fall back to root level.
+  const [dissolvingId, setDissolvingId] = useState<string | null>(null)
+  const dissolveTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (dissolveTimer.current) clearTimeout(dissolveTimer.current) }, [])
+
+  const handleDissolve = useCallback((groupId: string) => {
+    if (dissolvingId === groupId) return // already fading, a second tap on the same edge shouldn't restart or double-apply it
+    if (prefersReducedMotion()) {
+      game.onDissolveGroup(groupId)
+      return
+    }
+    setDissolvingId(groupId)
+    dissolveTimer.current = setTimeout(() => {
+      game.onDissolveGroup(groupId)
+      setDissolvingId(null)
+    }, DISSOLVE_FADE_MS)
+  }, [dissolvingId, game])
+
   // concept 12.8: a correct answer waits 1200ms — the value carried over
   // from v1 — before the next puzzle replaces this board; a wrong one
   // changes nothing, and there's no "gave up" path yet (concept 10, step 4).
@@ -117,20 +155,24 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
     // through the shared drag layer's tap detection now that the edge is
     // also a drag handle.
     if (origin === 'field') {
-      if (role === 'block') game.onDissolveGroup(item.id)
+      if (role === 'block') handleDissolve(item.id)
       else game.onTapLeaf(item.id)
       return
     }
     if (role === 'number') game.onTapNumber(item.id)
     else if (role === 'block') game.onTapBlock()
     else if (role === 'operator' && operator) game.onTapOperator(operator)
-  }, [game])
+  }, [game, handleDissolve])
 
   const handleDrop = useCallback((item: DragItem<DragPayload>, target: DropOutcome) => {
     game.onDrop({ id: item.id, kind: item.kind, data: item.data! }, target)
   }, [game])
 
   const drag = useDrag<DragPayload>({ onTap: handleTap, onDrop: handleDrop })
+  // Concept 13.3's FLIP animation — one registry shared by Tray and
+  // Expression below, since a number's id is the same whichever of the two
+  // currently renders it (useFlip.ts's own note on why).
+  const flipRef = useFlip()
 
   const notation = notate(game.expr)
   // Concept 9.2's notation line, revised (PO): the result only ever meant
@@ -151,12 +193,14 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           scaffoldOperands={game.scaffoldOperands}
           scaffoldOperators={game.scaffoldOperators}
           onTapLeaf={game.onTapLeaf}
-          onDissolveGroup={game.onDissolveGroup}
+          onDissolveGroup={handleDissolve}
           dissolveLabel={t(language, 'dissolveGroup')}
           registerZone={drag.registerZone}
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}
           deadEnd={hint.deadEnd}
+          flipRef={flipRef}
+          dissolvingGroupId={dissolvingId}
         />
         {/* Display-only — no onClick at all, so it's never had a keyboard
             path; out of tab order for the same reason as the tray/field
@@ -184,6 +228,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         onSubmit={game.onSubmit}
         dragHandlers={drag.dragHandlers}
         pulsingIds={hint.pulseIds}
+        flipRef={flipRef}
       />
 
       {/* concept 5.1's "Geisterelement": the chip itself stays put and

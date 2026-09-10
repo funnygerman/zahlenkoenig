@@ -120,3 +120,24 @@
   outline-offset: 2px;
   border-radius: calc(var(--cell) * .16);
 }
+
+/* Concept 6.7's dissolve: "die Stege blenden ab und die getönte Fläche
+ * fällt über rund 150 ms in den Feldhintergrund zurück, während die Chips
+ * exakt stehen bleiben" — the tint and the struts (bracket edges) fade to
+ * nothing over ~150ms; the chips inside get no rule here at all, so they
+ * stay exactly where they are. The 150 has to match Board.tsx's own
+ * `DISSOLVE_FADE_MS`, which holds the group open under this class for
+ * exactly that long before useGame actually removes it — see that
+ * constant's own comment for why the two can't share one source of truth.
+ * `prefers-reduced-motion` needs no rule here: Board.tsx skips the timed
+ * hold entirely when it's set, so `.dissolving` is never applied at all in
+ * that case, rather than being applied and then suppressed in CSS. */
+.group.dissolving {
+  background: transparent;
+  transition: background 150ms ease-out;
+}
+
+.bracketEdge.dissolving {
+  opacity: 0;
+  transition: opacity 150ms ease-out;
+}

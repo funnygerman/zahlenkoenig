@@ -73,3 +73,35 @@
   pointer-events: none;
   cursor: inherit;
 }
+
+/* Concept 13.3's "Chip hebt beim Greifen ab" (lifts on grasp) — scaled on
+ * the chip *inside* the ghost, not on .ghost itself: useDrag.ts writes
+ * .ghost's own transform every frame for position tracking (its own
+ * comment above explains why nothing here may set one there), but a
+ * child's transform is independent of its parent's, so the "lift" and the
+ * position tracking don't fight over the same property.
+ *
+ * `animation`, not `transition`: GhostChip only exists in the DOM for the
+ * duration of one drag (Board.tsx renders it conditionally on
+ * `drag.draggingItem`), so it's freshly mounted every time — a
+ * `transition` never plays on mount (there's no prior style to transition
+ * *from*), only on a later style change. `animation-fill-mode: both`
+ * holds the scaled-up end state for the rest of the drag without
+ * replaying: nothing here re-triggers it while `.ghost`'s own position
+ * keeps updating every frame, since that's a different element's
+ * transform.
+ */
+.ghost > * {
+  animation: chip-lift 160ms cubic-bezier(0.34, 1.56, 0.64, 1) both;
+}
+
+@keyframes chip-lift {
+  from { transform: scale(1); }
+  to { transform: scale(1.08); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ghost > * {
+    animation: none;
+  }
+}

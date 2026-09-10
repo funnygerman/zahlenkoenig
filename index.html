@@ -3,8 +3,13 @@
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/zahlenkoenig/crown.svg" />
+    <link rel="icon" href="/zahlenkoenig/favicon.ico" sizes="any" />
+    <link rel="apple-touch-icon" href="/zahlenkoenig/apple-touch-icon-180x180.png" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-    <meta name="theme-color" content="#faf7f2" />
+    <!-- --zk-accent (tokens.css, hue 214) as fixed hex — see vite.config.ts's
+         own note on why this can't just read the CSS custom property, and
+         why this and the manifest's theme_color have to stay in sync by hand. -->
+    <meta name="theme-color" content="#2962ae" />
     <meta name="description" content="Zahlenkönig – Mathematisches Rätselspiel" />
     <title>Zahlenkönig</title>
   </head>

@@ -29,11 +29,24 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Step 6** (concept section 16, "Feinschliff"): animations, landscape
-(Querformat), and the PWA work in concept section 19. Concept section 18's
-"Vor Schritt 6" named two things not yet done — both are resolved now, so
-step 6 itself is unblocked. Neither resolution did any of step 6's own
-work (no animations, no landscape layout, no manifest/service worker yet):
+**Step 6 (concept section 16, "Feinschliff") is done, and it was the last
+row in concept 16's own table — there is no step 7.** Animations, landscape
+(Querformat) and the PWA work (concept section 19) are all built and
+verified; see "Where v2 stands" below for the round in full. Concept
+section 16 has not grown a further row since this file last checked, so
+per this file's own standing instruction there is no "following step" to
+point at. **If asked to "implement next step" with nothing more specific
+now**, say so rather than guessing at new scope — concept 16's roadmap is
+complete, and anything past this point (dark mode, the "Zwischenschritt
+beim Auflösen" notation-line question, either open item in section 17's
+own table) needs a fresh product decision before it's a "step" at all, not
+just doing.
+
+Below is how step 6 itself got here — concept section 18's "Vor Schritt 6"
+named two things not yet done at the start of this round; both are
+resolved now, and neither resolution did any of step 6's own work (no
+animations, no landscape layout, no manifest/service worker come from
+them by themselves):
 
 **The `--cell` caps (88px/104px) are confirmed, not provisional any more.**
 Concept 12.5 always flagged them as "am Gerät zu bestätigen" against the
@@ -96,16 +109,6 @@ already worked on them, confirmed by tabbing through a real build
 rejoins it the moment it's enabled, and everything else is skipped rather
 than sitting there looking clickable.
 
-**If asked to "implement next step" with nothing more specific, this is the
-step** — both blockers above are cleared now, so it means step 6's own
-work: animations, landscape (concept 16's own table), and concept 19's
-manifest/icons/service worker, none of which exists yet. Before ending
-your turn: if concept section 16's stated result for this step is
-actually true, update this section — in the same PR — to name the
-*following* step instead (there isn't one currently listed past 6; check
-whether concept section 16 has grown one). If the step isn't fully done,
-leave this section as it is; don't advance the pointer on a partial result.
-
 ## Where v2 stands
 
 Steps 0–5 of concept section 16 are done and merged to `main`: vitest is set
@@ -113,6 +116,110 @@ up, `src/core/` (`expression.ts`, `evaluate.ts`, `solver.ts`, `puzzles.ts`,
 `notation.ts`, `settings.ts`, `hints.ts`) is written and tested, and `src/ui/`
 has a full game loop with hints. Puzzle generation is on-device (step 2b,
 `puzzles.ts`'s `nextPuzzle()` — no bank, no bank JSON). **v1 is gone**: `src/main.tsx` is v2's own entry point now (`src/ui/Game.tsx`), and `index.html` — the site's actual root URL — serves it directly; there is no more `index-v2.html`/`main-v2.tsx` split.
+
+**Step 6 (concept 16's "Feinschliff") is done: three animations (concept
+13.3), landscape verified with no bug found, and the full PWA build
+(concept 19).** All three pieces were built and checked against a real
+browser (Playwright, real pointer events, both `prefers-reduced-motion`
+states), not just against jsdom or a resized window.
+
+*Landscape needed no code change at all.* Concept 12.6's promise —
+portrait and landscape supported equally — was already true: `tokens.css`'s
+`@media (min-aspect-ratio: 1/1)` switch (from the `--cell` confirmation
+round above) already re-derives every size from the same aspect-ratio
+signal, and the selection panel's own fixed-px sizing (independent of
+`--cell`) is a normal fixed-size overlay, not a layout that was supposed to
+scale with the board. Checked with real screenshots at two landscape
+widths — an iPad (1194×834) and a phone rotated (780×390) — panel, board and
+header all still fit with margin to spare in both. No follow-up work came
+out of this, which is itself the finding worth recording: "verify claims
+rather than estimating them" cuts both ways, and the honest result of
+checking a claim is sometimes that it already held.
+
+*The PWA build is `vite-plugin-pwa`'s `generateSW` mode, wired to the
+same design tokens the CSS uses rather than a second, hand-maintained
+palette.* `vite.config.ts`'s manifest (concept 19.1) sets
+`background_color`/`theme_color` to `--zk-bg`/`--zk-accent`'s exact hex —
+computed once from `tokens.css`'s own HSL values, since neither JSON nor a
+static `<link>` tag can read a CSS custom property, with a comment at
+`--hue`'s declaration listing the three places (`vite.config.ts`,
+`index.html`, `pwa-assets.config.ts`) that now have to stay in sync by
+hand if the hue ever changes. Icons (concept 19.2) are generated by
+`@vite-pwa/assets-generator` from `public/crown.svg` — the same filled
+vector crown the `--cell`-confirmation round above replaced the emoji
+placeholder with — via a custom `pwa-assets.config.ts` rather than the
+tool's bare `minimal` preset: the preset's maskable icon padded with a
+*transparent* background, which is unsafe for actual masking (an Android
+launcher's circular mask would show whatever sits behind the icon through
+that padding), so the config overrides `maskable.resizeOptions` with an
+explicit `background: '#fafbfc'` fill — confirmed correct with a real
+circle-crop test in Playwright, not just by looking at the square PNG.
+`useUpdateAvailable.ts` wraps `virtual:pwa-register/react`'s
+`useRegisterSW()` so a waiting service-worker update surfaces as a small
+pill in the header (`Header.tsx`, mirroring the hint button's own
+positioning on the opposite side) rather than updating silently or never —
+concept 19 doesn't specify the UI for this, so the choice was to always
+tell the player rather than force a reload or hide it entirely. Verified
+end to end: manifest validity, service-worker registration, and (the part
+that actually matters for a PWA) that the app still loads and is playable
+with the network disabled after a first visit.
+
+*Animations are concept 13.3's three named behaviours, each with its own
+mechanism, and building the third one surfaced a real architecture bug in
+the second attempt at it.* "Chip hebt beim Greifen ab" (lifts on grasp) is
+a CSS `@keyframes` scale on the ghost's *child* chip, not on `.ghost`
+itself — `useDrag.ts` already writes `.ghost`'s own transform every frame
+for position tracking, and a stylesheet transform on the same element
+would either be overwritten or fight it, so the lift has to live one level
+down, where its transform doesn't collide with anything. It's an
+`animation`, not a `transition`: `GhostChip` is only ever in the DOM for
+one drag (Board.tsx renders it conditionally on `drag.draggingItem`), so
+it mounts fresh every time, and a `transition` never plays on mount — only
+`animation-fill-mode: both` holds the scaled-up end state without
+replaying. "Wege zwischen Ablage und Ausdruck laufen als FLIP-Animation
+über die stabile `id`" is `useFlip.ts`: a `useLayoutEffect` that measures
+every registered chip's rect before and after a render, and where a chip
+moved, plays the difference back as a transform animation instead of
+letting the chip simply appear in its new spot — riding the existing
+stable-id scheme (`useGame.ts`'s `tray = createTray(numbers)` gives every
+number one `id` for its whole lifetime, tray or field) so a number crossing
+that boundary is genuinely one continuous thing to animate. Operators don't
+get the tray→field half of this — the tray's operator/block chips are one
+permanent chip per *type* (concept section 4), not per placement, so a
+placed operator leaf's id never matches the tray chip it came from — but
+still FLIP within the tree itself, where every leaf does keep one stable id
+across a move. Both mechanisms respect `prefers-reduced-motion` on their
+own, checked once via `matchMedia`.
+
+The third behaviour — concept 6.7's bracket dissolve, "die Stege blenden ab
+und die getönte Fläche fällt über rund 150 ms in den Feldhintergrund
+zurück, während die Chips exakt stehen bleiben" — was built once inside
+`Expression.tsx`, intercepting its own `onDissolveGroup` prop with local
+state, and had to be rebuilt one level up after a grep of every
+`onDissolveGroup` call site found that path was never reachable in the
+real app: `Board.tsx`'s `handleTap` calls `game.onDissolveGroup` directly
+for every drag-detected tap on a bracket edge, bypassing the prop
+entirely — `Expression.tsx`'s own `onClick` only ever fires when
+`dragHandlers` is absent, which happens in a handful of direct unit tests
+of `<Expression>` and never in the running app, since Board.tsx always
+wires drag. The fade would have compiled, passed its own component-level
+tests, and simply never played for an actual player. Fixed by moving the
+timing to where the trigger actually is: `Board.tsx` now owns a
+`dissolvingId` piece of state and a `handleDissolve` wrapper — held under
+`prefers-reduced-motion` skips the delay outright — and `Expression.tsx`
+went back to a pure prop-passthrough, rendering whichever group id it's
+told is fading via a new `dissolvingGroupId` prop rather than deciding for
+itself. `Expression.module.css`'s `.dissolving` rules (the group's tinted
+background and the bracket edges' opacity, both fading over the same
+150ms) needed no change once the state moved — only *what supplies the
+class* changed, not what the class does. Verified in a real browser by
+tagging the live group DOM node and polling its attachment: it stays in
+the DOM with `.dissolving` applied for the full ~150–185ms, then detaches
+in one step, matching the spec exactly; under `prefers-reduced-motion` the
+same node detaches within 30ms with no held state at all. Worth keeping in
+mind for any future prop wired through `Expression.tsx`: its own `onClick`
+paths are test-only scaffolding now, not what the real app calls, because
+`useDrag`'s tap detection intercepts first.
 
 **An i18n round added English and Russian, on a PO decision that closes
 concept 12.7's own long-open question about the header-left menu icon —

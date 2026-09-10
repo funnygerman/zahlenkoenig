@@ -65,9 +65,19 @@ export interface TrayProps {
    * operand-kind) without guessing from the id string.
    */
   dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
+  /**
+   * Concept 13.3's FLIP animation, registered by id (`useFlip.ts`) —
+   * shared with Expression.tsx via a common ancestor (Board.tsx) so a
+   * number crossing the tray/field boundary FLIPs as one continuous chip,
+   * not two unrelated ones. Only a *visible* number chip should register:
+   * a used slot's placeholder is a dashed stand-in, not the number itself
+   * (that's the real chip, over in the expression, with the same id) — see
+   * `NumberCell`'s own guard.
+   */
+  flipRef?: (id: string, el: HTMLElement | null) => void
 }
 
-function NumberCell({ slot, onTap, drag, pulsing }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers']; pulsing?: boolean }) {
+function NumberCell({ slot, onTap, drag, pulsing, flipRef }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers']; pulsing?: boolean; flipRef?: TrayProps['flipRef'] }) {
   // When drag is wired up, useDrag's own tap-vs-drag detection (below the
   // 6px threshold, concept 5.1) is the only tap path — a plain onClick
   // alongside it would double-fire, since both a native click and
@@ -94,6 +104,8 @@ function NumberCell({ slot, onTap, drag, pulsing }: { slot: TrayNumberSlot; onTa
       // land on this chip and do nothing. Taking it out of tab order is honest
       // about that, rather than leaving a focusable button that looks broken.
       tabIndex={hasDrag ? -1 : undefined}
+      // Only the visible chip registers — a used slot's placeholder isn't it.
+      ref={!slot.used && flipRef ? (el => flipRef(slot.id, el)) : undefined}
       {...(drag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number', value: slot.value, origin: 'tray' } }) : undefined)}
     />
   )
@@ -113,6 +125,7 @@ export function Tray({
   onSubmit,
   dragHandlers,
   pulsingIds,
+  flipRef,
 }: TrayProps) {
   const emptyCount = Math.max(0, numberColumns - numberSlots.length)
   const emptyOperatorCount = Math.max(0, operatorColumns - operators.length)
@@ -124,7 +137,7 @@ export function Tray({
           <div key={`empty-${i}`} className={styles.emptyCell} aria-hidden="true" />
         ))}
         {numberSlots.map(slot => (
-          <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} pulsing={pulsingIds?.includes(slot.id)} />
+          <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} pulsing={pulsingIds?.includes(slot.id)} flipRef={flipRef} />
         ))}
         <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
       </div>

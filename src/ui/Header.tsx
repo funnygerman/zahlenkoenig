@@ -48,6 +48,15 @@ export interface HeaderProps {
   onSetUniqueOnly: (uniqueOnly: boolean) => void
   /** concept 10.3: one button, the same on every press — see Board.tsx's useHint for what a press actually does. */
   onPressHint: () => void
+  /**
+   * Concept 19.3's update surface — "ein knapper Hinweis in der
+   * Kopfzeile... statt eines Popup-Dialogs". Optional: `Game.tsx` always
+   * passes both (from `useUpdateAvailable`), but nothing here requires a
+   * service worker to exist, which keeps `Game.test.tsx`/`Game.loop.test.tsx`
+   * free of PWA-registration concerns they were never about.
+   */
+  updateAvailable?: boolean
+  onUpdate?: () => void
 }
 
 /** concept 13.2: inline SVG, never emoji. */
@@ -65,7 +74,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, updateAvailable = false, onUpdate }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -92,6 +101,16 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
 
   return (
     <div className={styles.header} ref={rootRef}>
+      {updateAvailable && (
+        // Concept 12.7's left slot — reserved for a menu icon no step has
+        // built (Header.tsx's own top comment) — hosts this instead,
+        // conditionally: not a menu, just concept 19.3's "knapper Hinweis"
+        // taking the one empty spot the layout already had.
+        <button type="button" className={styles.updateHint} onClick={onUpdate}>
+          {t(settings.language, 'updateHint')}
+        </button>
+      )}
+
       <button
         type="button"
         className={styles.chip}

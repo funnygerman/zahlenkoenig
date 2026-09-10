@@ -51,6 +51,28 @@
   background: hsl(var(--hue) 62% 42% / 0.08);
 }
 
+/* Concept 19.3's update hint — mirrors .hintButton's own left/right
+ * anchoring, in the header's left slot (12.7's reserved-but-unbuilt menu
+ * spot), a pill rather than an icon since it carries a word, not a symbol. */
+.updateHint {
+  position: absolute;
+  left: 0;
+  top: 50%;
+  transform: translateY(-50%);
+  border: 1px solid var(--zk-accent);
+  background: hsl(var(--hue) 62% 42% / 0.08);
+  color: var(--zk-accent);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.updateHint:hover {
+  background: hsl(var(--hue) 62% 42% / 0.16);
+}
+
 .mini {
   display: flex;
   align-items: center;
