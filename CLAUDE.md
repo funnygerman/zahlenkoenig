@@ -44,18 +44,32 @@ filled crown), then work through 19's manifest/icons/offline requirements
 alongside the animation and landscape work 16's own table groups into this
 one step.
 
-### One open question from the bug-fix round
+Both open questions from the bug-fix round are resolved now — the
+negative-result notation line by the negative-result-display round, and
+**Tastaturbedienung** (below the ranges-display rounds) by a PO decision
+not to build it, at least for now.
 
-A real gap found by a scripted browser pass, needing a product decision
-before anyone writes code for it, and not a regression — it has been true
-since the feature was built. Do it before, after or alongside step 6, but
-don't fix it silently: the fix shape depends on the answer. (Its sibling
-question, the negative-result notation line, was resolved by the
-negative-result-display round below — PO decision: show the actual number.)
-
-| Frage | Was fehlt, und was zu entscheiden ist |
-|---|---|
-| **Tastaturbedienung** | The chips are real `<button>`s and take focus, but pressing Enter or Space does nothing: `onClick` is dropped wherever the drag handlers are wired (`Tray.tsx`, `Expression.tsx` — a plain `onClick` alongside `useDrag` double-fires on a real tap, see `NumberCell`'s own note), and `useDrag` listens to pointer events only. Concept 5 states the opposite intent — tapping "hält aber Sechsjährige, **Tastaturbedienung** und Screenreader im Spiel". The mechanical fix is small (an `onKeyDown` for Enter/Space in `useDrag`'s handler set, which can't double-fire because a keyboard press produces no pointer event), but the product question isn't: what does keyboard-only *placement* mean for a game whose second half is dragging, and how far should it go — placing and returning only, or a full keyboard path to a bracket? |
+**Tastaturbedienung, PO decision: not building it.** The chips are real
+`<button>`s and take focus, but pressing Enter or Space did nothing —
+`onClick` is dropped wherever the drag handlers are wired (`Tray.tsx`,
+`Expression.tsx`, `Board.tsx`'s own display-only target chip — see
+`NumberCell`'s own note on why a plain `onClick` alongside `useDrag` would
+double-fire), and `useDrag` only ever listened to pointer events. The
+product question this file used to raise — placing/returning only, or a
+full keyboard path to a bracket — is moot now: neither is being built. What
+*was* worth fixing on its own, independent of that decision: a chip that
+takes Tab focus but does nothing on Enter/Space reads as broken, not as
+"no keyboard support here". Every such chip (`NumberCell`, the tray's
+operator and block chips, `Expression.tsx`'s `LeafChip`, `Board.tsx`'s
+target chip) now gets `tabIndex={-1}` exactly when it has no working
+`onClick` — tied to the same condition (`dragHandlers`/`hasDrag` truthy)
+that already governs whether `onClick` is wired at all, so it can't drift
+out of sync with it. The `=` submit button and the header's chip/hint
+button needed no change: they never depended on drag, so Enter/Space
+already worked on them, confirmed by tabbing through a real build
+(Playwright): only those two remain in tab order now, the submit button
+rejoins it the moment it's enabled, and everything else is skipped rather
+than sitting there looking clickable.
 
 **If asked to "implement next step" with nothing more specific, this is the
 step** — but start with the two blockers above, not the animation/PWA work

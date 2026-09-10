@@ -89,6 +89,11 @@ function NumberCell({ slot, onTap, drag, pulsing }: { slot: TrayNumberSlot; onTa
       placeholder={slot.used}
       pulsing={pulsing}
       onClick={hasDrag ? undefined : () => onTap(slot.id)}
+      // Keyboard operation isn't supported (open product question, CLAUDE.md) —
+      // once drag is wired up the onClick above is gone, so Enter/Space would
+      // land on this chip and do nothing. Taking it out of tab order is honest
+      // about that, rather than leaving a focusable button that looks broken.
+      tabIndex={hasDrag ? -1 : undefined}
       {...(drag ? drag({ id: slot.id, kind: 'operand', data: { role: 'number', value: slot.value, origin: 'tray' } }) : undefined)}
     />
   )
@@ -136,6 +141,8 @@ export function Tray({
               operator={op}
               muted={operatorsMuted}
               onClick={dragHandlers ? undefined : () => onTapOperator(op)}
+              // See NumberCell's own note: no keyboard path once drag is wired up.
+              tabIndex={dragHandlers ? -1 : undefined}
               {...(dragHandlers ? dragHandlers({ id: `tray-op-${op}`, kind: 'operator', data: { role: 'operator', operator: op, origin: 'tray' } }) : undefined)}
             />
           ))}
@@ -143,6 +150,8 @@ export function Tray({
           variant="block"
           disabled={blockDisabled}
           onClick={dragHandlers ? undefined : onTapBlock}
+          // See NumberCell's own note: no keyboard path once drag is wired up.
+          tabIndex={dragHandlers ? -1 : undefined}
           {...(dragHandlers ? dragHandlers({ id: 'tray-block', kind: 'operand', data: { role: 'block', origin: 'tray' } }) : undefined)}
         />
       </div>

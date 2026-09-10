@@ -148,7 +148,10 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           activeZoneId={drag.activeZoneId}
           deadEnd={hint.deadEnd}
         />
-        <Chip variant="target" value={target} />
+        {/* Display-only — no onClick at all, so it's never had a keyboard
+            path; out of tab order for the same reason as the tray/field
+            chips below (CLAUDE.md's open Tastaturbedienung question). */}
+        <Chip variant="target" value={target} tabIndex={-1} />
       </div>
 
       {/* concept 9.2's notation line, moved (PO): directly under the field
