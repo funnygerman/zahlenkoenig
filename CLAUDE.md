@@ -160,9 +160,23 @@ just extended to "browsed away and back" as a case that shouldn't reset
 either). Solving a replayed puzzle doesn't log a second archive entry or
 advance the live puzzle — Board.tsx's `onSolved` fires the same way either
 path, so `Game.tsx`'s `handleSolved` is the one place that has to tell them
-apart, and it does: browsing (`historyEntry` set) just returns to live after
-the same 1200ms delay concept 12.8 already uses; live (the normal case)
-logs the puzzle and draws the next one, unchanged from before this round.
+apart. Live (the normal case): logs the puzzle and draws the next one,
+unchanged from before this round.
+
+**Browsing (`historyEntry` set) was first shipped as "always return to
+live", and that was wrong — fixed the same day, after a report of solving
+the *oldest* browsed entry and landing on the live puzzle instead of the
+next one in.** Bouncing straight to live from wherever the player happened
+to be skipped over every other already-solved entry between there and the
+newest one — fine from the newest entry (there's nothing left to review),
+wrong from anywhere else, since it cut a review session short the moment
+it solved one puzzle rather than letting it continue. `handleSolved`'s
+replay branch now just calls `handleHistoryForward()` — the exact same
+step its own arrow takes — so solving an entry advances one position
+toward the newest, and only solving the newest entry itself (one step past
+it) returns to live. `Game.history.test.tsx`'s regression test builds a
+three-entry archive, browses to the oldest, and solves through all three
+in place to pin this down: `1/3 → 2/3 → 3/3 → live`, never jumping.
 
 The arrows themselves are deliberately not part of `Header.tsx` — Header
 owns the selection chip and the hint icon (concept 12.7), a different

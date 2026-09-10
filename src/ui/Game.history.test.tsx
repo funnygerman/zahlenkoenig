@@ -83,6 +83,9 @@ describe('Game — solving a puzzle archives it (footer/history round)', () => {
   })
 
   it('solving a replayed puzzle does not add a second archive entry', async () => {
+    // With only one entry it's also the newest, so this alone can't tell
+    // "returns to live" apart from "advances to the next entry" — the test
+    // below does, with three.
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<Game />)
 
@@ -95,5 +98,39 @@ describe('Game — solving a puzzle archives it (footer/history round)', () => {
 
     const stored: unknown[] = JSON.parse(localStorage.getItem('zahlenkoenig:solved-v1')!)
     expect(stored).toHaveLength(1) // the replay didn't log a duplicate
+  })
+
+  it('solving the oldest replayed puzzle advances to the next one, not straight to live', async () => {
+    // Reported bug: browse all the way back to the very first solved
+    // puzzle and solve it — the board used to jump straight past every
+    // other already-solved entry to the live, not-yet-solved puzzle,
+    // instead of continuing the review one step forward.
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<Game />)
+
+    for (let i = 0; i < 3; i++) {
+      await solveCurrentPuzzle(user)
+      await act(async () => { vi.advanceTimersByTime(1200) })
+    }
+    const back = screen.getByRole('button', { name: 'Vorheriges gelöstes Rätsel' })
+    await user.click(back) // 3/3 (newest)
+    await user.click(back) // 2/3
+    await user.click(back) // 1/3 (oldest)
+    expect(screen.getByText('1/3')).toBeInTheDocument()
+
+    await solveCurrentPuzzle(user)
+    await act(async () => { vi.advanceTimersByTime(1200) })
+    expect(screen.getByText('2/3')).toBeInTheDocument() // advanced by one, still browsing
+
+    await solveCurrentPuzzle(user)
+    await act(async () => { vi.advanceTimersByTime(1200) })
+    expect(screen.getByText('3/3')).toBeInTheDocument() // advanced again
+
+    await solveCurrentPuzzle(user)
+    await act(async () => { vi.advanceTimersByTime(1200) })
+    expect(screen.queryByText('3/3')).not.toBeInTheDocument() // past the newest: back to live
+
+    const stored: unknown[] = JSON.parse(localStorage.getItem('zahlenkoenig:solved-v1')!)
+    expect(stored).toHaveLength(3) // none of the three replays logged a duplicate
   })
 })
