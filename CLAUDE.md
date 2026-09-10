@@ -117,16 +117,17 @@ this isn't a step, it's new scope the PO asked for afterward: a page
 footer, and a way to step back into already-solved puzzles.
 
 *The footer is attribution only, on the PO's own two lines: "made with ❤️
-and Claude", and a coffee mention with no link yet.* Neither is translated
-content beyond the usual three languages — `i18n.ts` gained `footerMade`/
-`footerCoffee` alongside the existing keys, same `Record<Language,
-Strings>` key-parity guarantee as everything else there. `footerCoffee`
-renders as plain text, not an `<a>`: there's no URL to point it at yet, and
-a fake or placeholder one isn't something this file's own "never generate
-or guess URLs" rule allows working around. `Game.tsx`'s own comment marks
-where a real link would go — wrapping just that span, not the whole
-footer, so "made with ❤️ and Claude" stays plain text regardless of
-whether the coffee line ever becomes clickable.
+and Claude", and a coffee mention.* Neither is translated content beyond
+the usual three languages — `i18n.ts` gained `footerMade`/`footerCoffee`
+alongside the existing keys, same `Record<Language, Strings>` key-parity
+guarantee as everything else there. `footerCoffee` shipped as plain text
+at first — no URL existed yet, and a fake or placeholder one isn't
+something this file's own "never generate or guess URLs" rule allows
+working around — then became a real link the same day, once the PO gave
+one directly (`https://ko-fi.com/funnygerman`, `Game.tsx`): `target="_blank"
+rel="noopener noreferrer"`, same as any external link out of the app.
+"made with ❤️ and Claude" stays its own plain `<span>` regardless — only
+`footerCoffee` was ever going to become an `<a>`.
 
 *Puzzle history is `core/solvedHistory.ts` (new) plus a two-arrow strip
 above the header (`HistoryNav.tsx`, new), and Board.tsx needed no changes

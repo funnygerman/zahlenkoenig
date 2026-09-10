@@ -163,13 +163,15 @@ export function Game() {
       <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} />
 
       {/* footer/history round (PO): attribution only, no rules/legal
-          content asked for. `footerCoffee` is plain text, not a link — no
-          URL exists yet; once there is one, wrap just that span in an
-          `<a>` rather than the whole footer, so "made with" stays plain
-          text regardless. */}
+          content asked for. `footerCoffee` is the one link on the page —
+          the PO's own ko-fi page, given directly rather than guessed —
+          `rel="noopener noreferrer"` since it's an external target=_blank
+          link; "made with ❤️ and Claude" stays plain text regardless. */}
       <footer className={styles.footer}>
         <span>{t(settings.language, 'footerMade')}</span>
-        <span className={styles.footerCoffee}>{t(settings.language, 'footerCoffee')}</span>
+        <a href="https://ko-fi.com/funnygerman" target="_blank" rel="noopener noreferrer" className={styles.footerCoffee}>
+          {t(settings.language, 'footerCoffee')}
+        </a>
       </footer>
     </div>
   )

@@ -54,7 +54,15 @@
 }
 
 .footerCoffee {
+  color: inherit;
   opacity: 0.8;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.footerCoffee:hover {
+  opacity: 1;
+  color: var(--zk-accent);
 }
 
 .readout {
