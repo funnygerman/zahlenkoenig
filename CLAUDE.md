@@ -111,6 +111,54 @@ than sitting there looking clickable.
 
 ## Where v2 stands
 
+**A second hint round, from three more PO play-test reports, changed the
+search itself and put two guards on the budget.**
+
+*A bracket may now enclose chips that are already on the board, and not
+allowing that was a real bug in the dead-end verdict.* The report: `(9 − 2)
+× 4 × 2` "marks as wrong" on the puzzle whose hinted solution is `(4 + 2) ×
+9 + 2` — both reach 56 from 4, 2, 9, 2. Reproduced at the board `9 −`, four
+chips before the finish: `computeHint` returned `null`, so the dead-end
+border came on and a press marked the `−` as blocking. The cause was in
+`completions`, which could only place a bracket at a position **nobody had
+touched** — while the game itself lets a tapped or dragged block chip
+*wrap* an adjacent pair (`resolveBlockDrop`'s `wrap`, span 3). So any route
+needing a bracket around what the player had already put down read as
+impossible. Measured old-versus-new on identical randomly-built boards:
+**~9% of every dead-end verdict was wrong** (7.6% of all boards at both
+three and four numbers) — and random boards over-represent genuine dead
+ends, so a thinking player meets it more often than that. `completions` now
+offers, at every even position, a group over that position and the next
+two, each of the three either already placed or drawn from the tray.
+`diffMoves` is gone with it: the moves are built as the row is built,
+because a bracket that consumes three positions of `fixed` for one resolved
+position breaks the one-to-one alignment diffing depended on. The block
+move's *order* depends on what it wraps — first when the three positions
+are empty (so the player is never shown a complete, wrong row waiting for
+its bracket), last when it wraps chips already down (`resolveBlockDrop`
+only reports `wrap` once both operands are real leaves).
+
+*The hint never places either of the last two chips* (PO). One comparison —
+`hint.moves.length > 2`, since that length is exactly how many chips still
+finish the board — and it is the guarantee that actually holds: the budget
+only keeps the player finishing the puzzle themselves while the
+**accounting** holds, and the accounting had already been laundered once.
+
+*That laundering is closed too.* The PO's own workaround: "get hint,
+remember it, remove it, add hint manually — left hint count increased by
+1". `placeOperator`/`placeBlockAt` mint a fresh id every time, so an
+operator taken off and put back by hand was never the id the hint had
+recorded, and the budget saw the chip leave and never return. Numbers were
+never affected (the tray mints one stable id per number for the puzzle's
+life). `useHint`'s `Contribution` matches an operator by its glyph and a
+block by being a block — once each, greedily, against what the board holds
+— so the honest refund the PO asked for (an accidental press, undone) still
+works while the laundering does not. The PO judged the leak itself
+acceptable and proposed the last-two rule instead; both shipped, because
+they guard different things: the rule is an invariant of the hint, the
+`Contribution` fix keeps the budget meaning what it says for everyone not
+exploiting it.
+
 **The hint round (PO play-testing plus a QA browser pass) replaced what
 the hint button does, and closed two of its own bugs.** The report was
 "I'm not sure pulsing really helps", "often different numbers are pulsing

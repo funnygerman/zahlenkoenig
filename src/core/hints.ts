@@ -70,32 +70,56 @@ function countGroups(children: readonly (Leaf | Group | null)[]): number {
 
 // ------------------------------------------------------------ completions
 // Every fully-resolved root consistent with `fixed` (concept 10.2's "den
-// bereits gebauten Baum fortsetzen"): every already-placed leaf/group stays
-// exactly where it is, every open gap — inside an existing group or at
-// root, existing or still past the row's current length — gets filled from
-// `pool`, and a still-open root operand may also become a brand-new
-// two-number block if the puzzle's block budget allows it.
+// bereits gebauten Baum fortsetzen"), together with the taps that get from
+// one to the other: every already-placed leaf/group keeps its position and
+// its order, every open gap — inside an existing group or at root, existing
+// or still past the row's current length — gets filled from `pool`, and the
+// puzzle's block budget may buy a bracket.
+//
+// The moves are built here rather than diffed back out of the finished
+// candidate afterwards. They used to be diffed (`diffMoves`), which worked
+// only while every resolved position lined up one-to-one with a position of
+// `fixed` — and a bracket that *encloses* already-placed chips consumes
+// three of them for one resolved position, so the two rows stop lining up
+// the moment that is allowed. Building the moves as the row is built can't
+// drift out of alignment, because the alignment is never re-derived.
 
-function completeGroup(group: Group, pool: readonly NumberLeaf[], opsAllowed: Operator[]): { group: Group; used: Set<string> }[] {
-  function go(index: number, acc: (Leaf | null)[], remaining: readonly NumberLeaf[], used: Set<string>): { group: Group; used: Set<string> }[] {
-    if (index === group.children.length) return [{ group: { ...group, children: acc }, used }]
+interface GroupFilling {
+  group: Group
+  used: Set<string>
+  moves: HintMove[]
+}
+
+function completeGroup(group: Group, pool: readonly NumberLeaf[], opsAllowed: Operator[]): GroupFilling[] {
+  function go(index: number, acc: (Leaf | null)[], remaining: readonly NumberLeaf[], used: Set<string>, moves: HintMove[]): GroupFilling[] {
+    if (index === group.children.length) return [{ group: { ...group, children: acc }, used, moves }]
     const existing = group.children[index]
-    if (existing !== null) return go(index + 1, [...acc, existing], remaining, used)
+    if (existing !== null) return go(index + 1, [...acc, existing], remaining, used, moves)
     if (index % 2 === 0) {
-      const out: { group: Group; used: Set<string> }[] = []
+      const out: GroupFilling[] = []
       for (const leaf of remaining) {
-        out.push(...go(index + 1, [...acc, leaf], remaining.filter(l => l.id !== leaf.id), new Set(used).add(leaf.id)))
+        out.push(...go(index + 1, [...acc, leaf], remaining.filter(l => l.id !== leaf.id), new Set(used).add(leaf.id), [...moves, { kind: 'number', leafId: leaf.id }]))
       }
       return out
     }
-    const out: { group: Group; used: Set<string> }[] = []
+    const out: GroupFilling[] = []
     for (const op of OP_PRIORITY) {
       if (!opsAllowed.includes(op)) continue
-      out.push(...go(index + 1, [...acc, createOperatorLeaf(op)], remaining, used))
+      out.push(...go(index + 1, [...acc, createOperatorLeaf(op)], remaining, used, [...moves, { kind: 'operator', op }]))
     }
     return out
   }
-  return go(0, [], pool, new Set())
+  return go(0, [], pool, new Set(), [])
+}
+
+interface Candidate {
+  root: (Leaf | Group | null)[]
+  moves: HintMove[]
+}
+
+/** A position of `fixed` that a new bracket may enclose: open, or holding a plain leaf. A group can't contain a group (concept section 4). */
+function enclosable(slot: Slot | undefined): boolean {
+  return slot === undefined || slot === null || slot.kind !== 'group'
 }
 
 function completions(
@@ -103,8 +127,10 @@ function completions(
   pool: readonly NumberLeaf[],
   opsAllowed: Operator[],
   blockBudget: number
-): (Leaf | Group | null)[][] {
-  function go(index: number, acc: (Leaf | Group | null)[], remaining: readonly NumberLeaf[], blocksLeft: number): (Leaf | Group | null)[][] {
+): Candidate[] {
+  const at = (i: number): Slot | undefined => (i < fixed.length ? fixed[i] : undefined)
+
+  function go(index: number, acc: (Leaf | Group | null)[], moves: HintMove[], remaining: readonly NumberLeaf[], blocksLeft: number): Candidate[] {
     // Done only when there is nothing left to place *and* nothing left of
     // the board to walk past. Without the first condition this stopped at
     // the moment the tray ran out and returned whatever it had built so
@@ -114,88 +140,97 @@ function completions(
     // a dead end, and so was every *completed* expression, the correct
     // ones included (with an empty tray, the candidate was the first
     // operand alone).
-    if (index >= fixed.length && remaining.length === 0 && acc.length > 0 && acc.length % 2 === 1) return [acc.slice()]
+    if (index >= fixed.length && remaining.length === 0 && acc.length > 0 && acc.length % 2 === 1) return [{ root: acc.slice(), moves }]
 
-    const existing = index < fixed.length ? fixed[index] : undefined
+    const existing = at(index)
+    const out: Candidate[] = []
 
-    if (existing !== undefined && existing !== null) {
-      if (existing.kind === 'group') {
-        const out: (Leaf | Group | null)[][] = []
-        for (const { group, used } of completeGroup(existing, remaining, opsAllowed)) {
-          out.push(...go(index + 1, [...acc, group], remaining.filter(l => !used.has(l.id)), blocksLeft))
-        }
-        return out
+    if (index % 2 === 1) {
+      if (existing !== undefined && existing !== null) return go(index + 1, [...acc, existing], moves, remaining, blocksLeft)
+      for (const op of OP_PRIORITY) {
+        if (!opsAllowed.includes(op)) continue
+        out.push(...go(index + 1, [...acc, createOperatorLeaf(op)], [...moves, { kind: 'operator', op }], remaining, blocksLeft))
       }
-      return go(index + 1, [...acc, existing], remaining, blocksLeft)
+      return out
     }
 
-    const out: (Leaf | Group | null)[][] = []
-    if (index % 2 === 0) {
-      // a bare leaf
-      for (const leaf of remaining) {
-        out.push(...go(index + 1, [...acc, leaf], remaining.filter(l => l.id !== leaf.id), blocksLeft))
+    if (existing !== undefined && existing !== null && existing.kind === 'group') {
+      for (const filling of completeGroup(existing, remaining, opsAllowed)) {
+        out.push(...go(index + 1, [...acc, filling.group], [...moves, ...filling.moves], remaining.filter(l => !filling.used.has(l.id)), blocksLeft))
       }
-      // a brand-new two-number block (a hint press is a tap — see file banner)
-      if (blocksLeft > 0 && remaining.length >= 2) {
-        for (const a of remaining) {
-          for (const b of remaining) {
-            if (a.id === b.id) continue
-            for (const op of OP_PRIORITY) {
-              if (!opsAllowed.includes(op)) continue
-              const group: Group = { id: 'hint-group', kind: 'group', children: [a, createOperatorLeaf(op), b] }
-              const rest = remaining.filter(l => l.id !== a.id && l.id !== b.id)
-              out.push(...go(index + 1, [...acc, group], rest, blocksLeft - 1))
-            }
+      return out
+    }
+
+    // (a) a bare operand at this position
+    if (existing !== undefined && existing !== null) {
+      out.push(...go(index + 1, [...acc, existing], moves, remaining, blocksLeft))
+    } else {
+      for (const leaf of remaining) {
+        out.push(...go(index + 1, [...acc, leaf], [...moves, { kind: 'number', leafId: leaf.id }], remaining.filter(l => l.id !== leaf.id), blocksLeft))
+      }
+    }
+
+    // (b) a two-number block covering this position and the next two —
+    // whatever is already sitting in them included. This is the wrap a
+    // tapped or dragged block chip performs (`resolveBlockDrop`'s `wrap`,
+    // span 3), and leaving it out was a real bug: a player who put `9 −`
+    // down on the way to `(9 − 2) × 4 × 2` was told the target had become
+    // unreachable, because the only bracket the search could imagine was
+    // one over positions nobody had touched yet.
+    //
+    // A hint-introduced block stays a *pair*: the group is always these
+    // three positions, never grown past them (growing one is drag-only —
+    // see this file's banner).
+    const second = at(index + 1)
+    const third = at(index + 2)
+    if (blocksLeft > 0 && enclosable(existing) && enclosable(third) && (second === undefined || second === null || second.kind === 'operator')) {
+      // The chips the bracket will hold: each either already placed (no tap
+      // needed) or drawn from the tray. The taps come *before* the block
+      // move, because wrapping is what a block chip does to chips that are
+      // already there — `resolveBlockDrop` only reports `wrap, span 3` once
+      // both operands are real leaves.
+      const firsts = existing !== undefined && existing !== null
+        ? [{ leaf: existing as Leaf, move: null as HintMove | null, rest: remaining }]
+        : remaining.map(leaf => ({ leaf: leaf as Leaf, move: { kind: 'number', leafId: leaf.id } as HintMove | null, rest: remaining.filter(l => l.id !== leaf.id) }))
+
+      for (const a of firsts) {
+        const middles = second !== undefined && second !== null
+          ? [{ leaf: second as Leaf, move: null as HintMove | null }]
+          : OP_PRIORITY.filter(op => opsAllowed.includes(op)).map(op => ({ leaf: createOperatorLeaf(op) as Leaf, move: { kind: 'operator', op } as HintMove | null }))
+
+        for (const m of middles) {
+          const lasts = third !== undefined && third !== null
+            ? [{ leaf: third as Leaf, move: null as HintMove | null, rest: a.rest }]
+            : a.rest.map(leaf => ({ leaf: leaf as Leaf, move: { kind: 'number', leafId: leaf.id } as HintMove | null, rest: a.rest.filter(l => l.id !== leaf.id) }))
+
+          for (const z of lasts) {
+            const group: Group = { id: 'hint-group', kind: 'group', children: [a.leaf, m.leaf, z.leaf] }
+            const fills = [a.move, m.move, z.move].filter((x): x is HintMove => x !== null)
+            // `acc.length` is this group's own root index once every
+            // position before it is settled — which is exactly when a block
+            // move can be the one the caller applies (`useHint` only ever
+            // applies `moves[0]`, recomputing everything after it).
+            const block = { kind: 'block', index: acc.length } as HintMove
+            // Which comes first is decided by what is already on the board.
+            // A bracket over three *empty* positions is placed first and
+            // filled afterwards — `resolveBlockDrop` reads an open position
+            // as `empty` and drops a blank block there, and going the other
+            // way would leave the player looking at a complete, wrong row
+            // for one press before the bracket arrives. A bracket over
+            // chips that are already down has to come last instead: `wrap`
+            // is only reported once both operands are real leaves.
+            const wrapsSomething = fills.length < 3
+            const next = wrapsSomething ? [...moves, ...fills, block] : [...moves, block, ...fills]
+            out.push(...go(index + 3, [...acc, group], next, z.rest, blocksLeft - 1))
           }
         }
       }
-    } else {
-      for (const op of OP_PRIORITY) {
-        if (!opsAllowed.includes(op)) continue
-        out.push(...go(index + 1, [...acc, createOperatorLeaf(op)], remaining, blocksLeft))
-      }
     }
+
     return out
   }
-  return go(0, [], pool, blockBudget)
-}
 
-// ---------------------------------------------------------------- diffing
-// Turns "the current root" and "a resolved candidate root" into the ordered
-// taps that get from one to the other — document order, root index by root
-// index, a new group's own children in order (concept 10.3).
-
-function pushLeafMove(moves: HintMove[], leaf: Leaf) {
-  moves.push(leaf.kind === 'number' ? { kind: 'number', leafId: leaf.id } : { kind: 'operator', op: leaf.value })
-}
-
-function diffMoves(fixed: readonly Slot[], resolved: readonly (Leaf | Group | null)[]): HintMove[] {
-  const moves: HintMove[] = []
-  for (let i = 0; i < resolved.length; i++) {
-    const target = resolved[i]
-    if (target === null) continue
-    const existing = i < fixed.length ? fixed[i] : null
-
-    if (existing !== null) {
-      if (existing.kind === 'group' && target.kind === 'group') {
-        for (let j = 0; j < target.children.length; j++) {
-          const existingChild = existing.children[j] ?? null
-          const targetChild = target.children[j]
-          if (existingChild !== null || targetChild === null) continue
-          pushLeafMove(moves, targetChild)
-        }
-      }
-      continue // otherwise already fixed at the root — nothing new here
-    }
-
-    if (target.kind === 'group') {
-      moves.push({ kind: 'block', index: i })
-      for (const child of target.children) if (child !== null) pushLeafMove(moves, child)
-    } else {
-      pushLeafMove(moves, target)
-    }
-  }
-  return moves
+  return go(0, [], [], pool, blockBudget)
 }
 
 /**
@@ -215,16 +250,16 @@ export function computeHint(
   const pool = tray.filter(leaf => !used.has(leaf.source))
   const blockBudget = Math.floor(numbersCount / 2) - countGroups(expr.root.children)
 
-  let best: { root: (Leaf | Group | null)[]; blockCount: number } | null = null
-  for (const root of completions(expr.root.children, pool, opsAllowed, blockBudget)) {
-    const value = evaluate({ root: { id: 'root', kind: 'group', children: root } })
+  let best: { moves: HintMove[]; blockCount: number } | null = null
+  for (const candidate of completions(expr.root.children, pool, opsAllowed, blockBudget)) {
+    const value = evaluate({ root: { id: 'root', kind: 'group', children: candidate.root } })
     if (value === null || Math.abs(value - target) > 1e-9) continue
-    const blockCount = countGroups(root)
-    if (!best || blockCount < best.blockCount) best = { root, blockCount }
+    const blockCount = countGroups(candidate.root)
+    if (!best || blockCount < best.blockCount) best = { moves: candidate.moves, blockCount }
   }
   if (!best) return null
 
-  return { moves: diffMoves(expr.root.children, best.root) }
+  return { moves: best.moves }
 }
 
 /** Concept 10.1's dead-end check on its own, for callers that don't also need the continuation. */

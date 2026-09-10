@@ -36,7 +36,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeHint, findBlockers, type HintMove } from '../core/hints'
-import { createExpression, type Expression, type NumberLeaf, type Operator, type Slot } from '../core/expression'
+import { createExpression, type Expression, type Group, type Leaf, type NumberLeaf, type Operator, type Slot } from '../core/expression'
 
 /**
  * How many hints one puzzle gives (concept 10.3, revised twice by the PO):
@@ -70,18 +70,59 @@ export interface UseHintOptions {
   onApplyMove: (move: HintMove) => void
 }
 
-/** Every id currently on the board — leaves and the blocks around them alike, since a block is a chip the hint can contribute too. */
-function placedIds(children: readonly Slot[]): Set<string> {
-  const ids = new Set<string>()
+/**
+ * What a hint gave the board, in terms that survive the chip being taken
+ * off and put back by hand.
+ *
+ * A number is its leaf id: `useGame`'s tray mints one id per number for the
+ * puzzle's whole life, so removing and re-placing the *same* number is the
+ * same chip. An operator and a block have no such identity —
+ * `placeOperator` and `placeBlockAt` mint a fresh id every time — so
+ * matching them by id let a player launder a hint: take the operator off,
+ * put an identical one back by hand, and the budget saw the hint's chip
+ * leave and never return. They are matched by *what they are* instead, once
+ * each, against what the board actually holds.
+ */
+type Contribution =
+  | { kind: 'number'; id: string }
+  | { kind: 'operator'; op: Operator }
+  | { kind: 'block' }
+
+interface BoardIndex {
+  /** every id on the board — what a press diffs against to see what it added */
+  ids: Set<string>
+  nodes: Map<string, Leaf | Group>
+  operators: Operator[]
+  groups: number
+}
+
+function indexBoard(children: readonly Slot[]): BoardIndex {
+  const index: BoardIndex = { ids: new Set(), nodes: new Map(), operators: [], groups: 0 }
   const visit = (list: readonly Slot[]) => {
     for (const slot of list) {
       if (slot === null) continue
-      ids.add(slot.id)
-      if (slot.kind === 'group') visit(slot.children)
+      index.ids.add(slot.id)
+      index.nodes.set(slot.id, slot)
+      if (slot.kind === 'group') { index.groups += 1; visit(slot.children) }
+      else if (slot.kind === 'operator') index.operators.push(slot.value)
     }
   }
   visit(children)
-  return ids
+  return index
+}
+
+/** How many of the hint's contributions the board still holds — each one matched at most once, so two `×` chips never pay for one hinted `×` twice. */
+function stillOnBoard(contributed: readonly Contribution[], board: BoardIndex): number {
+  const operators = [...board.operators]
+  let groups = board.groups
+  let held = 0
+  for (const c of contributed) {
+    if (c.kind === 'number') { if (board.ids.has(c.id)) held += 1; continue }
+    if (c.kind === 'block') { if (groups > 0) { groups -= 1; held += 1 } continue }
+    const at = operators.indexOf(c.op)
+    if (at !== -1) { operators.splice(at, 1); held += 1 }
+  }
+  return held
 }
 
 export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyMove }: UseHintOptions) {
@@ -99,7 +140,7 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
   )
   const deadEnd = hint === null
 
-  const onBoard = useMemo(() => placedIds(expr.root.children), [expr])
+  const board = useMemo(() => indexBoard(expr.root.children), [expr])
 
   // ------------------------------------------------------------- budget
   // Read from the *empty* field, not the current one, so the budget is a
@@ -113,18 +154,27 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
     [tray, target, opsAllowed, numbersCount]
   )
 
-  const [contributed, setContributed] = useState<readonly string[]>([])
+  const [contributed, setContributed] = useState<readonly Contribution[]>([])
   const beforePressRef = useRef<Set<string> | null>(null)
 
   useEffect(() => {
     const before = beforePressRef.current
     if (!before) return
     beforePressRef.current = null
-    const added = [...onBoard].filter(id => !before.has(id))
+    const added = [...board.ids]
+      .filter(id => !before.has(id))
+      .map((id): Contribution | null => {
+        const node = board.nodes.get(id)
+        if (!node) return null
+        if (node.kind === 'number') return { kind: 'number', id }
+        if (node.kind === 'operator') return { kind: 'operator', op: node.value }
+        return { kind: 'block' }
+      })
+      .filter((c): c is Contribution => c !== null)
     if (added.length > 0) setContributed(prev => [...prev, ...added])
-  }, [onBoard])
+  }, [board])
 
-  const hintsLeft = Math.max(0, budget - contributed.filter(id => onBoard.has(id)).length)
+  const hintsLeft = Math.max(0, budget - stillOnBoard(contributed, board))
 
   // ------------------------------------------------------------- marking
   // Held against the exact tree it was computed for, so the marks clear
@@ -135,7 +185,21 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
 
   /** Whether this puzzle has hints at all — false only for two numbers, where the header hides the icon rather than muting it (PO). */
   const offered = budget > 0
-  const canPlace = hint !== null && hint.moves.length > 0 && hintsLeft > 0
+
+  /**
+   * The hint never places either of the puzzle's **last two chips** (PO).
+   * `hint.moves.length` is exactly how many chips still finish this board,
+   * so the rule is one comparison — but it is the load-bearing one: the
+   * budget alone only guarantees the player finishes the puzzle themselves
+   * while the *accounting* holds, and the accounting has already been
+   * laundered once (take a hinted operator off, put an identical one back
+   * by hand, and its freshly minted id is not the one the hint recorded —
+   * see `Contribution`). That hole is closed, but this rule is what makes
+   * it not matter: whatever a player does to the budget, the last two chips
+   * are theirs.
+   */
+  const LAST_CHIPS_ARE_THE_PLAYERS = 2
+  const canPlace = hint !== null && hint.moves.length > LAST_CHIPS_ARE_THE_PLAYERS && hintsLeft > 0
   /** Whether a press would do anything at all — what mutes the header's hint button. */
   const available = offered && (deadEnd || canPlace)
 
@@ -145,10 +209,10 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
       setMarked({ expr, ids: findBlockers(expr, tray, target, opsAllowed, numbersCount) })
       return
     }
-    if (hint.moves.length === 0 || hintsLeft === 0) return
-    beforePressRef.current = onBoard
+    if (!canPlace) return
+    beforePressRef.current = board.ids
     onApplyMove(hint.moves[0])
-  }, [budget, hint, expr, tray, target, opsAllowed, numbersCount, hintsLeft, onBoard, onApplyMove])
+  }, [budget, canPlace, hint, expr, tray, target, opsAllowed, numbersCount, board, onApplyMove])
 
   return { deadEnd, blockingIds, hintsLeft, offered, available, onPressHint }
 }

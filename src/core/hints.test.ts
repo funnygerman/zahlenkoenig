@@ -3,7 +3,7 @@ import { computeHint, findBlockers, isStuck, type HintMove } from './hints'
 import {
   createExpression, createTray, createOperatorLeaf,
   nextOpenSurface, resolveBlockDrop, applyBlockDrop, dissolveGroup, placeAt, trimTrailingGaps, withMinimumShape,
-  type Expression, type Group, type NumberLeaf, type Operator, type Slot,
+  type Expression, type Group, type Leaf, type NumberLeaf, type Operator, type Slot,
 } from './expression'
 import { evaluate } from './evaluate'
 
@@ -94,6 +94,57 @@ describe('computeHint — continues the built tree, never contradicts it (concep
     const tray = createTray([1, 1, 1, 3])
     const hint = computeHint(createExpression(), tray, 9, ['+', '*'], 4)
     expect(hint).toBeNull()
+  })
+})
+
+describe('computeHint — a bracket may enclose chips that are already down', () => {
+  // PO report: "(9 − 2) × 4 × 2 marks as wrong", against the puzzle whose
+  // hinted solution is (4 + 2) × 9 + 2 — both reach 56 from 4, 2, 9, 2.
+  // The player had started flat, meaning to bracket the 9 − 2 afterwards,
+  // which is a gesture the game has (a tapped block chip wraps an adjacent
+  // pair — `resolveBlockDrop`'s `wrap`, span 3). The search could only
+  // imagine a bracket over positions nobody had touched, so it called the
+  // board a dead end and `findBlockers` marked the operator.
+  const PO_NUMBERS = [4, 2, 9, 2]
+  const PO_TARGET = 56
+
+  const board = (children: (Leaf | Group | null)[]): Expression => ({ root: { id: 'root', kind: 'group', children } })
+
+  it('a lone number and operator on the way to a bracketed solution is not a dead end', () => {
+    const tray = createTray(PO_NUMBERS)
+    const expr = board([tray[2], createOperatorLeaf('-')]) // "9 −"
+    expect(computeHint(expr, tray, PO_TARGET, ALL_OPS, 4)).not.toBeNull()
+    expect(findBlockers(expr, tray, PO_TARGET, ALL_OPS, 4)).toEqual([]) // and nothing is marked
+  })
+
+  it('the pair itself, still unbracketed, is not a dead end either', () => {
+    const tray = createTray(PO_NUMBERS)
+    const expr = board([tray[2], createOperatorLeaf('-'), tray[1]]) // "9 − 2"
+    const hint = computeHint(expr, tray, PO_TARGET, ALL_OPS, 4)
+    expect(hint).not.toBeNull()
+    // and the continuation it hands back really does finish the puzzle
+    expect(evaluate(playOut(expr, hint!.moves, tray))).toBe(PO_TARGET)
+  })
+
+  it('the block move comes last when it wraps chips already on the board', () => {
+    // `resolveBlockDrop` only reports `wrap` once both operands are real
+    // leaves, so the chips have to go down before the bracket does.
+    const tray = createTray(PO_NUMBERS)
+    const expr = board([tray[2], createOperatorLeaf('-')])
+    const hint = computeHint(expr, tray, PO_TARGET, ALL_OPS, 4)!
+    const blockAt = hint.moves.findIndex(m => m.kind === 'block')
+    if (blockAt !== -1) expect(blockAt).toBeGreaterThan(0)
+    expect(evaluate(playOut(expr, hint.moves, tray))).toBe(PO_TARGET)
+  })
+
+  it('still places an empty bracket first when it wraps nothing', () => {
+    // The other ordering, unchanged: over three untouched positions the
+    // block lands first and is filled afterwards, so the player is never
+    // shown a complete-but-wrong row waiting for its bracket.
+    const tray = createTray([2, 1, 3])
+    const expr = board([tray[0], createOperatorLeaf('*')]) // "2 ×", solution 2 × (1 + 3)
+    const hint = computeHint(expr, tray, 8, ALL_OPS, 3)!
+    expect(hint.moves[0]).toEqual({ kind: 'block', index: 2 })
   })
 })
 

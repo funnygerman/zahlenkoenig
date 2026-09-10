@@ -667,6 +667,15 @@ Fortsetzung des **leeren** Felds, also genau „so viele Chips braucht dieses
 Rätsel", einmal pro Rätsel bestimmt und danach unverändert: das Kontingent,
 mit dem ein Spieler anfängt, ist das, das er behält.
 
+**Die letzten beiden Chips gehören immer dem Spieler** (PO). Der Knopf setzt
+keinen Chip mehr, sobald nur noch zwei fehlen; er dämpft sich stattdessen.
+Das ist die Zusage, die wirklich trägt: das Kontingent allein garantiert nur
+so lange, wie die *Buchhaltung* stimmt — und die ließ sich umgehen (Tipp
+holen, Chip merken, entfernen, von Hand wieder setzen: das Kontingent sah
+den Chip gehen und nie wiederkommen, weil ein neu gesetzter Operator eine
+neue id bekommt). Diese Lücke ist geschlossen; die Regel sorgt dafür, dass
+sie ohnehin nichts mehr einbringt.
+
 **Zwei Zahlen bekommen gar keinen Tipp** (PO), nicht die zwei, die die Formel
 ergäbe: drei Chips sind das ganze Brett. Dort **entfällt das Symbol**, statt
 dauerhaft gedämpft dazustehen – „nichts zu geben" und „gerade nichts zu
