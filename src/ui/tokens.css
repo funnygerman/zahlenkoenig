@@ -43,6 +43,10 @@ html, body {
 }
 
 :root {
+  /* Changing this hue has three places that can't read a CSS custom
+   * property and so have to be kept in sync by hand (concept 19.1):
+   * vite.config.ts's themeColor/backgroundColor, index.html's own
+   * theme-color meta, and pwa-assets.config.ts's maskable-icon background. */
   --hue: 214;
   --zk-bg: hsl(var(--hue) 20% 98.5%);
   --zk-surface: hsl(var(--hue) 24% 100%);

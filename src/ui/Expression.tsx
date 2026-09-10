@@ -85,6 +85,21 @@ export interface ExpressionProps {
   activeZoneId?: string | null
   /** concept 10.3's free, permanent dead-end indicator: the target is no longer reachable from here (core/hints.ts's Restlöser). */
   deadEnd?: boolean
+  /** concept 13.3's FLIP animation (`useFlip.ts`) — see Tray.tsx's own note on the shared id this rides. */
+  flipRef?: (id: string, el: HTMLElement | null) => void
+  /**
+   * The one group currently mid-fade (concept 6.7), if any — owned by
+   * Board.tsx, not here: the real dissolve trigger in the running app is
+   * `useDrag`'s pointer-based tap detection, resolved in Board.tsx's
+   * `handleTap`, which calls its own `handleDissolve` wrapper directly
+   * rather than going through this component's `onClick` prop (that path
+   * only fires when `dragHandlers` is absent — tests only, since the real
+   * app always wires drag). So the fade timing has to live wherever the
+   * trigger actually is: Board.tsx owns the timer and passes its own
+   * `handleDissolve` in as this component's `onDissolveGroup`, and this
+   * component just renders whichever group id it's told is fading.
+   */
+  dissolvingGroupId?: string | null
 }
 
 function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; active?: boolean }) {
@@ -92,7 +107,7 @@ function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; act
 }
 
 function LeafChip({
-  leaf, inGroup, zoneId, active, onTapLeaf, registerZone, dragHandlers,
+  leaf, inGroup, zoneId, active, onTapLeaf, registerZone, dragHandlers, flipRef,
 }: {
   leaf: Leaf
   inGroup: boolean
@@ -101,6 +116,7 @@ function LeafChip({
   onTapLeaf: (id: string) => void
   registerZone?: ExpressionProps['registerZone']
   dragHandlers?: ExpressionProps['dragHandlers']
+  flipRef?: ExpressionProps['flipRef']
 }) {
   const kind = leaf.kind === 'number' ? 'operand' : 'operator'
   // Same reasoning as Tray.tsx's chips: once drag is wired up, useDrag's
@@ -126,6 +142,7 @@ function LeafChip({
       // would land on it and do nothing. Taking it out of tab order is honest
       // about that, rather than leaving a focusable button that looks broken.
       tabIndex={dragHandlers ? -1 : undefined}
+      ref={flipRef ? (el => flipRef(leaf.id, el)) : undefined}
       {...(dragHandlers ? dragHandlers({
         id: leaf.id,
         kind,
@@ -165,7 +182,7 @@ function EmptySlot({
 }
 
 function GroupView({
-  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId,
+  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId, flipRef, dissolving = false,
 }: {
   group: Group
   onTapLeaf: (id: string) => void
@@ -174,6 +191,9 @@ function GroupView({
   registerZone?: ExpressionProps['registerZone']
   dragHandlers?: ExpressionProps['dragHandlers']
   activeZoneId?: string | null
+  flipRef?: ExpressionProps['flipRef']
+  /** Concept 6.7: the bracket's own chrome fades over ~150ms rather than vanishing instantly — the chips inside don't move at all. */
+  dissolving?: boolean
 }) {
   const zones = dropZones(group.children)
   // The group's own trailing frontier (concept 6.2: a third number joins a
@@ -208,11 +228,11 @@ function GroupView({
   // `dragHandlers` still go on the edges only, never on the wrapper — a
   // press on a child chip must stay that chip's own drag.
   return (
-    <div className={styles.group}>
+    <div className={cx(styles.group, dissolving && styles.dissolving)}>
       <button
         type="button"
         ref={el => registerZone?.(beforeZone, 'both', true, el)}
-        className={cx(styles.bracketEdge, styles.bracketLeft, activeZoneId === beforeZone && styles.activeEdge)}
+        className={cx(styles.bracketEdge, styles.bracketLeft, activeZoneId === beforeZone && styles.activeEdge, dissolving && styles.dissolving)}
         onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
         aria-label={dissolveLabel}
         {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
@@ -233,6 +253,7 @@ function GroupView({
             onTapLeaf={onTapLeaf}
             registerZone={registerZone}
             dragHandlers={dragHandlers}
+            flipRef={flipRef}
           />
         )
       })}
@@ -243,7 +264,7 @@ function GroupView({
       <button
         type="button"
         ref={el => registerZone?.(afterZone, 'both', true, el)}
-        className={cx(styles.bracketEdge, styles.bracketRight, activeZoneId === afterZone && styles.activeEdge)}
+        className={cx(styles.bracketEdge, styles.bracketRight, activeZoneId === afterZone && styles.activeEdge, dissolving && styles.dissolving)}
         onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
         aria-label={dissolveLabel}
         {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
@@ -253,7 +274,7 @@ function GroupView({
 }
 
 export function Expression({
-  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false,
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false, flipRef, dissolvingGroupId = null,
 }: ExpressionProps) {
   const { children } = expr.root
   const zones = dropZones(children)
@@ -275,6 +296,8 @@ export function Expression({
           registerZone={registerZone}
           dragHandlers={dragHandlers}
           activeZoneId={activeZoneId}
+          flipRef={flipRef}
+          dissolving={dissolvingGroupId === slot.id}
         />
       )
     }
@@ -288,6 +311,7 @@ export function Expression({
         onTapLeaf={onTapLeaf}
         registerZone={registerZone}
         dragHandlers={dragHandlers}
+        flipRef={flipRef}
       />
     )
   })

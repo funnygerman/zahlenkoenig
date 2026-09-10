@@ -10,7 +10,9 @@
 // lookup function is all this needs. No interpolation, no pluralization:
 // grepping the whole UI tree found no locale-sensitive number formatting
 // either (numbers are small integers, rendered with plain `String()`) and
-// none of these keys take a parameter.
+// none of these keys take a parameter. `updateHint` (step 6, concept 19.3)
+// is the ninth: the service worker's own "a new version is ready" nudge,
+// concept 19.3's own word for it ("Aktualisieren").
 //
 // No language switcher is built (PO decision): the player's language is
 // detected once, from the browser, and that's it — see settings.ts's
@@ -46,6 +48,8 @@ interface Strings {
   uniqueOnlyUnavailable: string
   /** Expression.tsx's bracket-edge aria-label (concept 6.5/6.6) — same text on both edges. */
   dissolveGroup: string
+  /** The service-worker-update hint (concept 19.3: "ein knapper Hinweis... statt eines Popup-Dialogs"). */
+  updateHint: string
 }
 
 const de: Strings = {
@@ -59,6 +63,7 @@ const de: Strings = {
   uniqueOnlySuffix: ' Lösung',
   uniqueOnlyUnavailable: ' (für diese Auswahl nicht verfügbar)',
   dissolveGroup: 'Klammer auflösen',
+  updateHint: 'Aktualisieren',
 }
 
 const en: Strings = {
@@ -72,6 +77,7 @@ const en: Strings = {
   uniqueOnlySuffix: ' solution',
   uniqueOnlyUnavailable: ' (not available for this selection)',
   dissolveGroup: 'Dissolve bracket',
+  updateHint: 'Update',
 }
 
 const ru: Strings = {
@@ -85,6 +91,7 @@ const ru: Strings = {
   uniqueOnlySuffix: ' решением',
   uniqueOnlyUnavailable: ' (недоступно для этого выбора)',
   dissolveGroup: 'Убрать скобки',
+  updateHint: 'Обновить',
 }
 
 // `Record<Language, Strings>` is what gives every language compile-time key
