@@ -234,17 +234,21 @@ position in the archive. Browsing doesn't touch the live puzzle's own
 *puzzle* state at all: it only changes what's displayed.
 
 **It does throw away the in-progress board, though, and this file used to
-claim the opposite — a browser QA pass (hint round) disproved it.** The
-claim was that Board's key stays `live-${puzzleKey}` when the live puzzle
-hasn't changed underneath, so React never remounts it and a player browsing
-away mid-solve resumes exactly where they left off. React unmounts on *any*
-key change: the key goes `live-N → hist-0 → live-N`, and the Board that
-comes back is a brand-new instance with an empty field. Measured directly —
-place two chips, browse back, browse forward, and the field is empty.
-Keeping the board would mean leaving the live Board mounted (hidden)
-alongside the archived one rather than swapping keys, which is a change to
-how `Game.tsx` renders rather than to the key expression. Known, unfixed,
-and written down here rather than claimed away. Solving a replayed puzzle doesn't log a second archive entry or
+claim the opposite — a browser QA pass (hint round) disproved it, and the
+PO then ruled that the behaviour itself is fine.** The claim was that
+Board's key stays `live-${puzzleKey}` when the live puzzle hasn't changed
+underneath, so React never remounts it and a player browsing away mid-solve
+resumes exactly where they left off. React unmounts on *any* key change:
+the key goes `live-N → hist-0 → live-N`, and the Board that comes back is a
+brand-new instance with an empty field. Measured directly — place two
+chips, browse back, browse forward, and the field is empty. **PO, shown the
+finding: "not a bug."** Browsing away is a deliberate step out of the
+puzzle, and starting the live one from a clean board on the way back is a
+fine thing for that to mean — so this is documented behaviour now, not an
+open defect, and nothing is owed here. (What it would take, should that
+ever change: leaving the live Board mounted and hidden beside the archived
+one instead of swapping keys — a change to how `Game.tsx` renders, not to
+the key expression.) Solving a replayed puzzle doesn't log a second archive entry or
 advance the live puzzle — Board.tsx's `onSolved` fires the same way either
 path, so `Game.tsx`'s `handleSolved` is the one place that has to tell them
 apart. Live (the normal case): logs the puzzle and draws the next one,

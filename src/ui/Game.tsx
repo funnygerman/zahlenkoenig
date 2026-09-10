@@ -138,14 +138,16 @@ export function Game() {
   // so Board.tsx always remounts onto the puzzle it's now showing rather
   // than reusing a tree built around a different one's leaf ids.
   //
-  // Returning to an unchanged live puzzle produces the same key it had
-  // before, and this used to claim that therefore kept Board's in-progress
-  // tree. It does not, and a browser QA pass measured it: React unmounts on
-  // *any* key change, so browsing away already destroyed that Board, and
-  // coming back mounts a brand-new one with an empty field. Keeping it
-  // would mean leaving the live Board mounted (hidden) beside the archived
-  // one rather than swapping keys — a change to how Game renders, not to
-  // this line. Known, unfixed, and written down rather than claimed away.
+  // Browsing into the archive and back therefore starts the live puzzle
+  // from an empty field: the key goes `live-N → hist-0 → live-N`, and React
+  // unmounts on *any* key change, so the Board that comes back is a new
+  // instance. This line used to claim the opposite — that the same key on
+  // the way back kept Board's in-progress tree — and a browser QA pass
+  // disproved it. **PO: not a bug.** Browsing away is a deliberate step out
+  // of the puzzle, and coming back to a clean board is a fine thing for it
+  // to mean. Keeping the tree would take leaving the live Board mounted
+  // (hidden) beside the archived one instead of swapping keys; there is no
+  // reason to.
   const boardKey = historyIndex !== null ? `hist-${historyIndex}` : `live-${puzzleKey}`
   const displayed = historyEntry ?? puzzle
   const displayedOps = historyEntry ? historyEntry.ops : settings.ops
