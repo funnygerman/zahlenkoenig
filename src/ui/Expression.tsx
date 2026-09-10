@@ -113,6 +113,11 @@ function LeafChip({
       inGroup={inGroup}
       className={active ? styles.activeZone : undefined}
       onClick={dragHandlers ? undefined : () => onTapLeaf(leaf.id)}
+      // Keyboard operation isn't supported (open product question, CLAUDE.md) —
+      // once drag is wired up this chip's onClick above is gone, so Enter/Space
+      // would land on it and do nothing. Taking it out of tab order is honest
+      // about that, rather than leaving a focusable button that looks broken.
+      tabIndex={dragHandlers ? -1 : undefined}
       {...(dragHandlers ? dragHandlers({
         id: leaf.id,
         kind,
