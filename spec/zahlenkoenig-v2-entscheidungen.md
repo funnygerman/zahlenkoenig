@@ -347,6 +347,10 @@ Punkte **vor** dem Umbau gemessen (Zahlen in 10.3 und in CLAUDE.md).
 | **Markieren kostet keinen Tipp** | Folgt aus „gezählt werden Chips": eine Markierung setzt keinen Chip. Ein Fehlgriff kann das Kontingent damit nicht aufbrauchen. |
 | **Nichts markieren, wenn das Rätsel selbst nicht erreichbar ist** | Sonst behauptete die Markierung etwas Unwahres über Chips, die nichts dafür können. Die dauerhafte Sackgassen-Anzeige hat in dem Fall schon alles gesagt. |
 
+| **Die letzten beiden Chips setzt der Tipp nie** (PO) | *„Vielleicht so eine Lösung: nie die letzten zwei Chips zeigen."* Eine Zusage über den Tipp selbst statt über das Kontingent – sie hält, was immer mit der Buchhaltung passiert. |
+| **Eine Klammer darf umschließen, was schon liegt** | PO-Meldung: `(9 − 2) × 4 × 2` wurde als falsch markiert, obwohl es 56 ergibt. Die Suche kannte nur Klammern über unberührte Positionen, das Spiel selbst aber klammert ein bestehendes Paar ein. Gemessen: ~9 % aller Sackgassen-Urteile waren dadurch falsch. |
+| **Ein getippter Chip lässt sich nicht „waschen"** | PO-Workaround: Tipp holen, Chip entfernen, von Hand identisch wieder setzen – das Kontingent gab den Tipp zurück, weil ein neu gesetzter Operator eine neue id hat. Gezählt wird jetzt *was* der Tipp gab, nicht welche id. |
+
 **Verworfen:** das Pulsieren „richtig herum" zu ziehen (auf den Chip, den der
 nächste Druck setzt) – der PO wollte das Pulsieren gar nicht · unbegrenzt viele
 Tipps · ein festes Kontingent (zwei war einen Spieltest lang in Betrieb, drei

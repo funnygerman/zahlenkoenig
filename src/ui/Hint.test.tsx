@@ -86,20 +86,84 @@ describe('Board — the hint button (concept 10.3, revised by the hint round)', 
     expect(seen[seen.length - 1]).toEqual({ offered: true, available: false })
   })
 
-  it('taking a hinted chip back gives the hint back — the budget counts chips on the board, not presses (PO)', async () => {
+})
+
+describe('Board — the last two chips are always the player\'s (PO)', () => {
+  it('mutes rather than placing when only two chips are missing', async () => {
+    const user = userEvent.setup()
+    const ref = createRef<BoardHandle>()
+    const seen: { offered: boolean; available: boolean }[] = []
+    render(<Board ref={ref} numbers={[3, 4, 5]} target={12} ops={['+'] as Operator[]} onHintState={s => seen.push(s)} />)
+
+    // build the row by hand to within two chips of done: 3 + 4 + _ needs
+    // one operator and one number, and the hint must supply neither.
+    const tapTray = async (text: string) => {
+      const chip = screen.getAllByText(text, { selector: 'button' }).find(b => !b.className.includes('_field_') && !(b as HTMLButtonElement).disabled)
+      if (chip) await user.click(chip)
+    }
+    for (const step of ['3', '+', '4']) await tapTray(step)
+    expect(placed()).toHaveLength(3)
+
+    expect(seen[seen.length - 1].available).toBe(false) // the icon is already muted
+    press(ref)
+    press(ref)
+    expect(placed()).toHaveLength(3) // and pressing it changes nothing
+  })
+
+  it('does place the third-from-last chip — the rule is the last two, not the last three', async () => {
+    const user = userEvent.setup()
+    const ref = createRef<BoardHandle>()
+    render(<Board ref={ref} numbers={[3, 4, 5]} target={12} ops={['+'] as Operator[]} />)
+
+    const chip = screen.getAllByText('3', { selector: 'button' }).find(b => !b.className.includes('_field_'))!
+    await user.click(chip) // 4 chips left after this
+    press(ref)
+    expect(placed()).toHaveLength(2)
+  })
+})
+
+describe('Board — a hint cannot be laundered by re-placing its chip by hand', () => {
+  it('an operator taken off and replaced by an identical one does not refund the hint', async () => {
+    // Reported by the PO as a way to get the whole solution: take the
+    // hinted chip off, put the same thing back by hand, and the budget saw
+    // the hint's chip leave and never come back — because `placeOperator`
+    // mints a fresh id every time, so the id the hint recorded was gone.
     const user = userEvent.setup()
     const ref = createRef<BoardHandle>()
     render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
 
-    for (let i = 0; i < 5; i++) press(ref)
-    const spent = placed().length // the whole budget
+    for (let i = 0; i < 6; i++) press(ref)
+    const spent = placed().length
+    const operator = placed().find(b => ['+', '−', '×', '÷'].includes(b.textContent!.trim()))!
+    const glyph = operator.textContent!.trim()
 
-    // tap one of them back off the board (concept 6.6's inverse gesture)
+    await user.click(operator) // off the board — the budget refunds it, as designed
+    expect(placed()).toHaveLength(spent - 1)
+
+    const trayCopy = screen.getAllByText(glyph, { selector: 'button' }).find(b => !b.className.includes('_field_'))!
+    await user.click(trayCopy) // …and straight back on, by hand
+    expect(placed()).toHaveLength(spent)
+
+    press(ref)
+    press(ref)
+    expect(placed()).toHaveLength(spent) // no extra chip: the hint is still spent
+  })
+
+  it('but genuinely taking a hinted chip back still refunds it', async () => {
+    // The rule the PO asked for is unchanged — this is the case it exists
+    // for, an accidental press undone.
+    const user = userEvent.setup()
+    const ref = createRef<BoardHandle>()
+    render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
+
+    for (let i = 0; i < 6; i++) press(ref)
+    const spent = placed().length
+
     await user.click(placed()[spent - 1])
     expect(placed()).toHaveLength(spent - 1)
 
-    press(ref) // the returned chip released its hint, so this one lands
-    expect(placed()).toHaveLength(spent)
+    press(ref)
+    expect(placed()).toHaveLength(spent) // the returned chip released its hint
   })
 })
 
