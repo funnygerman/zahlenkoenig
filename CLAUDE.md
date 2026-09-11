@@ -29,20 +29,25 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**One thing is open, and it is a real piece of work rather than an
-investigation: teach `core/hints.ts`'s `completions` to propose
-three-number groups.** The bug it caused — 39.8% of four-number puzzles
-opening with the dead-end border lit on an empty field — is fixed (the
-border is withheld where the search is blind; see "Where v2 stands"), but
-the underlying gap is not: on those boards the hint button still doesn't
-appear at all, because the budget is read from the same continuation that
-comes back null. Note this is **not** just widening the search's span: a
-hint move has to be a gesture the player has, and a three-number group is
-block-chip-then-drag, so it needs a new `HintMove` kind wired to
-`useGame`'s `insertLeafIntoGroup`/`absorbPairIntoGroup` path. It also
-moves the budget on those puzzles from zero to a real number, so
-`Hint.test.tsx`'s budget assertions come with it. Everything below this
-paragraph is about concept 16's roadmap, which remains finished.
+**Nothing is open that has been scoped.** The three-number-group round
+closed the last measured gap (see "Where v2 stands"): the hint's search
+now reaches everything `solver.ts`'s `reachable()` does at two, three and
+four numbers, verified at 0 walled boards over 5900 real draws. Concept
+16's roadmap was already finished before that.
+
+**One product question came out of that round and is genuinely the PO's**:
+the second onboarding puzzle `(1+1+1) × 3` now *has* a real hint budget,
+and `Board.tsx`'s `onboarding` prop is the only thing keeping the
+lightbulb off it. That is deliberate — a hint there can walk the whole
+bracket, which is the lesson the card asks the player to perform — but a
+stuck beginner now has no help at all on the game's hardest gesture, where
+before there was nothing to offer anyway. Worth deciding rather than
+leaving to the code.
+
+Anything else past this point (dark mode, the "Zwischenschritt beim
+Auflösen" notation-line question, either open item in concept section 17's
+own table) still needs a fresh product decision before it is a "step" at
+all. Everything below this paragraph is about concept 16's roadmap.
 
 **Step 6 (concept section 16, "Feinschliff") is done, and it was the last
 row in concept 16's own table — there is no step 7.** Animations, landscape
@@ -226,6 +231,90 @@ right bracket edge, then `+`, `×`, `3`, `=`. The card's literal order
 works too — tapping the block chip on an empty field yields `()`, which
 then fills by tapping.
 
+**The three-number-group round closed the gap the scan found: the hint can
+propose a bracket holding three numbers, and every four-number board is
+hintable again.** `scripts/checkHintReachable.ts` now reports **0 of 5900**
+draws without a hint, against 7 037 of 17 700 before.
+
+*It is not a wider search — it is a new gesture.* A hint move has to be
+something the player can actually do, and growing a group past two numbers
+is drag-only (concept 6.2). So `HintMove` gained a **`grow`** kind: a tray
+number dragged onto the right bracket edge, applied through the very
+`insertLeafIntoGroup` that `useGame`'s own drop handler calls. One chip per
+press still holds (10.3) — the drag places the number, and `withPair`
+opens the operator slot beside it that the next press fills.
+
+*The round's real bug was that the plan could not survive its own first
+press, and only the real hook showed it.* `useHint` recomputes from scratch
+after every press and applies `moves[0]`, so a plan beginning "put a block
+at position 2" is re-derived one press later against a board that now
+*holds* that block. The first version could fill an existing group's slots
+but never grow one — so the board died at `3 × ()` with the hint reporting
+a dead end on a board it had itself just built. The fix is a second branch:
+**a group already on the board may grow too**, not only one the search is
+inventing. Driving `applyHintMove` through the actual `useGame` is the only
+level at which this was visible; `hints.test.ts`'s own replay against its
+local primitives was perfectly happy.
+
+*The third number comes from the tray, never off the board* — a placed one
+would need `absorbPairIntoGroup` and a second new move kind. Left out
+deliberately: the boards this is for are overwhelmingly empty ones (the
+budget is read from an empty field), and one new move kind is enough risk
+for one round.
+
+*The search got faster while getting wider.* `computeHint` now searches
+budget by budget — no new bracket, then one, then two — and takes the first
+budget that answers. That is 10.2's own order ("erst nach Anzahl der
+Blöcke") searched rather than filtered for, and the result is identical.
+Measured against real draws at four numbers with all four operators:
+
+| | |
+|---|---|
+| before three-number groups | ~30ms |
+| with them, enumerating and filtering | 70ms |
+| with them, searching budget by budget | **~20ms** |
+
+The one case that got slower is a board no budget can complete (~48ms) —
+the dead-end path, rarer and already the expensive one. `useHint` runs this
+in a memo on every board change, so these are felt directly.
+
+*Three tests had to be rewritten, and the previous round predicted it.*
+`hints.test.ts`, `onboarding.test.ts` and `Hint.test.tsx` each held the old
+limitation as an assertion (`expect(hint).toBeNull()`). The convention
+"write the test as the invariant, not as the bug" says exactly this will
+happen — whoever fixes the bug has to delete the test — and the contrast is
+the proof of the rule: **"a freshly drawn puzzle never opens as a dead
+end" needed no change at all**, before or after.
+
+*The measurement script reported the round on itself.* `checkHintReachable.ts`
+refused to print anything on its first run afterwards, because its
+known-bad case (`[1,1,1,3] → 9`: solvable, un-hintable) was no longer bad.
+That is precisely why every measurement script here is held to a
+known-good/known-bad pair — an instrument whose assumptions have gone stale
+should fail loudly rather than quietly return zero findings. That case is
+the known-*good* one now, and a sharp one: it passes only if the search can
+see three-number groups, so a zero means "nothing walled", not "instrument
+blind".
+
+*Two things kept deliberately.* `useHint`'s dead-end guard stays although
+no generated puzzle can trigger it any more — it is the net against exactly
+the regression that cost 39.8%, costs nothing while inert (the `&&`
+short-circuits), and `Hint.test.tsx` exercises it against a synthetic board
+rather than relying on a blind spot existing. And `Board.tsx`'s
+`onboarding` prop, kept last round as belt-and-braces, is **load-bearing
+now**: `(1+1+1) × 3` has a real budget, so that prop is the only thing
+keeping a lightbulb off the board whose whole point is performing the drag
+yourself.
+
+*Verified in the browser, not only in the model*: on real four-number
+boards the hint builds `7 × (1 …)` for 154 and `(6 + 7) × …` for 182, no
+dead-end border, budget respected. One honest consequence — **the budget
+runs out before the `grow` is ever reached** (four chips of eight, and the
+last two are always the player's), so a press on a fresh board does not
+perform the drag. What the round buys is that the search *sees* the
+solution at all, and therefore that these boards have a hint instead of a
+dead-end border.
+
 **The scan that round left open has been run, and it found a live bug that
 is much bigger than onboarding: two in five four-number puzzles open as a
 dead end.** `scripts/checkHintReachable.ts` (new) asks whether the
@@ -298,13 +387,8 @@ is right.
 on the same selection. The 3 that still show no hint button are the
 remaining gap, correctly reported.
 
-**Still open — the real fix:** teach `completions` to propose three-number
-groups, so the hint reappears on those boards. It closes the gap properly
-and makes the block the onboarding card teaches supported everywhere. It
-is a change to the most delicate search code in the repo; the walled
-patterns show it needs mixed-operator interiors (`(n+n×n)`), not just
-repeated ones; and it needs a new `HintMove` kind, because a three-number
-group is not a tap. See "Next v2 step".
+**The search half is fixed too, in its own round — `completions` proposes
+three-number groups now, and the 39.8% is 0%.** Details below.
 
 **The obvious third fix is a trap, and is written down here so nobody
 reaches for it later: do not make the generator refuse these puzzles.**

@@ -395,6 +395,27 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     })
   }, [setExpr])
 
+  /**
+   * A tray number dropped on the *right* bracket edge of the block at
+   * `index` — concept 6.2's drag-only "grow past the minimum shape", and
+   * the only placement in this file with no tap equivalent at all.
+   *
+   * Deliberately the same three lines as `onDrop`'s own tray-onto-a-
+   * bracket-edge branch, `withinBudget` included: a hint move must be a
+   * gesture the player has, so it has to be refused wherever the gesture
+   * would be. (It never is, from a hint — `completions` only proposes a
+   * third number where the puzzle's own operator budget covers the slot it
+   * opens — but the guard costs nothing and keeps the two paths honest.)
+   */
+  const growGroupAt = useCallback((index: number, leaf: Leaf) => {
+    setExpr(e => {
+      const inserted = insertLeafIntoGroup(e.root.children, index, 'after', leaf)
+      if (!inserted) return e
+      const next = withRootChildren(e, inserted)
+      return withinBudget(next.root.children, numbers.length) ? next : e
+    })
+  }, [numbers.length])
+
   // -------------------------------------------------------- tap handlers
 
   const onTapNumber = useCallback((id: string) => {
@@ -643,13 +664,18 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // decides how to apply it, the same split as onTapNumber/onTapBlock above.
   const applyHintMove = useCallback((move: HintMove) => {
     if (move.kind === 'block') { placeBlockAt(move.index); return }
+    if (move.kind === 'grow') {
+      const leaf = tray.find(n => n.id === move.leafId)
+      if (leaf) growGroupAt(move.index, leaf)
+      return
+    }
     if (move.kind === 'number') {
       const leaf = tray.find(n => n.id === move.leafId)
       if (leaf) placeNumber(leaf)
       return
     }
     placeOperator(move.op)
-  }, [tray, placeNumber, placeOperator, placeBlockAt])
+  }, [tray, placeNumber, placeOperator, placeBlockAt, growGroupAt])
 
   return {
     expr,

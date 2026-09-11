@@ -51,22 +51,25 @@ describe('onboarding — the two puzzles are what they claim to be', () => {
     expect(computeHint(createExpression(), createTray(first.numbers), first.target, first.ops, first.numbers.length)!.moves).toHaveLength(3)
   })
 
-  it('the second needs a THREE-number group — which is why Board suppresses the hint layer on it', () => {
-    // This is the load-bearing fact of the whole onboarding round, and the
-    // reason the second puzzle teaches anything: a three-number group is
-    // drag-only (concept 6.2), so tapping cannot build it — and neither can
-    // the hint, because core/hints.ts only ever proposes two-number groups.
-    // `computeHint` therefore returns null on the empty board, which in
-    // useHint means `deadEnd` and a zero hint budget.
+  it('the second needs a THREE-number group, which tapping alone cannot build', () => {
+    // Still the reason this puzzle teaches anything: a three-number group
+    // is drag-only (concept 6.2), so no sequence of taps reaches it.
     //
-    // If this assertion ever fails because hints.ts learned to propose
-    // three-number groups, that is good news and not a regression — but
-    // Board.tsx's `onboarding` suppression should then be revisited rather
-    // than left standing for a reason that no longer holds.
+    // **This assertion used to be `toBeNull()`** — the hint could not
+    // propose the shape either, and the note here said that if it ever
+    // learned to, `Board.tsx`'s `onboarding` suppression should be
+    // revisited rather than left standing on a reason that no longer held.
+    // It has learned to (the three-number-group round), so: revisited. The
+    // suppression stays, and it is load-bearing now rather than
+    // belt-and-braces — this board *would* offer a hint, and one that can
+    // walk the whole bracket would hand a first-time player the exact
+    // lesson the card is asking them to perform.
     const second = ONBOARDING_PUZZLES[1]
     expect(second.numbers).toEqual([1, 1, 1, 3])
     expect(second.target).toBe(9)
-    expect(computeHint(createExpression(), createTray(second.numbers), second.target, second.ops, second.numbers.length)).toBeNull()
+    const hint = computeHint(createExpression(), createTray(second.numbers), second.target, second.ops, second.numbers.length)
+    expect(hint).not.toBeNull()
+    expect(hint!.moves.some(m => m.kind === 'grow')).toBe(true)
   })
 
   it('the second has no flat route either — the bracket is required, not merely permitted', () => {

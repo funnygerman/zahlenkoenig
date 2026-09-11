@@ -52,19 +52,21 @@ export interface BoardProps {
    * `computeHint` therefore returns null on it — so the border would have
    * been lit on the empty field before a first-time player touched
    * anything. That is no longer a special case: `useHint`'s own
-   * `puzzleHintable` now withholds the verdict on *any* puzzle the hint
-   * could never walk, which is the general form of the same rule and
-   * covers this board on the way past. `scripts/checkHintReachable.ts` is
+   * `searchIsBlind` withholds the verdict on *any* puzzle the hint could
+   * never walk, which is the general form of the same rule and covered
+   * this board on the way past — and since the three-number-group round
+   * the hint can walk this board anyway, so neither applies. `scripts/checkHintReachable.ts` is
    * why — the same thing was happening on 39.8% of ordinary four-number
    * draws, so it was never an onboarding problem at all.
    *
-   * What stays here is only the hint *offer*. Both onboarding boards
-   * already report `offered: false` on their own (two numbers get no
-   * hints by the PO's rule; the bracket puzzle has a zero budget for the
-   * reason above), so this is belt-and-braces — but it states the
-   * intention rather than leaning on two unrelated facts continuing to
-   * agree, and it keeps holding if a future onboarding puzzle is one the
-   * hint *could* solve.
+   * What stays here is only the hint *offer* — and it is load-bearing now,
+   * where it used to be belt-and-braces. It was kept on the argument that
+   * it "keeps holding if a future onboarding puzzle is one the hint could
+   * solve"; the three-number-group round made the *existing* bracket puzzle
+   * exactly that, without touching onboarding at all. Its budget is no
+   * longer zero, so without this the header would offer a hint that can
+   * walk the entire bracket — handing a first-time player the precise
+   * lesson the card is asking them to perform.
    */
   onboarding?: boolean
   /**
@@ -155,9 +157,11 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // (the two-hint budget spent, or the puzzle already correctly built).
   // Reported upward rather than lifted: the hint still belongs to the board
   // it is about, and Board is remounted per puzzle while Header is not.
-  // `onboarding` forces `offered` false — see the prop's own note for why
-  // the header must not show a hint icon on an onboarding board even
-  // though, on both of them as they stand, it would already hide it.
+  // `onboarding` forces `offered` false — see the prop's own note. This is
+  // the only thing keeping the lightbulb off the bracket puzzle now: since
+  // the three-number-group round that board has a real hint budget, and a
+  // hint that walks the bracket is the lesson the card asks the player to
+  // perform themselves.
   const hintOffered = hint.offered && !onboarding
   const hintAvailable = hint.available && !onboarding
   useEffect(() => { onHintState?.({ offered: hintOffered, available: hintAvailable }) }, [hintOffered, hintAvailable, onHintState])

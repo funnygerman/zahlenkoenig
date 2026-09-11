@@ -178,14 +178,22 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
    * ~30ms per puzzle, and `nextPuzzle` calls `reachable` many times over
    * to draw one.)
    *
-   * Case (a) is not an edge case: `scripts/checkHintReachable.ts` measured
-   * it at **39.8% of four-number draws**, and on two selections it is every
-   * puzzle in the pool. Before this, those boards opened with the dead-end
-   * border already lit on an untouched field — telling a player their
-   * puzzle was hopeless before they had touched a chip. Case (b) cannot
-   * occur from the generator at all (`nextPuzzle` only ever returns a
-   * target `reachable()` gave it), so it reaches here only from a
-   * hand-built puzzle, where the border is honest and stays.
+   * **Case (a) no longer happens for any puzzle the generator can draw**,
+   * and that is a change since this guard was written. It was measured at
+   * **39.8% of four-number draws** then; the three-number-group round
+   * taught `completions` the shape those boards needed, and
+   * `scripts/checkHintReachable.ts` now reports 0 walled over 5900 real
+   * draws. Case (b) cannot occur from the generator
+   * either (`nextPuzzle` only ever returns a target `reachable()` gave
+   * it), so in practice this guard is inert today.
+   *
+   * It is kept deliberately, as the safety net against precisely the
+   * regression that cost those 39.8%: the hint's search being quietly
+   * weaker than the solver the generator draws from. It costs nothing while
+   * inert — the `&&` below short-circuits on `fromEmpty === null`, which is
+   * false for every generated puzzle — and `Hint.test.tsx` exercises it
+   * against a synthetic board rather than relying on a blind spot existing.
+   * A hand-built unsolvable puzzle still gets its honest border.
    *
    * Note the suppression cannot be keyed on `budget > 0`: two numbers get a
    * budget of 0 by the PO's own rule while remaining perfectly hintable,
