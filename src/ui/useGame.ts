@@ -12,7 +12,7 @@ import { useCallback, useMemo, useState } from 'react'
 import {
   createExpression, createTray, createOperatorLeaf,
   placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
-  dissolveGroup, nextOpenSurface, resolveBlockDrop, nextBlockTarget, applyBlockDrop, withMinimumShape, isExpressionComplete,
+  dissolveGroup, nextOpenSurface, resolveBlockDrop, tapBlockTarget, applyBlockDrop, rootWidth, withMinimumShape, isExpressionComplete,
   absorbIntoGroup, absorbPairIntoGroup, insertLeafIntoGroup, moveGroup,
   type Expression as ExpressionTree, type Leaf, type Group, type Slot, type Surface, type Operator,
 } from '../core/expression'
@@ -265,12 +265,58 @@ function removeLeafById(expr: ExpressionTree, id: string): ExpressionTree {
   return withGroupChildren(expr, loc.groupId, next)
 }
 
+/**
+ * Where the player last worked — the anchor a *tapped* block chip borrows,
+ * since a tap names no position of its own (concept 6.1, PO revision).
+ *
+ * Only numbers move it, never operators: the rule reads the operator to the
+ * anchor's right to decide which way the bracket faces, so an operator that
+ * moved the anchor would be answering its own question. A number still on
+ * the board is held by `id`, which survives every wrap, dissolve and absorb
+ * that shifts root indices around it; a number the player just took *off*
+ * the board has no id to find any more, so the position it left is held
+ * instead. That one is the only approximate case — a structural edit after
+ * the removal can shift it — and an anchor a position or two out lands the
+ * bracket beside where the player was rather than somewhere unrelated,
+ * which is a miss, not a broken board: `bracketFits` decides what is legal,
+ * never the anchor.
+ */
+type Anchor = { id: string } | { index: number }
+
+function anchorIndex(children: readonly Slot[], anchor: Anchor | null): number {
+  if (anchor === null) return 0
+  if ('index' in anchor) return anchor.index
+  const loc = findLocation(children, anchor.id)
+  if (!loc) return 0
+  // Inside a bracket there is no root position of its own to anchor on —
+  // the bracket's is the nearest thing, and `tapBlockTarget` scans outward
+  // from there (a group is never itself a target).
+  return loc.groupId === null ? loc.index : findGroupIndex(children, loc.groupId)
+}
+
+/** The anchor a number at `id` leaves behind when it is taken off the board — its root position, or its bracket's. Null when `id` isn't a number on the board (an operator never moves the anchor). */
+function removedAnchor(children: readonly Slot[], id: string): Anchor | null {
+  const leaf = findLeaf(children, id)
+  if (!leaf || leaf.kind !== 'number') return null
+  const loc = findLocation(children, id)
+  if (!loc) return null
+  return { index: loc.groupId === null ? loc.index : findGroupIndex(children, loc.groupId) }
+}
+
+/** The root operand position a surface sits at, for the anchor above. A surface inside a group reports that group's own root position. */
+function surfaceAnchor(children: readonly Slot[], surface: Surface): Anchor {
+  if (surface.groupId === null) return { index: surface.index }
+  const groupIndex = findGroupIndex(children, surface.groupId)
+  return { index: groupIndex === -1 ? surface.index : groupIndex }
+}
+
 export function useGame({ numbers, target, ops }: UseGameOptions) {
   const tray = useMemo(() => createTray(numbers), [numbers])
   const blockBudget = Math.floor(numbers.length / 2)
 
   const [expr, setExprState] = useState<ExpressionTree>(createExpression)
   const [status, setStatus] = useState<GameStatus>('idle')
+  const [anchor, setAnchor] = useState<Anchor | null>(null)
 
   /**
    * Every change to the tree goes through here so that a "wrong" verdict
@@ -350,9 +396,15 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
 
   // ------------------------------------------------------------- placing
 
+  // The surface is resolved from the current render's tree rather than
+  // inside the updater, because the anchor has to be recorded alongside the
+  // placement and `setExpr`'s updater has to stay pure. Safe because every
+  // caller places exactly one chip per event (a tap, or one hint press).
   const placeNumber = useCallback((leaf: Leaf) => {
-    setExpr(e => placeLeafAt(e, nextOpenSurface(e, 'operand'), leaf))
-  }, [])
+    const surface = nextOpenSurface(expr, 'operand')
+    setAnchor(surfaceAnchor(expr.root.children, surface))
+    setExpr(e => placeLeafAt(e, surface, leaf))
+  }, [expr, setExpr])
 
   // `nextOpenSurface` is purely structural and always names a position,
   // including one past the end — the puzzle's own budget is this layer's
@@ -367,33 +419,35 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   }, [numbers.length])
 
   // Tapping is dragging's own resolution, just found without a hover
-  // position: `nextBlockTarget` finds the first eligible root position in
-  // document order, and `resolveBlockDrop` resolves it exactly as it would
-  // for a drag released there — wrapping an existing pair, not just landing
-  // on an empty slot (concept: "Tippen ist dieselbe Operation mit anderem
-  // Auslöser", PO).
+  // position: it borrows the anchor — the root position the player last
+  // worked at — and resolves there exactly as a drag released on that spot
+  // would (concept: "Tippen ist dieselbe Operation mit anderem Auslöser",
+  // PO). `tapBlockTarget` scans outward from the anchor, so a spot already
+  // taken by a bracket simply passes the turn to the next one.
   const placeBlock = useCallback(() => {
     setExpr(e => {
-      const index = nextBlockTarget(e.root.children)
-      const resolved = resolveBlockDrop(e.root.children, index)
-      if (!resolved) return e
-      return withRootChildren(e, applyBlockDrop(e.root.children, index, resolved))
+      const width = rootWidth(e.root.children, numbers.length)
+      const start = tapBlockTarget(e.root.children, anchorIndex(e.root.children, anchor), width)
+      if (start === null) return e
+      return withRootChildren(e, applyBlockDrop(e.root.children, start, width))
     })
-  }, [])
+  }, [anchor, numbers.length, setExpr])
 
   /**
    * The same placement at a *named* root position — what a block dragged
    * there does (concept 6.1), and what the hint needs: its continuation
-   * decides where the block belongs, and `nextBlockTarget`'s "first
-   * eligible position" is only right for a tap (see HintMove's own note).
+   * decides where the block belongs, and `tapBlockTarget`'s anchor — where
+   * the *player* last worked — is only right for a tap (see HintMove's own
+   * note).
    */
   const placeBlockAt = useCallback((index: number) => {
     setExpr(e => {
-      const resolved = resolveBlockDrop(e.root.children, index)
-      if (!resolved) return e
-      return withRootChildren(e, applyBlockDrop(e.root.children, index, resolved))
+      const width = rootWidth(e.root.children, numbers.length)
+      const start = resolveBlockDrop(e.root.children, index, width)
+      if (start === null) return e
+      return withRootChildren(e, applyBlockDrop(e.root.children, start, width))
     })
-  }, [setExpr])
+  }, [setExpr, numbers.length])
 
   /**
    * A tray number dropped on the *right* bracket edge of the block at
@@ -420,12 +474,15 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
 
   const onTapNumber = useCallback((id: string) => {
     if (placedIds.has(id)) {
+      // Taking a number back is where the player is working just as much as
+      // putting one down is, so it moves the anchor to the slot it emptied.
+      setAnchor(removedAnchor(expr.root.children, id))
       setExpr(e => removeLeafById(e, id))
       return
     }
     const leaf = tray.find(n => n.id === id)
     if (leaf) placeNumber(leaf)
-  }, [placedIds, tray, placeNumber])
+  }, [placedIds, tray, placeNumber, expr, setExpr])
 
   const onTapOperator = useCallback((op: Operator) => {
     placeOperator(op)
@@ -444,8 +501,10 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
 
   /** Expression.tsx's callback: tapping a placed leaf returns it (concept 6.6). */
   const onTapLeaf = useCallback((id: string) => {
+    const next = removedAnchor(expr.root.children, id)
+    if (next) setAnchor(next) // an operator leaves the anchor where it is
     setExpr(e => removeLeafById(e, id))
-  }, [])
+  }, [expr, setExpr])
 
   /** Tapping a bracket edge dissolves that group; content stays (concept 6.5). */
   const onDissolveGroup = useCallback((groupId: string) => {
@@ -474,6 +533,27 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     // block used to delete it, which is half of what the fourth device
     // round reported as "it removes the operator".
     if (target === 'refused') return
+
+    // The anchor a tapped block chip borrows follows a dragged *number* the
+    // same way it follows a tapped one (see `Anchor`): to wherever the
+    // number ends up, or to the slot it left when it is dragged off the
+    // board. A block, an operator, and a refused drop all leave it alone.
+    if (item.data.role === 'number') {
+      if (!target) {
+        setAnchor(removedAnchor(expr.root.children, item.id))
+      } else {
+        const parsedTarget = parseZoneId(target.zoneId)
+        if (parsedTarget?.target === 'root') {
+          setAnchor({ index: parsedTarget.index })
+        } else if (parsedTarget !== null) {
+          // inside a bracket, or on one of its edges: the bracket's own root
+          // position is the nearest thing to anchor on
+          const groupIndex = findGroupIndex(expr.root.children, parsedTarget.groupId)
+          if (groupIndex !== -1) setAnchor({ index: groupIndex })
+        }
+      }
+    }
+
     if (!target) {
       if (item.data.role === 'block' && item.data.origin === 'field') {
         // "aus dem Feld ziehen und loslassen" (concept 6.5's table): the
@@ -564,9 +644,10 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       if (item.data.role === 'block') {
         if (surface.groupId !== null) return e // a block only ever targets a root position
         if (blocksUsed >= blockBudget) return e // same cap the tray chip disables itself for (concept 4: ⌊n/2⌋)
-        const resolved = resolveBlockDrop(e.root.children, surface.index)
-        if (!resolved) return e
-        return withRootChildren(e, applyBlockDrop(e.root.children, surface.index, resolved))
+        const width = rootWidth(e.root.children, numbers.length)
+        const start = resolveBlockDrop(e.root.children, surface.index, width)
+        if (start === null) return e
+        return withRootChildren(e, applyBlockDrop(e.root.children, start, width))
       }
 
       const existing = findLeaf(e.root.children, item.id)
@@ -647,7 +728,7 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
       }
       return e // swapping between root and a group's interior isn't a supported gesture (concept 6.5 only describes swapping among root-level operands)
     })
-  }, [tray, blocksUsed, blockBudget, numbers.length])
+  }, [tray, blocksUsed, blockBudget, numbers.length, expr, setExpr])
 
   // ------------------------------------------------------------- submit
 

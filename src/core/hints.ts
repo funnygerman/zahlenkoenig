@@ -42,7 +42,7 @@ export type HintMove =
   /**
    * A block, at the root position the continuation needs it at. The
    * position is part of the move because a *tap* can't choose one —
-   * `nextBlockTarget` always takes the first eligible position — and the
+   * `tapBlockTarget` takes the position the *player* last worked at — and the
    * continuation's block is frequently somewhere else: `2 × (1+3)` from a
    * board already reading `2 ×` needs it at index 2, and placing it at 0
    * instead wrapped the `2` into `(2) ×` and left a board the hint could

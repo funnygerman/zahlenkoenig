@@ -345,56 +345,101 @@ export function nextOpenRootSurface(expr: Expression, kind: DropZoneKind): Surfa
 }
 
 // ------------------------------------------------------- block drop targeting
-// concept 6.1: what dropping the block chip onto existing content encloses.
-// Only resolves operand-position targets for now — 6.1 also lets an
-// operator position work identically to the operand-pair it belongs to
+// concept 6.1: what placing the block chip encloses, for a drag *and* for a
+// tap (PO). Only resolves operand-position targets for now — 6.1 also lets
+// an operator position work identically to the operand-pair it belongs to
 // (the "nützliche Überschneidung"), but wiring that up needs the drag layer
 // to treat a dragged block as matching both zone kinds, which useDrag.ts
 // doesn't support yet (TODO, noted where the block chip's drag is wired).
+//
+// **A block always encloses exactly three root positions** (PO revision).
+// The three cases this used to have — an empty slot gets a bare block, a
+// number with a real partner gets a pair, a number with none gets wrapped
+// alone — are the same operation seen at different degrees of fullness,
+// because a group is minimum-shaped to three slots regardless (concept
+// 6.3). Collapsing them is what lets `a +` become `(a + ⬚)`: the old rule
+// asked whether the operand two to the right was a *real placed number*,
+// found none, and fell back to wrapping the `a` by itself.
 
-export type BlockDropResult =
-  | { kind: 'empty' } // an empty operand slot: place a bare, still-empty group there (concept 6.1's first row)
-  | { kind: 'wrap'; span: 1 | 3; start: number } // existing content: enclose it (concept 6.1/6.2)
-
-/** A real, placed operand — not an open gap, not past the end, and not a group (a group can't hold another group, concept section 4). */
+/** A real, placed operand or operator — not an open gap, not past the end, and not a group (a group can't hold another group, concept section 4). */
 function isPlainLeaf(children: RootChildren, index: number): boolean {
   const slot = children[index]
   return slot !== null && slot !== undefined && slot.kind !== 'group'
 }
 
-/**
- * Resolves what dropping a block chip at root `index` (an operand
- * position) would enclose. Right-before-left (concept 6.1: "weil eine
- * angetippte Zahl sich wie 'hier beginnt die Klammer' liest — in
- * Leserichtung"): prefers the pair to the right, falls back to the pair on
- * the left, and finally encloses the lone number if neither pair is
- * available. Never reaches into or across an existing group — a group
- * can't contain another group (concept section 4), so `isPlainLeaf`
- * treats a neighboring group the same as a missing neighbor.
- *
- * Only the *other operand* of a pair has to be a real, placed leaf —
- * `6, ⬚, 2` (two numbers with no operator tapped between them yet, concept
- * 3.1's "zwei Zahlen hintereinander") is exactly as pairable as `6, +, 2`.
- * The operator position between them isn't checked at all: it travels into
- * the new group either way, filled or not, the same as any other gap a
- * group already shows inside itself (concept 6.3).
- */
-export function resolveBlockDrop(children: RootChildren, index: number): BlockDropResult | null {
-  if (index % 2 !== 0) return null // operator position — not resolved in this pass, see the note above
+function isGroupAt(children: RootChildren, index: number): boolean {
   const slot = children[index]
-  // `undefined` (the trailing frontier, beyond the array's current length)
-  // is an open operand slot exactly like a stored `null` — only the
-  // reason differs, not the outcome.
-  if (slot === null || slot === undefined) return { kind: 'empty' }
-  if (slot.kind === 'group') return null // already a group — not a valid block target
+  return slot !== null && slot !== undefined && slot.kind === 'group'
+}
 
-  if (isPlainLeaf(children, index + 2)) {
-    return { kind: 'wrap', span: 3, start: index }
+/**
+ * How many root positions this board has: 2n−1 board positions in all
+ * (concept 15: n numbers always take n−1 operators), less 2 for every group
+ * already placed — a group shows three board positions inside a single root
+ * slot. This is what keeps a block from enclosing positions the puzzle
+ * doesn't have: without it, a wrap near the right edge silently invents a
+ * fourth number's worth of slots that nothing could ever fill.
+ */
+export function rootWidth(children: RootChildren, numbersCount: number): number {
+  let groups = 0
+  for (let i = 0; i < children.length; i++) if (isGroupAt(children, i)) groups += 1
+  return (2 * numbersCount - 1) - 2 * groups
+}
+
+/** Whether a bracket may begin at `start`: on the board, and crossing no existing group (concept section 4 — brackets never nest, so they never overlap either). */
+function bracketFits(children: RootChildren, start: number, width: number): boolean {
+  if (start < 0 || start % 2 !== 0 || start + 2 > width - 1) return false
+  return !isGroupAt(children, start) && !isGroupAt(children, start + 1) && !isGroupAt(children, start + 2)
+}
+
+/**
+ * Where a block released at root `index` puts its brackets — the root
+ * position its left edge lands on, or null when nothing fits there.
+ *
+ * An **empty** slot keeps concept 6.1's first row: the block lands exactly
+ * where it was put, enclosing that position and the two after it. Only a
+ * slot that already holds something looks sideways, and then it is **right
+ * before left** (6.1: "weil eine angetippte Zahl sich wie 'hier beginnt die
+ * Klammer' liest — in Leserichtung"). "Something to the right" means a
+ * placed operator *or* a placed operand two along: either one makes the
+ * rightward pair the one being read, and requiring the operand alone was
+ * what left `a +` wrapping its `a` by itself. Keeping the operand half of
+ * that test is what preserves `6, ⬚, 2` — two numbers with no operator
+ * tapped between them yet (concept 3.1) — as a pair.
+ */
+export function resolveBlockDrop(children: RootChildren, index: number, width: number): number | null {
+  if (index % 2 !== 0) return null // operator position — not resolved in this pass, see the note above
+  if (isGroupAt(children, index)) return null // already a group — not a valid block target
+  if (!isPlainLeaf(children, index)) return bracketFits(children, index, width) ? index : null
+
+  const rightIsReadable = isPlainLeaf(children, index + 1) || isPlainLeaf(children, index + 2)
+  const order = rightIsReadable ? [index, index - 2] : [index - 2, index]
+  for (const start of order) if (bracketFits(children, start, width)) return start
+  return null
+}
+
+/**
+ * Where a *tapped* block chip lands (PO). Tapping names no position, so it
+ * borrows one: `anchor` is the root position the player last worked at (the
+ * number they placed, moved, or took back). From there it is the very same
+ * resolution a drag would find — concept section 3's "Tippen ist dieselbe
+ * Operation mit anderem Auslöser" is literally true again, which it stopped
+ * being once tapping got its own document-order rule.
+ *
+ * Scanning outward from the anchor is what makes a second bracket need no
+ * rule of its own: with one bracket down there is at most one place three
+ * consecutive bracket-free positions still fit, so the scan finds it or
+ * finds nothing and the tap does nothing at all.
+ */
+export function tapBlockTarget(children: RootChildren, anchor: number, width: number): number | null {
+  const candidates = [anchor]
+  for (let step = 2; step <= width; step += 2) candidates.push(anchor + step, anchor - step)
+  for (const index of candidates) {
+    if (index < 0 || index > width - 1) continue
+    const start = resolveBlockDrop(children, index, width)
+    if (start !== null) return start
   }
-  if (isPlainLeaf(children, index - 2)) {
-    return { kind: 'wrap', span: 3, start: index - 2 }
-  }
-  return { kind: 'wrap', span: 1, start: index }
+  return null
 }
 
 /** concept 6.3: "Ein Block zeigt immer sein Minimum" — operand, operator, operand. A freshly wrapped or placed group always shows at least this much, even when the leaf(ves) it encloses don't fill it. */
@@ -405,34 +450,23 @@ export function withMinimumShape(children: (Leaf | null)[]): (Leaf | null)[] {
 }
 
 /**
- * Where a *tapped* block chip lands — concept section 3's "Tippen ist
- * dieselbe Operation mit anderem Auslöser" (PO): the same resolution a drag
- * would find hovering over the first eligible root position, in document
- * order. Both an open gap and a real, placed leaf are eligible (either is a
- * valid `resolveBlockDrop` target); only an existing group is skipped, the
- * same way `resolveBlockDrop` itself refuses one.
+ * Applies a resolved block placement (concept 6.1/6.9): the three root
+ * positions from `start` become one group, minimum-shaped (concept 6.3) so
+ * a bracket over still-empty positions shows `⬚ ○ ⬚` like any other.
+ *
+ * `children` is padded to the board's full width first, because the
+ * positions a bracket encloses are frequently ones the *scaffold* draws and
+ * the tree has never stored (`trimTrailingGaps`): without the padding,
+ * wrapping at index 4 of a one-element array splices the group in at the
+ * end instead of at position 4.
  */
-export function nextBlockTarget(children: RootChildren): number {
-  for (let i = 0; i < children.length; i += 2) {
-    const slot = children[i]
-    if (slot === null || slot.kind !== 'group') return i
-  }
-  return positionPastEnd(children.length, 'operand')
-}
-
-/**
- * Applies an already-resolved block placement/wrap (concept 6.1/6.9) to
- * `children`, minimum-shaping a freshly wrapped group the same way a freshly
- * placed empty one already is (concept 6.3) — one place for that rule
- * instead of two, now that both the tap and drag paths resolve through
- * `resolveBlockDrop` and need to apply the result the same way.
- */
-export function applyBlockDrop(children: RootChildren, index: number, resolved: BlockDropResult): (Leaf | Group | null)[] {
-  if (resolved.kind === 'empty') return placeAt(children, index, createEmptyGroup())
-  const wrapped = wrapGroup(children, resolved.start, resolved.span)
-  const group = wrapped[resolved.start]
+export function applyBlockDrop(children: RootChildren, start: number, width: number): (Leaf | Group | null)[] {
+  const padded: (Leaf | Group | null)[] = children.slice()
+  while (padded.length < width) padded.push(null)
+  const wrapped = wrapGroup(padded, start, 3)
+  const group = wrapped[start]
   if (group !== null && group.kind === 'group') {
-    wrapped[resolved.start] = { ...group, children: withMinimumShape(group.children) }
+    wrapped[start] = { ...group, children: withMinimumShape(group.children) }
   }
   return wrapped
 }

@@ -29,7 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The three-number-group round
+**Nothing is open that has been scoped.** The block-anchor round below is
+the most recent piece of PO-asked scope; before it, the three-number-group
+round
 closed the last measured gap (see "Where v2 stands"): the hint's search
 now reaches everything `solver.ts`'s `reachable()` does at two, three and
 four numbers — 0 walled boards over 19 100 real draws, and the exhaustive
@@ -137,6 +139,104 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**A block-anchor round changed where a bracket lands — the single rule is
+now "the bracket encloses three board positions, starting at the number you
+last worked on".** PO-asked scope, not a step; concept 16's roadmap was
+finished long before it. The report: *"every time I tap the block chip it
+gets added at the beginning, so I often have to move it somewhere else."*
+
+*The diagnosis was that the resolution was fine and the **anchor** was
+wrong.* `resolveBlockDrop` already encoded right-before-left exactly as
+concept 6.1 states it. What tapping did was invent a position for it —
+`nextBlockTarget`, "first eligible root position in document order", which
+is the leftmost one in practice. So a player mid-build got a bracket at the
+far end of the row from where they were standing.
+
+*The first proposal was measured and withdrawn before it was built.* Told
+the anchor should be "the last chip touched, of any kind" (so that an
+operator just placed would put the bracket in the slot after it), the PO's
+own worked examples showed that rule needs a bespoke operator branch to get
+`a + b −` right — while anchoring on the last **number** and reading the
+operator to its right gets it for free. **The anchor moves only with
+numbers, never with operators**, and that is load-bearing rather than
+incidental: the rule *reads* the operator to the anchor's right to decide
+which way the bracket faces, so an operator that moved the anchor would be
+answering its own question. The bespoke branch was the tell that the
+invariant was wrong.
+
+*Three cases collapsed into none.* An empty slot getting a bare block, a
+number with a real partner getting a pair, and a number with no partner
+getting wrapped alone are the same operation at different degrees of
+fullness — `withMinimumShape` pads every bracket to three slots regardless,
+so "wrap this number alone" already *was* "wrap this number and the two open
+positions after it". `BlockDropResult` is gone; `resolveBlockDrop` returns
+the start index or null. **The PO's own bracket rules turned out to need no
+code at all**: with one bracket down there is at most one place three
+consecutive bracket-free positions still fit, so "bracket on the left → the
+new one goes right", "on the right → left", "in the middle → nothing
+happens" fall straight out of the geometry.
+
+*The one refinement that keeps an old fix alive:* the rightward test is
+"a **placed operator** to the right **or** a real operand two along" — an
+`or`, not a swap. Requiring only the operand was the original bug (`a +`
+fell back to `(a ⬚ ⬚)`); requiring only the operator would undo decisions
+§3's `6, ⬚, 2` fix, where two numbers with no operator between them are
+already a pair. `expression.test.ts` pins both halves.
+
+**Drag got the same rule, on the PO's call.** The alternative — change tap
+only, leave concept 6.1 untouched for drag — was defensible (a drag names a
+position and shows a preview; a tap does neither, so they were arguably
+never the same operation). Measured before building: on a *complete*
+expression the wider test gives identical results to the old one, because
+wherever a placed operator sits to the right a real number does too. It
+changes half-built boards only, and there for the better. So one rule, and
+decisions §3's "Tippen ist dieselbe Operation mit anderem Auslöser" is
+literally true again — `tapBlockTarget` calls the very `resolveBlockDrop`
+the drag path calls.
+
+*A removal counts as working at that spot* — taking `b` off `a + b + c + d`
+anchors on the gap, so the block chip makes `a + (⬚ + c) + d`. The
+alternative, "the last chip **placed** counts", points at a number several
+taps old and needs a second rule for what a removal means. `Anchor` is a
+leaf **id** while the number is on the board (ids survive every wrap,
+dissolve and absorb that shifts root indices) and the position it left once
+it isn't — the only approximate case, and an anchor a position out lands the
+bracket beside where the player was, never on an illegal board: `bracketFits`
+decides what is legal, never the anchor.
+
+*`rootWidth` is new and is what keeps the rule honest.* A bracket over three
+positions must not run past the board's end, or it invents a slot no chip
+can fill. It is 2n−1 less 2 per placed group, since a group shows three
+board positions inside one root slot. Without it, the PO's
+"bracket in the middle" case would have produced `a + (b + c) + (d ⬚ ⬚)` —
+five numbers' worth of slots on a four-number board.
+
+*The risk in the round was `hints.ts`, and it is why the empty-slot case
+does not slide sideways.* A hint's block move names its own index, and
+`completions` orders its moves around the old semantics: a bracket over
+three *empty* positions is placed first, one over chips already down last.
+A rule that let an empty target drift leftward would have turned the hint's
+"bracket at 2" on a `2 ×` board into a wrap of the `2` — the exact bug
+`HintMove`'s own note records. An empty slot therefore stays exactly where
+it was put, which is also what concept 6.1's first row always said. All 22
+hint tests pass untouched.
+
+*Verified in a real browser, not only in jsdom* (Playwright, real pointer
+events, 390px): the PO's three worked examples reproduce exactly, a second
+bracket lands `(a+b) ⬚ (⬚○⬚)`, and **the two drag cases behave identically
+to the taps** — including the one that changed, a block dragged onto `a`
+with only `a +` on the board, which used to give `(a ⬚ ⬚) +` and now gives
+`(a + ⬚)`. Six freshly generated four-number boards were played by hint to
+the budget with no dead-end border and no page errors, and the onboarding
+bracket puzzle still opens `(⬚ ○ ⬚)` on an untouched field, which is what
+its card teaches.
+
+*One existing test changed its assertion, and the change is the feature.*
+`useGame.test.ts`'s flat `6 + 2 × 9 − 3` built by tapping and then bracketed
+twice used to wrap `(6+2)` first; the anchor sits on the `3`, so it wraps
+`(9−3)` first now. Both taps arrive at the same `(6+2) × (9−3)` — only the
+order follows the player instead of the document.
 
 **An SEO round gave the page something to find.** Like the footer/history
 and onboarding rounds, this is scope the PO asked for after concept 16's

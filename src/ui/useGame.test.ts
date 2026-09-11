@@ -1,7 +1,7 @@
 import { describe, it, expect } from 'vitest'
 import { act, renderHook } from '@testing-library/react'
 import { useGame } from './useGame'
-import type { Operator } from '../core/expression'
+import { operatorGlyph, type Operator } from '../core/expression'
 
 const ALL_OPS: Operator[] = ['+', '-', '*', '/']
 
@@ -333,7 +333,7 @@ describe('useGame — tapping the block chip wraps content already on the board 
     expect((after[2] as { kind: string }).kind).toBe('group')
   })
 
-  it('the whole flat expression placed, then the block chip twice: wraps the first pair, then the next one — the full bracketed shape, without ever dissolving anything', () => {
+  it('the whole flat expression placed, then the block chip twice: wraps the pair the player last worked on, then the other one — the full bracketed shape, without ever dissolving anything', () => {
     const { result } = setup([6, 2, 9, 3], 48) // budget 2
     act(() => result.current.onTapNumber(idOf(result.current, 6)))
     act(() => result.current.onTapOperator('+'))
@@ -344,18 +344,150 @@ describe('useGame — tapping the block chip wraps content already on the board 
     act(() => result.current.onTapNumber(idOf(result.current, 3)))
     expect(result.current.expr.root.children).toHaveLength(7) // 6 + 2 * 9 - 3, no groups yet
 
+    // The anchor sits on the 3 — the last number placed — so the first
+    // bracket is the tail pair, not the head one. Document order used to
+    // decide this and always started at the left; the shape both taps
+    // arrive at is the same either way, only the order differs.
     act(() => result.current.onTapBlock())
     const afterFirst = result.current.expr.root.children
-    expect(afterFirst).toHaveLength(5) // (6+2), *, 9, -, 3
-    expect((afterFirst[0] as { kind: string; children: unknown[] }).children).toMatchObject([{ value: 6 }, { value: '+' }, { value: 2 }])
+    expect(afterFirst).toHaveLength(5) // 6, +, 2, *, (9-3)
+    expect((afterFirst[4] as { kind: string; children: unknown[] }).children).toMatchObject([{ value: 9 }, { value: '-' }, { value: 3 }])
 
     act(() => result.current.onTapBlock())
     const afterSecond = result.current.expr.root.children
     expect(afterSecond).toHaveLength(3) // (6+2), *, (9-3) — concept 12.5's worst case, reached from flat content
-    expect((afterSecond[0] as { id: string }).id).toBe((afterFirst[0] as { id: string }).id) // first group untouched
-    expect((afterSecond[2] as { kind: string; children: unknown[] }).children).toMatchObject([{ value: 9 }, { value: '-' }, { value: 3 }])
+    expect((afterSecond[2] as { id: string }).id).toBe((afterFirst[4] as { id: string }).id) // the first group is untouched
+    expect((afterSecond[0] as { kind: string; children: unknown[] }).children).toMatchObject([{ value: 6 }, { value: '+' }, { value: 2 }])
     expect(result.current.blockDisabled).toBe(true) // both units of budget now used
     expect(result.current.result).toBe(48)
+  })
+})
+
+describe('useGame — a tapped block chip anchors on where the player last worked (concept 6.1, PO revision)', () => {
+  // The rule in one sentence: the bracket encloses three board positions,
+  // starting at the number the player last placed, moved or took back —
+  // facing right when something is already there, left otherwise. The three
+  // worked examples below are the PO's own, step by step.
+  //
+  // `shape` renders just enough of the tree to read a bracket off it.
+  type Node = { kind: string; value?: number | string; children?: Node[] }
+  const label = (n: Node | null) =>
+    n === null ? '_' : n.kind === 'operator' ? operatorGlyph(n.value as Operator) : String(n.value)
+  const shape = (children: readonly unknown[]) =>
+    (children as (Node | null)[]).map(c =>
+      c !== null && c.kind === 'group' ? '(' + (c.children ?? []).map(label).join(' ') + ')' : label(c)
+    ).join(' ')
+
+  it('a number, then an operator: the bracket faces right and takes the empty slot with it — (a + ⬚)', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapBlock())
+    expect(shape(result.current.expr.root.children)).toBe('(6 + _)')
+  })
+
+  it('a number, an operator, a number: nothing to the right yet, so it faces left and wraps all three — (a + b)', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapBlock())
+    expect(shape(result.current.expr.root.children)).toBe('(6 + 2)')
+  })
+
+  it('one operator further on, the same anchor faces right again — a + (b − ⬚)', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapOperator('-'))
+    act(() => result.current.onTapBlock())
+    // the anchor is still the 2 — an operator never moves it, it only
+    // changes which way the bracket reads from there
+    expect(shape(result.current.expr.root.children)).toBe('6 + (2 − _)')
+  })
+
+  it('the same flat board brackets its head or its tail depending on which number was touched last', () => {
+    const build = () => {
+      const { result } = setup([6, 2, 9, 3], 48)
+      act(() => result.current.onTapNumber(idOf(result.current, 6)))
+      act(() => result.current.onTapOperator('+'))
+      act(() => result.current.onTapNumber(idOf(result.current, 2)))
+      act(() => result.current.onTapOperator('*'))
+      act(() => result.current.onTapNumber(idOf(result.current, 9)))
+      return result
+    }
+
+    const tail = build()
+    act(() => tail.current.onTapBlock())
+    expect(shape(tail.current.expr.root.children)).toBe('6 + (2 × 9)')
+
+    const head = build()
+    act(() => head.current.onTapNumber(idOf(head.current, 6))) // take the 6 back...
+    act(() => head.current.onTapNumber(idOf(head.current, 6))) // ...and put it down again
+    act(() => head.current.onTapBlock())
+    expect(shape(head.current.expr.root.children)).toBe('(6 + 2) × 9')
+  })
+
+  it('taking a number back moves the anchor to the slot it emptied', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapOperator('*'))
+    act(() => result.current.onTapNumber(idOf(result.current, 9)))
+    act(() => result.current.onTapOperator('-'))
+    act(() => result.current.onTapNumber(idOf(result.current, 3)))
+
+    act(() => result.current.onTapNumber(idOf(result.current, 2))) // take the 2 back
+    act(() => result.current.onTapBlock())
+    // the emptied slot is where the player is, and the × to its right makes
+    // the bracket face that way
+    expect(shape(result.current.expr.root.children)).toBe('6 + (_ × 9) − 3')
+  })
+
+  it('an operator never moves the anchor — only numbers do', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapLeaf(result.current.expr.root.children[1]!.id)) // take the + back
+    act(() => result.current.onTapBlock())
+    expect(shape(result.current.expr.root.children)).toBe('(6 _ 2)') // still anchored on the 2
+  })
+
+  it('a bracket already on the left leaves only the right end for the second one (PO)', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapBlock())
+    expect(shape(result.current.expr.root.children)).toBe('(6 + 2)')
+
+    act(() => result.current.onTapBlock())
+    expect(shape(result.current.expr.root.children)).toBe('(6 + 2) _ (_ _ _)')
+  })
+
+  it('a bracket in the middle leaves nowhere at all, and the tap does nothing rather than something wrong (PO)', () => {
+    const { result } = setup([6, 2, 9, 3], 48)
+    act(() => result.current.onTapNumber(idOf(result.current, 6)))
+    act(() => result.current.onTapOperator('+'))
+    act(() => result.current.onTapNumber(idOf(result.current, 2)))
+    act(() => result.current.onTapOperator('*'))
+    act(() => result.current.onTapNumber(idOf(result.current, 9)))
+    act(() => result.current.onTapBlock()) // anchored on the 9 -> 6 + (2 × 9)
+    expect(shape(result.current.expr.root.children)).toBe('6 + (2 × 9)')
+
+    const before = result.current.expr
+    act(() => result.current.onTapBlock())
+    expect(result.current.expr).toBe(before) // budget left, but no three free positions in a row
+    expect(result.current.blockDisabled).toBe(false)
+  })
+
+  it('an untouched board still opens its bracket at the very start — the first-run card teaches exactly this', () => {
+    const { result } = setup([1, 1, 1, 3], 9)
+    act(() => result.current.onTapBlock())
+    expect(shape(result.current.expr.root.children)).toBe('(_ _ _)')
   })
 })
 
