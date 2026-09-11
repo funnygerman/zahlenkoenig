@@ -1,5 +1,11 @@
 <!doctype html>
-<html lang="de">
+<!-- English, matching the app's own fallback language: `detectLanguage()`
+     returns 'en' for anything it does not recognise and
+     `DEFAULT_SETTINGS.language` is 'en' (core/settings.ts). Game.tsx
+     rewrites this attribute to the player's detected language on mount, so
+     this value is what a crawler reads and what an unrecognised locale
+     gets — exactly the two cases the i18n fallback already covers. -->
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/zahlenkoenig/crown.svg" />
@@ -11,48 +17,50 @@
          why this and the manifest's theme_color have to stay in sync by hand. -->
     <meta name="theme-color" content="#2962ae" />
 
-    <title>Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel</title>
+    <title>Zahlenkönig – a free number puzzle game</title>
     <meta
       name="description"
-      content="Kostenloses Rechenrätsel: Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Plus, Minus, Mal, Geteilt und Klammern."
+      content="Reach the target using every number exactly once. Plus, minus, times, divide and brackets you place yourself. Free, no sign-up, plays offline."
     />
     <meta name="author" content="funnygerman" />
     <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
     <!-- One page, one URL. The app is a single view whose state (puzzle,
          language, settings) lives in LocalStorage rather than in the URL,
          so there is nothing else to canonicalize to and no query string a
-         crawler could turn into a duplicate. -->
+         crawler could turn into a duplicate. That is also why there are no
+         hreflang tags: the app runs in three languages off this one URL,
+         and hreflang needs a second URL to point at. -->
     <link rel="canonical" href="https://funnygerman.github.io/zahlenkoenig/" />
 
-    <!-- Sharing previews (Open Graph / Twitter). The absolute URLs are
-         required by both specs — a relative og:image is ignored by most
-         scrapers — so they repeat the deployed base from vite.config.ts's
-         `base`. src/seo.test.ts pins the two to each other. -->
+    <!-- Sharing previews (Open Graph / Twitter). A scraper fetches this URL
+         from its own server, once, with no idea who will see the result, so
+         a card is fixed per URL and cannot follow a reader's language the
+         way the app itself does — which is the same reason this page is in
+         the fallback language rather than in any particular player's. The
+         game's own name stays German because it is a name.
+         The absolute URLs are required by both specs — a relative og:image
+         is ignored by most scrapers — so they repeat the deployed base from
+         vite.config.ts's `base`. src/seo.test.ts pins the two to each
+         other, and pins the Twitter card to the Open Graph one so the two
+         can't drift apart. -->
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Zahlenkönig" />
-    <meta property="og:title" content="Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel" />
+    <meta property="og:title" content="Zahlenkönig – a free number puzzle game" />
     <meta
       property="og:description"
-      content="Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Kostenlos, ohne Anmeldung, offline spielbar."
+      content="Reach the target using every number exactly once. Plus, minus, times, divide — and brackets you place yourself. No sign-up, plays offline."
     />
     <meta property="og:url" content="https://funnygerman.github.io/zahlenkoenig/" />
     <meta property="og:image" content="https://funnygerman.github.io/zahlenkoenig/og-image.png" />
     <meta property="og:image:width" content="1200" />
     <meta property="og:image:height" content="630" />
-    <meta property="og:image:alt" content="Zahlenkönig: die Aufgabe (6 + 2) × (9 − 3) mit dem Ziel 48" />
-    <!-- The served HTML is German (`lang` above). The app itself detects
-         the player's language on first visit (core/settings.ts) and
-         supports English and Russian too, but all three live at this one
-         URL, so these are alternates rather than hreflang targets — there
-         is no second URL to point an hreflang at. -->
-    <meta property="og:locale" content="de_DE" />
-    <meta property="og:locale:alternate" content="en_US" />
-    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta property="og:image:alt" content="Zahlenkönig: the puzzle (6 + 2) × (9 − 3) with the target 48" />
+    <meta property="og:locale" content="en_US" />
     <meta name="twitter:card" content="summary_large_image" />
-    <meta name="twitter:title" content="Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel" />
+    <meta name="twitter:title" content="Zahlenkönig – a free number puzzle game" />
     <meta
       name="twitter:description"
-      content="Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Kostenlos, ohne Anmeldung, offline spielbar."
+      content="Reach the target using every number exactly once. Plus, minus, times, divide — and brackets you place yourself. No sign-up, plays offline."
     />
     <meta name="twitter:image" content="https://funnygerman.github.io/zahlenkoenig/og-image.png" />
 
@@ -69,19 +77,19 @@
             "@id": "https://funnygerman.github.io/zahlenkoenig/#website",
             "url": "https://funnygerman.github.io/zahlenkoenig/",
             "name": "Zahlenkönig",
-            "inLanguage": ["de", "en", "ru"]
+            "inLanguage": ["en", "de", "ru"]
           },
           {
             "@type": ["SoftwareApplication", "Game"],
             "@id": "https://funnygerman.github.io/zahlenkoenig/#app",
             "name": "Zahlenkönig",
             "url": "https://funnygerman.github.io/zahlenkoenig/",
-            "description": "Zahlenkönig ist ein Rechenrätsel für den Browser. Der Spieler bekommt zwei bis vier Zahlen und eine Zielzahl und muss das Ziel erreichen, indem er jede Zahl genau einmal benutzt. Erlaubt sind Plus, Minus, Mal und Geteilt sowie selbst gesetzte Klammern; welche Rechenzeichen, wie viele Zahlen und wie groß das Ziel sein soll, wählt der Spieler vorher aus. Jedes Rätsel wird auf dem Gerät erzeugt und ist garantiert lösbar.",
+            "description": "Zahlenkönig is a number puzzle for the browser. You are given two to four numbers and a target, and you have to reach the target using every number exactly once. Plus, minus, times and divide are allowed, as are brackets you place yourself; how many numbers, which operators and how big the target should be are all chosen before you start. Every puzzle is generated on the device and is guaranteed to be solvable.",
             "applicationCategory": ["GameApplication", "EducationalApplication"],
             "applicationSubCategory": "Puzzle",
             "operatingSystem": "Web browser (Android, iOS, Windows, macOS, Linux)",
             "browserRequirements": "Requires JavaScript",
-            "inLanguage": ["de", "en", "ru"],
+            "inLanguage": ["en", "de", "ru"],
             "isAccessibleForFree": true,
             "offers": {
               "@type": "Offer",
@@ -91,20 +99,20 @@
             "audience": {
               "@type": "EducationalAudience",
               "educationalRole": "student",
-              "audienceType": "Grundschulkinder ab der ersten Klasse bis Erwachsene"
+              "audienceType": "From first-graders to adults"
             },
-            "educationalUse": "Kopfrechnen üben, Grundrechenarten, Punkt-vor-Strich, Klammerrechnung",
-            "teaches": "Kopfrechnen mit den vier Grundrechenarten und Klammern",
+            "educationalUse": "Mental arithmetic practice, the four basic operations, order of operations, brackets",
+            "teaches": "Mental arithmetic with the four basic operations and brackets",
             "featureList": [
-              "Zwei bis vier Zahlen pro Rätsel",
-              "Plus, Minus, Mal und Geteilt einzeln zuschaltbar",
-              "Klammern per Ziehen selbst setzen",
-              "Vier Zielgrößen von klein bis sehr groß",
-              "Tipp-Funktion, die den nächsten Zug setzt",
-              "Nur Rätsel mit genau einer Lösung, auf Wunsch",
-              "Bereits gelöste Rätsel wieder aufrufen",
-              "Ohne Anmeldung und ohne Werbung",
-              "Als App installierbar und offline spielbar"
+              "Two to four numbers per puzzle",
+              "Plus, minus, times and divide, each switched on separately",
+              "Brackets you place yourself by dragging",
+              "Four target sizes, from small to very large",
+              "A hint that plays the next move for you",
+              "Puzzles with exactly one solution, on request",
+              "Step back into puzzles you have already solved",
+              "No sign-up and no ads",
+              "Installable as an app and playable offline"
             ],
             "screenshot": "https://funnygerman.github.io/zahlenkoenig/og-image.png",
             "author": {
@@ -130,17 +138,17 @@
       <main style="max-width: 34rem; margin: 0 auto; padding: 2rem 1.25rem; font-family: system-ui, sans-serif; color: #223449; line-height: 1.55">
         <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem">Zahlenkönig</h1>
         <p>
-          Ein Rechenrätsel für den Browser: Du bekommst zwei bis vier Zahlen und ein Ziel.
-          Erreiche das Ziel und benutze dabei <strong>jede Zahl genau einmal</strong>.
+          A number puzzle for the browser: you get two to four numbers and a target.
+          Reach the target, and use <strong>every number exactly once</strong>.
         </p>
         <ul>
-          <li>Plus, Minus, Mal und Geteilt — du wählst selbst, welche Rechenzeichen vorkommen.</li>
-          <li>Klammern setzt du selbst, indem du eine Zahl auf den Klammerrand ziehst.</li>
-          <li>Ein Tipp setzt den nächsten Zug, wenn du nicht weiterkommst.</li>
-          <li>Von der ersten Klasse bis zum Kopfrechen-Profi: zwei bis vier Zahlen, vier Zielgrößen.</li>
-          <li>Kostenlos, ohne Anmeldung, ohne Werbung — installierbar und offline spielbar.</li>
+          <li>Plus, minus, times and divide — you choose which operators turn up.</li>
+          <li>Brackets are yours to place: drag a number onto a bracket edge to pull it inside.</li>
+          <li>A hint plays the next move when you get stuck.</li>
+          <li>From first-graders to mental-arithmetic veterans: two to four numbers, four target sizes.</li>
+          <li>Free, no sign-up, no ads — installable and playable offline.</li>
         </ul>
-        <p>Zum Spielen braucht diese Seite JavaScript. Ist es eingeschaltet, startet das Spiel sofort.</p>
+        <p>This page needs JavaScript to play. With it switched on, the game starts straight away.</p>
       </main>
     </div>
     <script type="module" src="/src/main.tsx"></script>

@@ -29,8 +29,12 @@ import viteConfig from '../vite.config.ts?raw'
  * change freely, the properties may not.
  */
 
-/** The one sentence the whole game turns on (concept 6.4, i18n's `introRule`). */
-const RULE = 'jede Zahl genau einmal'
+/**
+ * The one sentence the whole game turns on (concept 6.4). Matches i18n's
+ * English `introRule` word for word — the served page is in the app's own
+ * fallback language, so the two say the same thing by construction.
+ */
+const RULE = 'every number exactly once'
 
 function meta(attr: 'name' | 'property', key: string): string | null {
   const m = html.match(
@@ -73,6 +77,17 @@ describe('index.html, as a crawler receives it', () => {
     const image = meta('property', 'og:image')!
     expect(image.startsWith(siteUrl!)).toBe(true)
     expect(meta('name', 'twitter:image')).toBe(image)
+  })
+
+  it('says the same thing on the Open Graph and Twitter cards', () => {
+    // Two tag families describing one card, maintained by hand side by
+    // side: editing one and forgetting the other is the obvious mistake,
+    // and nothing else in the build notices. Deliberately checks that they
+    // are equal rather than what they say — the card is in English while
+    // the page is German (a scraper cannot follow a reader's language), and
+    // that choice should stay free to change without editing a test.
+    expect(meta('name', 'twitter:title')).toBe(meta('property', 'og:title'))
+    expect(meta('name', 'twitter:description')).toBe(meta('property', 'og:description'))
   })
 
   it('carries structured data that parses and points at the same URL', () => {

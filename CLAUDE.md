@@ -155,8 +155,8 @@ digits, and it never states the one real rule. Most LLM-based crawlers do
 the page was literally an empty div. So the fix is two-sided:
 
 - **`index.html`'s `#root` now holds the page as prose** — the name, the
-  rule ("jede Zahl genau einmal"), what the operators and brackets do, and
-  who it is for. `createRoot` clears its container on first render
+  rule ("every number exactly once"), what the operators and brackets do,
+  and who it is for. `createRoot` clears its container on first render
   (`src/main.tsx`), so this is the no-JavaScript fallback and the loading
   state in one, and it is never on screen beside the game.
 - **`Game.tsx` renders a visually hidden `<h1>` and one-sentence
@@ -175,8 +175,49 @@ scrolling (`scrollHeight === clientHeight`, which `tokens.css`'s own
 `overflow: hidden` already guaranteed since the stylesheet is
 render-blocking). With JavaScript off it is simply the page. Worth being
 plain about the tradeoff: on a slow phone there is now a brief flash of
-German prose where there used to be a blank white screen — which is the
+prose where there used to be a blank white screen — which is the
 comparison that matters, and it is an improvement rather than a cost.
+Confirmed by screenshot afterwards against a build of the previous commit:
+the mounted game is **pixel-identical**, same MD5, since the new `<h1>` is
+clipped to 1×1 and lives only in the accessibility tree. The first attempt
+at that comparison was worthless and worth remembering — both builds
+screenshotted at a fixed delay under CPU throttling, which sampled a race
+rather than controlling it (the "after" shot had already mounted). Turning
+JavaScript off in both holds the pre-mount paint still and treats them
+identically.
+
+**The served page is in English, and the sharing card with it (PO).** It
+started out German, matching the app's origin, and the PO's own question
+settled it: English is already the app's fallback language —
+`detectLanguage()` returns `'en'` for anything it does not recognise and
+`DEFAULT_SETTINGS.language` is `'en'` — so a German static page was the
+one place that did not follow the rule the rest of the app already has.
+The constraint underneath is worth stating once, because it is what makes
+this a decision rather than a preference: **a crawler, a link scraper and
+an install prompt all fetch this URL once, from their own servers, with no
+reader to follow.** None of them can be given "the user's language" the
+way the app can — `Game.tsx` rewrites `documentElement.lang` and the
+sr-only heading per player, and that half was always translated. So these
+surfaces get the fallback language, and per-language cards would need
+per-language *URLs* (`/en/`, `/ru/`), which was offered and declined as
+out of proportion. Verified after the switch: a `de-DE` browser still
+loads the German app and `html lang` still becomes `de` — the English is
+only ever what a crawler or an unrecognised locale sees. The game's own
+name stays German because it is a name. What this costs is German-language
+query matching, which was near-worthless anyway for the reason under
+"worth it" below. Two `og:locale:alternate` lines went out with the same
+round: they declared translations no alternate URL served, which is this
+file's own "reads plausibly, does nothing" failure in miniature.
+
+**Worth being honest about how much of this pays.** Ranking is mostly a
+function of inbound links, and this is a project page on `github.io` with
+no links pointing at it, so the search-engine half will not bring traffic
+and should not be described as if it will. The part that does pay is the
+**sharing card**, which is not a search-engine feature at all: a link
+posted into a chat now renders as a titled card with the board on it
+instead of a bare URL, and this game spreads by being passed around. That
+is the reason the card got the language decision above and the sitemap did
+not.
 
 *The rest of the round is metadata that did not exist at all:* a title that
 says what the thing is, a 150-character description, `canonical`, `robots`,

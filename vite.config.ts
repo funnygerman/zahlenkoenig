@@ -80,16 +80,18 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null, // registered by hand in main.tsx, alongside the update-hint wiring, not auto-injected
       manifest: {
-        name: 'Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel',
+        name: 'Zahlenkönig – a free number puzzle game',
         short_name: 'Zahlenkönig',
         // The same sentence index.html's meta description leads with. An
         // install prompt and an app-store-style listing both surface this,
-        // so it states the rule rather than restating the name — and it is
-        // German, matching `lang` below and the served HTML, even though
-        // the app itself runs in three languages off one URL.
+        // so it states the rule rather than restating the name. English,
+        // matching `lang` below and the served HTML: a manifest is fetched
+        // once per install with no reader to follow, the same constraint
+        // the sharing card has, so it uses the app's own fallback language
+        // (core/settings.ts's `detectLanguage`).
         description:
-          'Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Plus, Minus, Mal, Geteilt und Klammern – von der ersten Klasse bis zum Kopfrechen-Profi.',
-        lang: 'de',
+          'Reach the target using every number exactly once. Plus, minus, times, divide and brackets you place yourself. Free, no sign-up, plays offline.',
+        lang: 'en',
         dir: 'ltr',
         // Used by app catalogues that read web manifests; both are on the
         // spec's own registered-category list, so neither is invented.
