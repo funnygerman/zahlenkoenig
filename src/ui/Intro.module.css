@@ -1,0 +1,113 @@
+/* The first-run introduction card (onboarding round). Deliberately built
+ * from Header.module.css's own overlay proportions — same backdrop tint,
+ * same surface, radius, shadow and padding as the selection panel — rather
+ * than inventing a second dialog look: a player meets both of these in
+ * their first minute, and two different ideas of "a panel over the board"
+ * would read as two different apps. The values are copied, not shared:
+ * CSS modules can't inherit across files, and the alternative (a third
+ * file both import) would be indirection for two rules. */
+
+.backdrop {
+  position: fixed;
+  inset: 0;
+  background: hsl(var(--hue) 40% 12% / 0.35);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: var(--gap);
+  z-index: 30; /* above the selection panel's own backdrop (20) — this one is modal and can't be behind it */
+}
+
+.card {
+  width: fit-content;
+  max-width: 100%;
+  background: var(--zk-surface);
+  border: 1px solid var(--zk-line);
+  border-radius: 16px;
+  box-shadow: 0 14px 30px -12px hsl(var(--hue) 40% 20% / 0.3);
+  padding: 24px 26px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  /* The one real width decision here: short lines read faster than wide
+   * ones, and this card's whole job is to be read once by someone who did
+   * not ask for it. 30ch is roughly a phone's comfortable measure and is
+   * narrower than the board, so the card never implies the board is
+   * wider than it is. */
+  max-inline-size: 30ch;
+}
+
+.lines {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.95rem;
+  line-height: 1.35;
+  color: var(--zk-ink);
+}
+
+/* The rule the whole game rests on and the only one nothing on screen
+ * states ("use every number exactly once"). It carries the weight because
+ * a player who reads one line of this card should read this one. */
+.rule {
+  font-weight: 600;
+}
+
+/* A real chip sits in this slot (Intro.tsx renders <Chip variant="block">),
+ * so the sentence beside it never has to name the symbol in words — which
+ * is also what keeps the string translatable as a plain sentence. The chip
+ * brings its own size; this only stops it being stretched by the flex row. */
+.icon {
+  flex: none;
+  pointer-events: none;
+}
+
+.start {
+  align-self: stretch;
+  padding: 11px 18px;
+  border: none;
+  border-radius: 12px;
+  background: var(--zk-accent);
+  color: #fff;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.start:hover {
+  filter: brightness(1.06);
+}
+
+/* Intro.tsx focuses this button on mount, which makes the browser's own
+ * focus ring visible to *every* player, pointer users included — so the
+ * ring has to belong to the design rather than being the UA's black
+ * outline. Kept rather than removed: it is the one focusable control the
+ * app puts in front of a player (the board's chips are deliberately out of
+ * tab order), so a keyboard user needs to see where they are. */
+.start:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 3px var(--zk-surface), 0 0 0 5px var(--zk-accent);
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .card {
+    animation: rise 160ms ease-out both;
+  }
+}
+
+@keyframes rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

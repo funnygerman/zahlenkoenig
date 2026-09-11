@@ -2,6 +2,20 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, act } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Game } from './Game'
+import { ONBOARDING_PUZZLES, saveOnboardingStep } from '../core/onboarding'
+
+// Every `<Game>` here starts *past* the first-run introduction (onboarding
+// round, core/onboarding.ts). These tests are about the ordinary loop —
+// what the generator draws, what the selection panel changes, what gets
+// archived — and onboarding deliberately shows two fixed puzzles before
+// any of that begins, so without this they would be asserting against the
+// introduction instead. `skipOnboarding()` writes the same value finishing
+// it writes; Onboarding.test.tsx is where the introduction itself is
+// tested, from a genuinely empty storage.
+function skipOnboarding() {
+  saveOnboardingStep(ONBOARDING_PUZZLES.length)
+}
+
 
 // The footer/history round's replay wiring — Game.tsx is the one place
 // core/solvedHistory.ts and Board.tsx are actually joined (same reasoning
@@ -52,6 +66,7 @@ const targetValue = () => document.querySelector('[class*="_target_"] [class*="_
 describe('Game — solving a puzzle archives it (footer/history round)', () => {
   beforeEach(() => {
     localStorage.clear()
+    skipOnboarding()
     vi.useFakeTimers({ shouldAdvanceTime: true })
   })
 

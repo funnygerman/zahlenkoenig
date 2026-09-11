@@ -471,3 +471,44 @@ erledigt – zwei davon anders als zunächst gedacht:
 Neu in Runde 3 dazugekommen, und gewichtiger als alle drei: **v1s Generator kennt
 v2s Gruppenmodell nicht** (Abschnitt 6), und **v2 hebt den Unterschied zwischen
 F3 und E1 auf** – die einzige noch offene PO-Frage.
+
+---
+
+## 12. Einführung für neue Spieler (Onboarding-Runde)
+
+Auslöser war eine Rückmeldung von Spielern, die die Idee noch nie gesehen
+hatten: *„wer das Spiel zum ersten Mal öffnet, weiß nicht, was er hier tun
+soll."* Dazu vom PO selbst: *„Einstellungen – ich bin nicht sicher, ob die
+Spieler verstehen, dass das ein Knopf ist."*
+
+Der erste Schritt war, den **tatsächlichen ersten Bildschirm anzusehen**
+statt ihn aus dem Code zu erschließen (Abschnitt 10, „Am Entwurf
+entscheiden"). Das Ergebnis: außer der Fußzeile steht dort kein einziges
+Wort. Das Brett erklärt seine **Form** vollständig – das Gerüst zeigt, wie
+viele Chips wohin gehören, der Zielchip zeigt, was zu treffen ist, das
+graue `=` zeigt, dass noch etwas fehlt – und sagt über die **einzige
+wirkliche Regel** nichts: dass jede Zahl genau einmal zu benutzen ist. Wer
+`4 6 7 → 14` sieht, liest „mach irgendwie 14".
+
+| Entscheidung | Begründung |
+|---|---|
+| **Das `?`-Symbol war der schlimmste Einzelbefund** | Das Tipp-Symbol (10.3) war buchstäblich ein Fragezeichen im Kreis – das universelle Zeichen für *Hilfe*. Wer beim ersten Öffnen nach einer Erklärung suchte, tippte genau darauf und bekam wortlos einen Chip aufs Brett gesetzt, um einen Tipp ärmer. Ersetzt durch eine **Glühbirne** (Inline-SVG, 13.2 – nicht das 💡 aus v1). Damit existiert im ganzen Programm kein `?` mehr, und nichts verspricht Hilfe, ohne sie zu geben. |
+| **Zwei feste Einstiegsrätsel statt GIF oder Tutorial** (PO) | Angeboten waren ein GIF aller Schritte und ein interaktives Tutorial. Beide verworfen: ein GIF ist in drei Sprachen dreimal zu pflegen, veraltet bei jeder UI-Änderung, und lehrt ausgerechnet die Regel nicht. Ein Coach-Mark-Tutorial müsste sich in `useDrag`s Treffertest einklinken – genau die Stelle, an der in diesem Projekt die meisten Fehler saßen. Stattdessen unterrichtet das Spiel sich selbst an echten Rätseln. |
+| **Erstes Rätsel: zwei Zahlen, nur `+`** | Es lehrt keine Rechnung, sondern *„ich habe etwas angefasst und es hat funktioniert"*. Konzept 6.4s eigenes Versprechen („für Erstklässler die ganze Anleitung, ohne Worte") ist bei zwei Zahlen und einem Operator wörtlich wahr – die Vorgabe des Spiels (3 Zahlen, alle vier Rechenzeichen) hat es beim kalten Start nie eingelöst. |
+| **Zweites Rätsel: `(1+1+1) × 3 = 9`** (PO) | Die **Dreiergruppe** ist das Einzige im Spiel, das durch Ausprobieren nicht auffindbar ist: Tippen kann sie strukturell nicht bauen (6.2), und der Tipp auch nicht (`hints.ts` schlägt nur Zweiergruppen vor). Ungeskriptet wird sie nie gefunden; mit einer Karte, die die Geste benennt, ist sie die Lektion. |
+| **`(1+2+3) × 1 = 6` wurde vorher gemessen und verworfen** | Der erste Vorschlag des PO für dasselbe Ziel. Nachgerechnet gegen `reachable()`: die Lösung hat das Muster `n+n+n×n` – **flach, ohne Klammer** –, und `computeHint` liefert auf dem leeren Brett sieben reine Tipp-Züge. Der Spieler tippt `1+2+3×1`, gewinnt und sieht nie eine Klammer. Eine Klammer, die bloß *erlaubt* ist, lehrt nichts. |
+| **Das Brett wird während der Einführung nicht als Sackgasse markiert** | Der Grund, warum die Einführung überhaupt ein Flag in `Board.tsx` braucht. `useHint`s `deadEnd` ist `hint === null`, bei jedem Render neu – auf dem zweiten Einstiegsrätsel also **von der ersten Bildzeile an, vor jeder Berührung**. Ohne Unterdrückung öffnet sich das zweite Brett eines neuen Spielers bereits als unlösbar umrandet. |
+| **Kein Tipp-Knopf auf den Einstiegsrätteln** | Folgt aus derselben Tatsache: das Kontingent wird aus derselben leeren Fortsetzung gelesen und ist damit 0, `offered` also ohnehin falsch. Trotzdem ausdrücklich gemeldet – ein Erstspieler soll keinem Hilfeknopf begegnen, der nicht helfen kann, und das darf nicht davon abhängen, dass zwei unabhängige Zahlen zufällig übereinstimmen. |
+| **Auswahl-Chip und Verlaufspfeile sind während der Einführung ausgeblendet** | Am gerenderten Bild aufgefallen: der Chip zeigte `3 Zahlen, 4 Rechenzeichen` über einem Brett mit zwei Zahlen und einem Rechenzeichen – und ihn zu ändern hätte sichtbar nichts bewirkt. Genau die Klasse stiller Wirkungslosigkeit, von der in der Fehlerrunde schon vier entfernt wurden. Die Pfeile wiederum erschienen nach dem ersten gelösten Rätsel mitten in der Lektion und laden zu einem Abstecher ein, der das Brett leert. |
+| **Ein Chevron am Auswahl-Chip** (PO-Befund) | Die billigste Lösung für „man sieht nicht, dass das ein Knopf ist": braucht keine Übersetzung und keine nennenswerte Breite (der Chip misst ~128 px in einer ~367 px breiten Kopfzeile). Er dreht sich, wenn das Feld offen ist – der Chip sagt damit auch, in welche Richtung es geht. |
+| **Ein Hinweis in der Notationszeile, kein eigener Platz** | „Tippe auf eine Zahl" steht in der Zeile, die auf einem unberührten Brett ohnehin leer ist und bereits 22,8 px hoch ausgelegt wird. Kostet kein Layout, und verschwindet mit dem ersten gesetzten Chip – also genau dann, wenn der Satz aufhört zu stimmen. |
+| **Gezeigt, bis gespielt – nicht „einmal gesehen"** (PO) | Der PO fragte: *„brauchen wir die Hilfe wirklich noch einmal, wenn der Spieler sie einmal gesehen und schon gespielt hat?"* Nein – und damit entfällt auch der dauerhafte Hilfeknopf, den Konzept 12.7 links reserviert hatte. Er bleibt ungebaut. Das eigentliche Risiko ist aber nicht der Spieler, der gelesen und gespielt hat, sondern der, der **vor** dem Lesen weggetippt hat: deshalb ist der *Schritt* gespeichert und die *Karte* nicht. Ein Neuladen bringt die Karte zurück, ein gelöstes Rätsel bleibt gelöst. |
+| **Eigener LocalStorage-Schlüssel, kein sechstes `Settings`-Feld** | `onboarding.ts` folgt dem Muster von `history.ts` und `solvedHistory.ts`: ein Anliegen, ein Schlüssel. Den Stand aus der Länge des Archivs abzuleiten wäre bequem gewesen und hätte die Einführung stillschweigend neu gestartet, sobald das Archiv einmal geleert oder seine Obergrenze gesenkt wird. |
+| **Was die Einführung *nicht* lehrt** | Sie erklärt nicht, wie eine gesetzte Klammer wieder aufgeht, wie ein Block verschoben wird oder wie ein Chip zurückgenommen wird. Drei Zeilen werden gelesen, sechs nicht. Der Rest ist über 6.6/6.8 umkehrbar und damit gefahrlos auszuprobieren. |
+
+Beide Rätsel wurden im echten Browser durchgespielt (Playwright, echte
+Zeigerereignisse), nicht nur in jsdom: das zweite ist mit **genau einer
+Ziehgeste** lösbar – `1`, `+`, `1` tippen, Blockchip tippen, die dritte
+`1` auf den rechten Klammersteg ziehen, dann `+`, `×`, `3`, `=`. Auch der
+wörtliche Weg der Karte (erst den Block öffnen, auf leerem Feld) trägt:
+`()` entsteht und füllt sich durch Tippen zu `(1 + 1)`.

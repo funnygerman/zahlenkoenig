@@ -29,6 +29,15 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
+**Two concrete things are open, both from the onboarding round (see "Where
+v2 stands" for the full account), and neither needs a product decision
+first:** finish the generator scan that asks whether `nextPuzzle` can draw
+a board `computeHint` calls a dead end (a stale claim in this file, and a
+live bug if it turns out true), and teach `hints.ts`'s `completions` to
+propose three-number groups so the block the onboarding card teaches is
+supported everywhere else too. Everything below this paragraph is about
+concept 16's roadmap, which remains finished.
+
 **Step 6 (concept section 16, "Feinschliff") is done, and it was the last
 row in concept 16's own table — there is no step 7.** Animations, landscape
 (Querformat) and the PWA work (concept section 19) are all built and
@@ -107,9 +116,126 @@ button needed no change: they never depended on drag, so Enter/Space
 already worked on them, confirmed by tabbing through a real build
 (Playwright): only those two remain in tab order now, the submit button
 rejoins it the moment it's enabled, and everything else is skipped rather
-than sitting there looking clickable.
+than sitting there looking clickable. (The onboarding round added a third:
+the intro card's own dismiss button, which takes focus on mount — the only
+focus move in the app, and it has nothing to restore focus *to* precisely
+because of this decision.)
 
 ## Where v2 stands
+
+**An onboarding round gave the game a first-run introduction — two fixed
+puzzles and a card each — after feedback from players who had never seen
+the idea: "if a user opens the game for the first time, it's not clear
+what to do there."** Like the footer/history round, this is scope the PO
+asked for after concept 16's roadmap was already finished, not a step.
+
+*The round started by looking at the actual first screen rather than
+reasoning about it*, and that is what set the agenda. Outside the footer
+there is not one word on it. The board explains its own **shape**
+completely — the scaffold says how many chips go where, the target chip
+says what to hit, the greyed `=` says something is still missing — and
+says nothing at all about the **one real rule**, that every number must be
+used exactly once. A newcomer reads `4 6 7 → 14` as "make 14 somehow".
+
+**The single worst finding was that `?` did not mean help.** `Header.tsx`'s
+`HintIcon` was literally a question mark in a ring — the universal glyph
+for *help* — so a first-time player hunting for an explanation tapped the
+one thing on screen that looked like one and got a chip silently placed on
+their board, a hint poorer. It is a **lightbulb** now (inline SVG per
+concept 13.2, not v1's 💡). No `?` remains anywhere in the app, verified
+against a real render: nothing now promises help without giving it.
+
+**Two fixed puzzles, not a GIF and not a coach-mark tutorial** (both were
+offered; the PO chose neither). A GIF is three files across three
+languages, goes stale on every UI change, and teaches the *rule* — the one
+invisible thing — not at all. A guided-overlay tutorial would have to hook
+into `useDrag`'s hit-testing, which is where this repo's worst bugs have
+lived. `core/onboarding.ts` (new) holds the two boards instead:
+
+- **`1 + 2 = 3`.** Not teaching arithmetic — teaching "I touched a thing
+  and it worked". Concept 6.4's promise ("für Erstklässler die ganze
+  Anleitung, ohne Worte") is literally true at two numbers and one
+  operator; the app's own default (3 numbers, all four operators) never
+  delivered it on a cold open.
+- **`(1+1+1) × 3 = 9`** (PO). The three-number group is the one capability
+  in the game that trying things cannot find: tap structurally can't build
+  it (concept 6.2) and neither can the hint (`hints.ts` only proposes
+  two-number groups). Scripted, with a card naming the gesture, it's the
+  lesson.
+
+**The PO's first candidate for that second puzzle, `(1+2+3) × 1 = 6`, was
+measured and rejected before anything was built.** `reachable()` reports
+its representative solution as `n+n+n×n` — flat, no bracket — and
+`computeHint` on the empty board returns seven plain tap moves. A player
+taps `1+2+3×1`, wins, and never meets a bracket. A bracket that is merely
+*permitted* teaches nothing; the one that ships is required
+(`onboarding.test.ts` pins both facts).
+
+**The second puzzle needs Board to suppress the hint layer, and that is
+the whole reason the `onboarding` prop exists.** `useHint`'s `deadEnd` is
+`hint === null` recomputed every render, and `computeHint` returns null on
+this board — the exact case `hints.test.ts` already pinned for `[1,1,1,3]
+→ 9`. Untouched, a first-time player's second board opens **already
+outlined as a dead end, before they touch anything**. `Board.tsx` forces
+`deadEnd` false and `blockingIds` null while onboarding, and reports
+`offered: false` so the header keeps the lightbulb away. That second part
+is belt-and-braces rather than load-bearing — the budget is read from the
+same null continuation and comes out 0, so `offered` was already false —
+and the test file says so: removing the `deadEnd` half fails a test,
+removing the `offered` half does not.
+
+**Two things were hidden during onboarding that the first render caught,
+and neither was in the plan.** The selection chip showed `3 numbers, 4
+operators` over a two-number, one-operator board — and changing it would
+have visibly done nothing, which is exactly the silent-no-op class the
+bug-fix round removed four of. And the history arrows appeared after the
+first onboarding puzzle, mid-lesson, inviting a detour that empties the
+board. `Header.tsx` gained `selectionHidden`; `Game.tsx` passes
+`total={0}` to `HistoryNav`. The update pill keeps its slot regardless.
+
+**"Shown until played", not "shown once"** (PO: *"do we really need help
+again if the user saw it once and played already?"*). That closed the
+permanent rules button this round had proposed, and with it concept 12.7's
+header-left menu icon — reserved since v2 began, now unbuilt on purpose in
+*both* halves (language by the i18n round, rules by this one). The real
+risk was never the player who read and played, but the one who dismissed
+the card *before* reading it: so the **step** is persisted
+(`zahlenkoenig:onboarding-v1`) and the **card's dismissal is not**. A
+reload brings the card back; a solved puzzle stays solved. Its own key and
+module rather than a sixth `Settings` field or a count off
+`solvedHistory.length` — deriving it from the archive would silently
+restart onboarding the day that archive is cleared or its cap lowered.
+
+**Drag is deliberately not mentioned on the first card, and is the whole
+of the second.** On a two-number `+` board drag can't do anything, so
+naming it there teaches a gesture with no use yet and costs a line nobody
+reads. The nudge line ("Tap a number") borrows the notation line, which is
+already laid out and blank at 22.8px on an untouched board, and removes
+itself with the first chip — which is also when it stops being true.
+
+**Both puzzles were played through in a real browser** (Playwright, real
+pointer events), not just jsdom. The second is solvable with **exactly one
+drag**: tap `1`, `+`, `1`, tap the block chip, drag the third `1` onto the
+right bracket edge, then `+`, `×`, `3`, `=`. The card's literal order
+works too — tapping the block chip on an empty field yields `()`, which
+then fills by tapping.
+
+**One measurement was started and never finished, and it matters beyond
+onboarding: can the shipping generator draw a board where `computeHint`
+returns null?** CLAUDE.md has asserted it can't ("no puzzle actually
+generated hits this today"), but that note predates the generation round
+that stopped brackets losing every tie, so the claim is stale and
+untested. If such a board *can* be drawn, real players meet a pre-marked
+dead end with a hint button that only marks blockers — a live bug, nothing
+to do with onboarding. Scanning every reachable selection with
+`nextPuzzle` + `computeHint` answers it in a few minutes.
+
+**Also still open, and the honest limit of this round: the three-number
+block is taught but not supported.** `hints.ts` still can't propose one, so
+a player who gets stuck on such a board outside onboarding gets a dead-end
+verdict rather than help. Teaching `completions` to offer three-number
+groups is the real fix; it's a change to the most delicate search code in
+the repo and was deliberately not bolted onto this round.
 
 **A second hint round, from three more PO play-test reports, changed the
 search itself and put two guards on the budget.**

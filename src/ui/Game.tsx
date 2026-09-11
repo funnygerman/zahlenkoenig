@@ -15,6 +15,8 @@ import { useUpdateAvailable } from './useUpdateAvailable'
 import { nextPuzzle, type Puzzle } from '../core/puzzles'
 import { loadRecent, loadRecentShapes, saveRecent, saveRecentShapes, withPuzzle, withShape } from '../core/history'
 import { loadSolved, saveSolved, withSolved, type SolvedPuzzle } from '../core/solvedHistory'
+import { loadOnboardingStep, onboardingPuzzleAt, saveOnboardingStep } from '../core/onboarding'
+import { Intro } from './Intro'
 import { t } from '../core/i18n'
 import './tokens.css'
 import styles from './Game.module.css'
@@ -69,6 +71,29 @@ export function Game() {
   const [solved, setSolved] = useState<SolvedPuzzle[]>(() => loadSolved())
   const [historyIndex, setHistoryIndex] = useState<number | null>(null)
   const historyEntry = historyIndex !== null ? solved[historyIndex] : null
+
+  // The first-run introduction (onboarding round, core/onboarding.ts): two
+  // fixed puzzles shown before the generator is ever consulted, because a
+  // player who has never seen the idea can't tell what the first screen
+  // wants. `step` counts the ones already finished, so it is also the
+  // index of the one to show now.
+  //
+  // Browsing the archive suspends onboarding rather than ending it: an
+  // archived entry is a real replay of a real puzzle and has nothing to do
+  // with the introduction, so it must not inherit the suppressed hint and
+  // dead-end border below. Solving one doesn't advance the step either —
+  // handleSolved's replay branch returns before reaching the onboarding
+  // branch, the same way it already returns before the live one.
+  const [onboardingStep, setOnboardingStep] = useState<number>(() => loadOnboardingStep())
+  const onboardingPuzzle = historyIndex === null ? onboardingPuzzleAt(onboardingStep) : null
+
+  // Which step's card the player has already dismissed. Deliberately *not*
+  // persisted: a reload mid-onboarding shows the card again, which is the
+  // recovery path for a card dismissed by accident before it was read —
+  // the reason this round chose "until the puzzles are solved" over a
+  // one-shot "seen" flag in the first place.
+  const [introDismissedAt, setIntroDismissedAt] = useState<number | null>(null)
+  const showIntro = onboardingPuzzle !== null && introDismissedAt !== onboardingStep
 
   const handleHistoryBack = useCallback(() => {
     setHistoryIndex(i => (i === null ? solved.length - 1 : Math.max(0, i - 1)))
@@ -126,13 +151,32 @@ export function Game() {
       handleHistoryForward()
       return
     }
+    // An onboarding puzzle is archived like any other solved puzzle — it
+    // genuinely was one, and browsing back to it later should work — but it
+    // does *not* draw a replacement: the next board is the next onboarding
+    // puzzle, or (once they run out) the live one already drawn at mount.
+    // `ops` comes from the puzzle rather than from `settings.ops`, which
+    // is the whole reason solvedHistory stores it per entry: an onboarding
+    // board deliberately offers a narrower tray than the player's own
+    // selection, and a replay has to match the solution it actually has.
+    if (onboardingPuzzle) {
+      setSolved(prev => {
+        const next = withSolved(prev, { numbers: onboardingPuzzle.numbers, target: onboardingPuzzle.target, ops: onboardingPuzzle.ops })
+        saveSolved(next)
+        return next
+      })
+      const next = onboardingStep + 1
+      setOnboardingStep(next)
+      saveOnboardingStep(next)
+      return
+    }
     setSolved(prev => {
       const next = withSolved(prev, { numbers: puzzle.numbers, target: puzzle.target, ops: settings.ops })
       saveSolved(next)
       return next
     })
     draw()
-  }, [historyEntry, handleHistoryForward, puzzle, settings.ops, draw])
+  }, [historyEntry, handleHistoryForward, onboardingPuzzle, onboardingStep, puzzle, settings.ops, draw])
 
   // A fresh key whenever *what's displayed* changes identity — a new live
   // puzzle (puzzleKey, as before) or a different point in the archive —
@@ -149,9 +193,18 @@ export function Game() {
   // to mean. Keeping the tree would take leaving the live Board mounted
   // (hidden) beside the archived one instead of swapping keys; there is no
   // reason to.
-  const boardKey = historyIndex !== null ? `hist-${historyIndex}` : `live-${puzzleKey}`
-  const displayed = historyEntry ?? puzzle
-  const displayedOps = historyEntry ? historyEntry.ops : settings.ops
+  // Three sources now, in priority order: an archived entry being browsed,
+  // an onboarding puzzle, or the live draw. Each gets its own key prefix so
+  // Board remounts onto whichever it is showing — including on the step
+  // from one onboarding puzzle to the next, which is a different puzzle
+  // even though neither `puzzleKey` nor `historyIndex` moved.
+  const boardKey = historyIndex !== null
+    ? `hist-${historyIndex}`
+    : onboardingPuzzle
+      ? `onb-${onboardingStep}`
+      : `live-${puzzleKey}`
+  const displayed = historyEntry ?? onboardingPuzzle ?? puzzle
+  const displayedOps = historyEntry ? historyEntry.ops : onboardingPuzzle ? onboardingPuzzle.ops : settings.ops
 
   return (
     <div className={styles.page}>
@@ -163,9 +216,16 @@ export function Game() {
           the board instead of down at the bottom of the page where a
           footer belongs. */}
       <div className={styles.gameArea}>
+        {/* Hidden while the introduction is running: after the first
+            onboarding puzzle the archive is no longer empty, so the arrows
+            would appear mid-lesson and invite a detour out of the one
+            thing there is to do — and browsing away empties the board
+            (Board remounts on any key change, documented behaviour since
+            the hint round). They come back with the first generated
+            puzzle, which is also the first one worth browsing back to. */}
         <HistoryNav
           index={historyIndex}
-          total={solved.length}
+          total={onboardingPuzzle ? 0 : solved.length}
           onBack={handleHistoryBack}
           onForward={handleHistoryForward}
           backLabel={t(settings.language, 'historyBackLabel')}
@@ -182,8 +242,20 @@ export function Game() {
           hintMuted={!hintState.available}
           updateAvailable={updateAvailable}
           onUpdate={onUpdate}
+          selectionHidden={onboardingPuzzle !== null}
         />
-        <Board ref={boardRef} key={boardKey} numbers={displayed.numbers} target={displayed.target} ops={displayedOps} language={settings.language} onSolved={handleSolved} onHintState={setHintState} />
+        <Board
+          ref={boardRef}
+          key={boardKey}
+          numbers={displayed.numbers}
+          target={displayed.target}
+          ops={displayedOps}
+          language={settings.language}
+          onSolved={handleSolved}
+          onHintState={setHintState}
+          onboarding={onboardingPuzzle !== null}
+          nudge={onboardingPuzzle !== null ? t(settings.language, 'nudgeTapNumber') : undefined}
+        />
       </div>
 
       {/* footer/history round (PO): attribution only, no rules/legal
@@ -197,6 +269,12 @@ export function Game() {
           {t(settings.language, 'footerCoffee')}
         </a>
       </footer>
+
+      {/* Last in the tree, so it paints over the board and the header's own
+          panel without either needing to know it exists. */}
+      {showIntro && (
+        <Intro step={onboardingStep} language={settings.language} onDismiss={() => setIntroDismissedAt(onboardingStep)} />
+      )}
     </div>
   )
 }

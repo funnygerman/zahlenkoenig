@@ -154,3 +154,13 @@
     animation: none;
   }
 }
+
+/* Onboarding round: the "tap a number" line, shown in the notation line's
+ * own slot while an onboarding board is still untouched (Board.tsx's
+ * `showNudge`). It reads as an instruction rather than as notation —
+ * accent-coloured instead of muted, and not tabular-nums, since it is
+ * words and not a row of digits. */
+.nudge {
+  color: var(--zk-accent);
+  font-variant-numeric: normal;
+}

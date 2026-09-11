@@ -2,7 +2,21 @@ import { describe, it, expect, beforeEach } from 'vitest'
 import { render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Game } from './Game'
+import { ONBOARDING_PUZZLES, saveOnboardingStep } from '../core/onboarding'
 import { puzzleSignature } from '../core/puzzles'
+
+// Every `<Game>` here starts *past* the first-run introduction (onboarding
+// round, core/onboarding.ts). These tests are about the ordinary loop —
+// what the generator draws, what the selection panel changes, what gets
+// archived — and onboarding deliberately shows two fixed puzzles before
+// any of that begins, so without this they would be asserting against the
+// introduction instead. `skipOnboarding()` writes the same value finishing
+// it writes; Onboarding.test.tsx is where the introduction itself is
+// tested, from a genuinely empty storage.
+function skipOnboarding() {
+  saveOnboardingStep(ONBOARDING_PUZZLES.length)
+}
+
 
 // Step 3's "vollständige Spielschleife": settings drive generation, the
 // header chip is the selection's own display and control (concept 12.7),
@@ -11,7 +25,7 @@ import { puzzleSignature } from '../core/puzzles'
 // changing a setting is reflected on the board.
 
 describe('Game — the header chip opens and closes the selection panel (concept 15.6)', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => { localStorage.clear(); skipOnboarding() })
 
   it('is closed at first, opens on tap, closes on Escape', async () => {
     const user = userEvent.setup()
@@ -29,7 +43,7 @@ describe('Game — the header chip opens and closes the selection panel (concept
 })
 
 describe('Game — changing the number-count setting redraws the puzzle (concept 15.10)', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => { localStorage.clear(); skipOnboarding() })
 
   it('a 4-numbers puzzle shows four number chips in the tray', async () => {
     const user = userEvent.setup()
@@ -46,7 +60,7 @@ describe('Game — changing the number-count setting redraws the puzzle (concept
 })
 
 describe('Game — the last two remaining operators cannot be deselected (concept 15.6, revised: at least two)', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => { localStorage.clear(); skipOnboarding() })
 
   it('stops deselecting at two and the third attempt stays pressed', async () => {
     const user = userEvent.setup()
@@ -71,7 +85,7 @@ describe('Game — the last two remaining operators cannot be deselected (concep
 // joins them — so a puzzle that never reaches the history would leave the
 // generator drawing blind again with nothing failing.
 describe('Game — the puzzle on screen is remembered, so the next draw can avoid it', () => {
-  beforeEach(() => localStorage.clear())
+  beforeEach(() => { localStorage.clear(); skipOnboarding() })
 
   it('writes the shown puzzle’s signature to the history', () => {
     render(<Game />)
