@@ -9,10 +9,10 @@ import { ONBOARDING_PUZZLES, loadOnboardingStep, saveOnboardingStep } from '../c
 // past (they call their own `skipOnboarding()`), so this file is where it
 // gets exercised.
 //
-// Game.tsx is the only place core/onboarding.ts, the Intro card and
-// Board's suppressed hint layer are joined, and none of their own tests can
-// see a mistake in the wiring — the same reasoning Game.test.tsx's banner
-// gives for tap/drag and Game.history.test.tsx's gives for the archive.
+// Game.tsx is the only place core/onboarding.ts, the Intro card and the
+// board are joined, and none of their own tests can see a mistake in the
+// wiring — the same reasoning Game.test.tsx's banner gives for tap/drag and
+// Game.history.test.tsx's gives for the archive.
 //
 // vitest.setup.ts pins jsdom's navigator.language to German, so the copy
 // asserted here is the German copy, matching every other Game-level test.
@@ -76,14 +76,13 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
     expect(screen.queryByRole('button', { name: /–/ })).not.toBeInTheDocument()
   })
 
-  it('offers no hint button on either onboarding board', async () => {
+  it('offers no hint on the two-number board — by the ordinary rule, not a special case', async () => {
+    // `hintBudget` gives two numbers none at all (PO: three chips is the
+    // whole board), so this needs no onboarding-specific suppression and
+    // never did.
     const user = userEvent.setup()
     render(<Game />)
     await dismissIntro(user)
-    expect(screen.queryByRole('button', { name: 'Tipp' })).not.toBeInTheDocument()
-
-    saveOnboardingStep(1)
-    render(<Game />)
     expect(screen.queryByRole('button', { name: 'Tipp' })).not.toBeInTheDocument()
   })
 })
@@ -94,19 +93,53 @@ describe('onboarding — the second board is not marked as a dead end', () => {
     saveOnboardingStep(1)
   })
 
-  it('shows no dead-end border on the empty field, even though the hint cannot start it', async () => {
-    // The regression this whole `onboarding` flag exists for. `(1+1+1)×3`
-    // needs a three-number group, which core/hints.ts cannot propose, so
-    // `computeHint` returns null and useHint's `deadEnd` is true from the
-    // very first render — before the player has touched anything. Without
-    // the suppression a first-time player's second board opens already
-    // outlined as unsolvable.
+  it('shows no dead-end border on the empty field', async () => {
+    // This board used to open already outlined as unsolvable. `(1+1+1)×3`
+    // needs a three-number group; `core/hints.ts` could not propose one, so
+    // `computeHint` returned null and `useHint`'s `deadEnd` was true from
+    // the first render — before a first-time player had touched anything.
+    //
+    // Two rounds fixed it in turn and the special case is gone with them:
+    // the verdict was withheld wherever the search was blind, and then the
+    // search stopped being blind. Nothing here is onboarding-specific any
+    // more; this board is clean for the same reason every other board is.
     const user = userEvent.setup()
     render(<Game />)
     await dismissIntro(user)
 
     expect(targetValue()).toBe(String(ONBOARDING_PUZZLES[1].target))
     expect(field().className).not.toMatch(/_deadEnd_/)
+  })
+
+  it('offers a hint on the bracket board, and it stops before the drag the card teaches', async () => {
+    // **This used to assert there was no hint button** — `Board` had an
+    // `onboarding` prop that forced one off. The PO removed it once the
+    // three-number-group round gave this puzzle a real budget: withholding
+    // the hint meant a beginner met the game's hardest gesture with no help
+    // at all.
+    //
+    // What makes that safe is the budget rather than a special case. The
+    // plan is eight chips, the budget is half rounded up, so four presses
+    // land the setup and stop — the `grow` drag is the seventh move and
+    // stays the player's, which is exactly the lesson the card is asking
+    // for. Pinned here because it is the whole argument for showing it.
+    const user = userEvent.setup()
+    render(<Game />)
+    await dismissIntro(user)
+
+    const hint = screen.getByRole('button', { name: 'Tipp' })
+    let presses = 0
+    while (!(hint as HTMLButtonElement).disabled && presses < 10) {
+      await user.click(hint)
+      presses++
+    }
+    expect(presses).toBe(4)
+
+    // Four chips down, and the bracket is open but not yet grown: no
+    // three-number group, so the drag is still ahead of the player.
+    const readout = document.querySelector('[role="status"]')!.textContent!
+    expect(readout).toContain('(')
+    expect(readout).not.toMatch(/\(.*[+×].*[+×].*\)/) // only one operator inside the bracket so far
   })
 
   it('its card teaches the bracket, since nothing else in the game can', async () => {

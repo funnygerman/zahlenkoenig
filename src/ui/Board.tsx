@@ -44,32 +44,6 @@ export interface BoardProps {
    */
   onHintState?: (state: { offered: boolean; available: boolean }) => void
   /**
-   * This board is one of the onboarding puzzles (core/onboarding.ts): the
-   * header offers no hint on it, whatever the puzzle itself could support.
-   *
-   * This used to also suppress the dead-end border, because the second
-   * onboarding puzzle (`(1+1+1)×3 = 9`) needs a three-number group and
-   * `computeHint` therefore returns null on it — so the border would have
-   * been lit on the empty field before a first-time player touched
-   * anything. That is no longer a special case: `useHint`'s own
-   * `searchIsBlind` withholds the verdict on *any* puzzle the hint could
-   * never walk, which is the general form of the same rule and covered
-   * this board on the way past — and since the three-number-group round
-   * the hint can walk this board anyway, so neither applies. `scripts/checkHintReachable.ts` is
-   * why — the same thing was happening on 39.8% of ordinary four-number
-   * draws, so it was never an onboarding problem at all.
-   *
-   * What stays here is only the hint *offer* — and it is load-bearing now,
-   * where it used to be belt-and-braces. It was kept on the argument that
-   * it "keeps holding if a future onboarding puzzle is one the hint could
-   * solve"; the three-number-group round made the *existing* bracket puzzle
-   * exactly that, without touching onboarding at all. Its budget is no
-   * longer zero, so without this the header would offer a hint that can
-   * walk the entire bracket — handing a first-time player the precise
-   * lesson the card is asking them to perform.
-   */
-  onboarding?: boolean
-  /**
    * A short instruction to show in the notation line while the field is
    * still empty (onboarding round). The line is already laid out and
    * blank on an untouched board, so this costs no layout and removes
@@ -139,7 +113,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, onboarding = false, nudge }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, nudge }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -157,14 +131,18 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // (the two-hint budget spent, or the puzzle already correctly built).
   // Reported upward rather than lifted: the hint still belongs to the board
   // it is about, and Board is remounted per puzzle while Header is not.
-  // `onboarding` forces `offered` false — see the prop's own note. This is
-  // the only thing keeping the lightbulb off the bracket puzzle now: since
-  // the three-number-group round that board has a real hint budget, and a
-  // hint that walks the bracket is the lesson the card asks the player to
-  // perform themselves.
-  const hintOffered = hint.offered && !onboarding
-  const hintAvailable = hint.available && !onboarding
-  useEffect(() => { onHintState?.({ offered: hintOffered, available: hintAvailable }) }, [hintOffered, hintAvailable, onHintState])
+  //
+  // There used to be an `onboarding` prop here that forced `offered` false,
+  // so neither first-run puzzle ever showed a hint. It is gone (PO): once
+  // the three-number-group round gave `(1+1+1) × 3` a real budget,
+  // withholding the hint meant a beginner met the game's hardest gesture
+  // with no help at all. An onboarding board is treated exactly like any
+  // other now, and the ordinary rules land in the right place by
+  // themselves — the two-number board still offers nothing (`hintBudget`
+  // gives two numbers none, the PO's own rule), and the bracket board
+  // offers four of the eight chips it takes, stopping well before the drag
+  // the card is teaching.
+  useEffect(() => { onHintState?.({ offered: hint.offered, available: hint.available }) }, [hint.offered, hint.available, onHintState])
 
   // Concept 6.7's dissolve fade: the real trigger is a tap detected by
   // useDrag (handleTap below), not Expression's own onClick (that path

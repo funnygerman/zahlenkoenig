@@ -549,3 +549,18 @@ Reihe wäre. Der Tipp führt die Ziehgeste auf einem frischen Brett also
 praktisch nie selbst aus; sein Gewinn ist, dass die Suche die Lösung
 überhaupt *sieht* — und damit, dass es auf diesen Brettern wieder einen
 Tipp gibt statt eines Sackgassen-Rahmens.
+
+---
+
+## 14. Tipp auch im Onboarding (PO)
+
+Direkt im Anschluss an Runde 13, und eine reine PO-Entscheidung: **das
+zweite Einstiegsrätsel zeigt seinen Tipp.** `Board.tsx`s `onboarding`-Flag
+entfällt ersatzlos — es hatte keine andere Aufgabe mehr.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Der Tipp wird nicht länger unterdrückt** (PO) | Das Argument dagegen stand in Runde 13: ein Tipp kann die ganze Klammer bauen, also genau die Lektion, die die Karte den Spieler selbst ausführen lässt. Das Argument dafür gewinnt: `(1+1+1) × 3` hat seit Runde 13 ein echtes Kontingent, und es zurückzuhalten hieß, dass ein Anfänger der schwierigsten Geste des Spiels **ganz ohne Hilfe** begegnet — vorher gab es dort schlicht nichts anzubieten, das ist der Unterschied. |
+| **Das Kontingent erledigt es ohne Sonderfall** | Der Plan ist acht Chips, das Kontingent die Hälfte aufgerundet: nach **vier** Drücken steht `3 × (1)` und das Symbol dämpft sich. Der `grow`-Zug ist der siebte und bleibt dem Spieler — also genau das, wonach die Karte fragt. Das ist keine glückliche Fügung, sondern dieselbe Regel, die überall gilt; im Browser nachgeprüft. |
+| **Das Zwei-Zahlen-Brett zeigt weiterhin keinen Tipp** | Auch das ohne Sonderfall: `hintBudget` gibt zwei Zahlen gar keinen Tipp (PO, Tipp-Runde), drei Chips sind das ganze Brett. Es brauchte nie eine eigene Unterdrückung. |
+| **Die Prop verschwindet ganz, statt ungenutzt stehen zu bleiben** | Beide Hälften sind jetzt weg — die Sackgassen-Hälfte durch die allgemeine Regel in `useHint` (Runde davor), die Tipp-Hälfte hier. Ein Einstiegsbrett ist damit ein gewöhnliches Brett, und zwei Sonderfälle weniger sind zwei Stellen weniger, an denen ein späterer Umbau vorbeidenken kann. |

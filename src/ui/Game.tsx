@@ -80,8 +80,9 @@ export function Game() {
   //
   // Browsing the archive suspends onboarding rather than ending it: an
   // archived entry is a real replay of a real puzzle and has nothing to do
-  // with the introduction, so it must not inherit the suppressed hint and
-  // dead-end border below. Solving one doesn't advance the step either —
+  // with the introduction, so it must not inherit the card, the hidden
+  // selection chip or the nudge line. Solving one doesn't advance the step
+  // either —
   // handleSolved's replay branch returns before reaching the onboarding
   // branch, the same way it already returns before the live one.
   const [onboardingStep, setOnboardingStep] = useState<number>(() => loadOnboardingStep())
@@ -253,7 +254,6 @@ export function Game() {
           language={settings.language}
           onSolved={handleSolved}
           onHintState={setHintState}
-          onboarding={onboardingPuzzle !== null}
           nudge={onboardingPuzzle !== null ? t(settings.language, 'nudgeTapNumber') : undefined}
         />
       </div>
