@@ -48,19 +48,22 @@ export interface OnboardingPuzzle {
  * one"). Left to discovery it is never found; scripted, with the intro
  * card naming the gesture, it is the lesson.
  *
- * That second puzzle needs two supports, both in Board.tsx, and the reason
- * for each is the same fact: `core/hints.ts`'s search only ever proposes
- * *two*-number groups, so `computeHint` returns null on this board — which
- * `hints.test.ts` already pins down for exactly these numbers.
+ * That second puzzle used to need two supports in Board.tsx, and needs
+ * neither now — worth recording, because both were removed by rounds that
+ * were not about onboarding at all.
  *
- *   - `useHint`'s `deadEnd` is `hint === null`, recomputed every render, so
- *     the dead-end border would be lit on the empty field before the player
- *     touched anything. Board suppresses it while onboarding.
- *   - The hint budget is read from that same null continuation, so it comes
- *     out 0 and `offered` is already false — the header hides the icon on
- *     its own, through the mechanism the PO's "two numbers get no hints"
- *     rule put there. Board reports `offered: false` explicitly anyway, so
- *     this doesn't rest on a coincidence of two unrelated numbers.
+ *   - The **dead-end border** was lit on its empty field, because
+ *     `computeHint` returned null on it and `useHint`'s `deadEnd` was
+ *     exactly that. Fixed generally (the verdict is withheld wherever the
+ *     search is blind), then made moot entirely when the search stopped
+ *     being blind.
+ *   - The **hint was hidden**, first because the budget came out zero and
+ *     then by an explicit `onboarding` prop. The three-number-group round
+ *     gave this board a real budget, and the PO then chose to show the
+ *     hint: withholding it meant a beginner met the game's hardest gesture
+ *     with no help at all. The budget keeps it honest without a special
+ *     case — four presses of the eight chips, stopping before the `grow`
+ *     drag, which is the lesson the card is asking for.
  */
 export const ONBOARDING_PUZZLES: readonly OnboardingPuzzle[] = [
   { numbers: [1, 2], target: 3, ops: ['+'] },

@@ -36,14 +36,17 @@ four numbers — 0 walled boards over 19 100 real draws, and the exhaustive
 pool clean at every number count. Concept 16's roadmap was already
 finished before that.
 
-**One product question came out of that round and is genuinely the PO's**:
-the second onboarding puzzle `(1+1+1) × 3` now *has* a real hint budget,
-and `Board.tsx`'s `onboarding` prop is the only thing keeping the
-lightbulb off it. That is deliberate — a hint there can walk the whole
-bracket, which is the lesson the card asks the player to perform — but a
-stuck beginner now has no help at all on the game's hardest gesture, where
-before there was nothing to offer anyway. Worth deciding rather than
-leaving to the code.
+**The one product question that round raised is answered: the onboarding
+bracket puzzle shows its hint** (PO). `Board.tsx`'s `onboarding` prop is
+gone entirely — it had no other job — so an onboarding board is treated
+exactly like any other. The argument for hiding it was that a hint can
+walk the whole bracket, which is the lesson the card asks for; the
+argument that won is that withholding it left a beginner meeting the
+game's hardest gesture with no help at all. The budget settles it without
+a special case: the plan is eight chips, the budget is half rounded up, so
+four presses land the setup and the icon mutes — the `grow` drag is the
+seventh move and stays the player's. Verified in a browser: four presses
+give `3 × (1)`, then muted.
 
 Anything else past this point (dark mode, the "Zwischenschritt beim
 Auflösen" notation-line question, either open item in concept section 17's
@@ -183,8 +186,9 @@ taps `1+2+3×1`, wins, and never meets a bracket. A bracket that is merely
 *permitted* teaches nothing; the one that ships is required
 (`onboarding.test.ts` pins both facts).
 
-**The second puzzle needs Board to suppress the hint layer, and that is
-the whole reason the `onboarding` prop exists.** `useHint`'s `deadEnd` is
+**The second puzzle needed Board to suppress the hint layer, and that is
+why the `onboarding` prop existed — it has since been removed entirely,
+both halves, by later rounds; see below.** `useHint`'s `deadEnd` is
 `hint === null` recomputed every render, and `computeHint` returns null on
 this board — the exact case `hints.test.ts` already pinned for `[1,1,1,3]
 → 9`. Untouched, a first-time player's second board opens **already
@@ -305,10 +309,10 @@ no generated puzzle can trigger it any more — it is the net against exactly
 the regression that cost 39.8%, costs nothing while inert (the `&&`
 short-circuits), and `Hint.test.tsx` exercises it against a synthetic board
 rather than relying on a blind spot existing. And `Board.tsx`'s
-`onboarding` prop, kept last round as belt-and-braces, is **load-bearing
-now**: `(1+1+1) × 3` has a real budget, so that prop is the only thing
-keeping a lightbulb off the board whose whole point is performing the drag
-yourself.
+`onboarding` prop, kept last round as belt-and-braces, briefly became
+load-bearing — `(1+1+1) × 3` now has a real budget, so it was the only
+thing keeping a lightbulb off that board. **The PO then removed it**: see
+"Next v2 step". The prop is gone; onboarding boards are ordinary boards.
 
 *Verified in the browser, not only in the model*: on real four-number
 boards the hint builds `7 × (1 …)` for 154 and `(6 + 7) × …` for 182, no

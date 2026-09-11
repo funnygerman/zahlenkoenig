@@ -46,8 +46,8 @@ describe('onboarding — the two puzzles are what they claim to be', () => {
     expect(first.ops).toEqual(['+'])
     // Three chips in total, so the canonical continuation from an empty
     // field is the whole board — and `hintBudget` gives two numbers no
-    // hints at all (PO), which is why this board needs no suppression of
-    // its own to keep the header's icon away.
+    // hints at all (PO), which is why this board shows no hint icon even
+    // now that onboarding no longer suppresses one.
     expect(computeHint(createExpression(), createTray(first.numbers), first.target, first.ops, first.numbers.length)!.moves).toHaveLength(3)
   })
 
@@ -59,11 +59,11 @@ describe('onboarding — the two puzzles are what they claim to be', () => {
     // propose the shape either, and the note here said that if it ever
     // learned to, `Board.tsx`'s `onboarding` suppression should be
     // revisited rather than left standing on a reason that no longer held.
-    // It has learned to (the three-number-group round), so: revisited. The
-    // suppression stays, and it is load-bearing now rather than
-    // belt-and-braces — this board *would* offer a hint, and one that can
-    // walk the whole bracket would hand a first-time player the exact
-    // lesson the card is asking them to perform.
+    // It has learned to (the three-number-group round), so it was — and
+    // the PO removed the suppression outright: a board with a real budget
+    // withholding its hint meant a beginner met the game's hardest gesture
+    // with no help at all. The budget does the work instead, stopping four
+    // presses in, before the drag the card teaches.
     const second = ONBOARDING_PUZZLES[1]
     expect(second.numbers).toEqual([1, 1, 1, 3])
     expect(second.target).toBe(9)
