@@ -36,6 +36,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { computeHint, findBlockers, type HintMove } from '../core/hints'
+import { reachable } from '../core/solver'
 import { createExpression, type Expression, type Group, type Leaf, type NumberLeaf, type Operator, type Slot } from '../core/expression'
 
 /**
@@ -138,21 +139,72 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
     () => computeHint(expr, tray, target, opsAllowed, numbersCount),
     [expr, tray, target, opsAllowed, numbersCount]
   )
-  const deadEnd = hint === null
-
   const board = useMemo(() => indexBoard(expr.root.children), [expr])
 
-  // ------------------------------------------------------------- budget
-  // Read from the *empty* field, not the current one, so the budget is a
-  // property of the puzzle rather than of how far the player has got: the
-  // same search `computeHint` already runs, asked once about a board with
-  // nothing on it. `tray`/`target`/`opsAllowed`/`numbersCount` never change
-  // within one Board instance (a new puzzle remounts it), so this runs once
-  // per puzzle despite being a memo rather than an initializer.
-  const budget = useMemo(
-    () => hintBudget(numbersCount, computeHint(createExpression(), tray, target, opsAllowed, numbersCount)?.moves.length ?? 0),
+  // --------------------------------------------- what this puzzle can offer
+  // Read from the *empty* field, not the current one, so both values below
+  // are properties of the puzzle rather than of how far the player has got:
+  // the same search `computeHint` already runs, asked once about a board
+  // with nothing on it. `tray`/`target`/`opsAllowed`/`numbersCount` never
+  // change within one Board instance (a new puzzle remounts it), so this
+  // runs once per puzzle despite being a memo rather than an initializer.
+  const fromEmpty = useMemo(
+    () => computeHint(createExpression(), tray, target, opsAllowed, numbersCount),
     [tray, target, opsAllowed, numbersCount]
   )
+  const budget = hintBudget(numbersCount, fromEmpty?.moves.length ?? 0)
+
+  /**
+   * `computeHint` returning null on the *empty* field has two completely
+   * different causes, and the dead-end border must treat them oppositely:
+   *
+   *   a. **The search is blind to this puzzle.** Its only solutions need a
+   *      three-number group, which `completions` never proposes because a
+   *      hint move is a tap and growing a group past its minimum is
+   *      drag-only (concept 6.2). The board is perfectly solvable — by
+   *      drag — and nothing is wrong with it.
+   *   b. **The puzzle genuinely cannot be solved.** No arrangement of the
+   *      numbers reaches the target at all.
+   *
+   * `hint === null` cannot tell them apart; `solver.ts`'s `reachable()`
+   * can, because it is the model that does not care how a group's shape
+   * gets built — the same one the *generator* draws from. So it is asked
+   * once per puzzle, here.
+   *
+   * It costs ~23ms at four numbers, and the `&&` below is load-bearing
+   * rather than tidy: it short-circuits, so `reachable()` runs only on the
+   * boards where the hint actually came back null, and every other puzzle
+   * pays nothing at all. (For scale, `computeHint` above already costs
+   * ~30ms per puzzle, and `nextPuzzle` calls `reachable` many times over
+   * to draw one.)
+   *
+   * Case (a) is not an edge case: `scripts/checkHintReachable.ts` measured
+   * it at **39.8% of four-number draws**, and on two selections it is every
+   * puzzle in the pool. Before this, those boards opened with the dead-end
+   * border already lit on an untouched field — telling a player their
+   * puzzle was hopeless before they had touched a chip. Case (b) cannot
+   * occur from the generator at all (`nextPuzzle` only ever returns a
+   * target `reachable()` gave it), so it reaches here only from a
+   * hand-built puzzle, where the border is honest and stays.
+   *
+   * Note the suppression cannot be keyed on `budget > 0`: two numbers get a
+   * budget of 0 by the PO's own rule while remaining perfectly hintable,
+   * and would lose a dead-end verdict they should keep (placing the one
+   * wrong operator is a real dead end there).
+   */
+  const searchIsBlind = useMemo(
+    () => fromEmpty === null && reachable(tray.map(leaf => leaf.value), opsAllowed).some(e => e.target === target),
+    [fromEmpty, tray, opsAllowed, target]
+  )
+
+  /**
+   * Concept 10.1's dead-end verdict — withheld entirely on a puzzle whose
+   * solutions the hint could never see, for the reason `findBlockers` has
+   * always given for its own half of this ("nothing the player placed is to
+   * blame"): a null from a search that was never able to start says
+   * something about the search, not about the board.
+   */
+  const deadEnd = !searchIsBlind && hint === null
 
   const [contributed, setContributed] = useState<readonly Contribution[]>([])
   const beforePressRef = useRef<Set<string> | null>(null)

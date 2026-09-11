@@ -309,7 +309,9 @@ function pickRandom<T>(items: T[]): T {
   return items[Math.floor(Math.random() * items.length)]
 }
 
-// checkNextPuzzle.mjs measured the retry loop below across all 45
+// Measured — by a `checkNextPuzzle.mjs` that no longer exists, which is
+// why its findings are written out here in full rather than left as a
+// pointer to a file — across all 45
 // selections: without uniqueOnly, worst case stays in the low double
 // digits. "3 Zahlen, nur ÷" is the one uniqueOnly selection without an
 // exception list (concept 15.11) and needs real headroom: run against this

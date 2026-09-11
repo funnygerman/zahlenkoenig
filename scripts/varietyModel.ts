@@ -210,7 +210,7 @@ export function opSubsets(): { mask: number; ops: Operator[] }[] {
 
 /**
  * Known-good/known-bad checks, run before either script reports anything
- * (CLAUDE.md: "Verify claims rather than estimating them" — checkBankShapes
+ * (CLAUDE.md: "Verify claims rather than estimating them" — checkVariety
  * exists because two confident sentences turned out to be wrong).
  */
 export function selfTestModel(): void {

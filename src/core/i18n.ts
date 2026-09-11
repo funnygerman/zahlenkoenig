@@ -3,16 +3,25 @@
 // its own hand-rolled system (`src/i18n/`, deleted in step 5 along with the
 // rest of v1) with nested dotted keys, `{{param}}` interpolation and a
 // module-singleton + listener-Set for React updates — none of that fits or
-// is needed here. v2's whole translatable surface is eight short strings
+// is needed here. v2's translatable surface started as eight short strings
 // (Header.tsx's four panel labels, the uniqueOnly checkbox's three-part
 // sentence, the "beliebig" band label, and Expression.tsx's "Klammer
 // auflösen" aria-label, used twice) — a flat key/value map and a plain
-// lookup function is all this needs. No interpolation, no pluralization:
-// grepping the whole UI tree found no locale-sensitive number formatting
-// either (numbers are small integers, rendered with plain `String()`) and
-// none of these keys take a parameter. `updateHint` (step 6, concept 19.3)
-// is the ninth: the service worker's own "a new version is ready" nudge,
-// concept 19.3's own word for it ("Aktualisieren").
+// lookup function is all this needs, and still is. No interpolation, no
+// pluralization: grepping the whole UI tree found no locale-sensitive
+// number formatting either (numbers are small integers, rendered with
+// plain `String()`) and none of these keys take a parameter. `updateHint`
+// (step 6, concept 19.3) came next: the service worker's own "a new
+// version is ready" nudge, concept 19.3's own word for it
+// ("Aktualisieren"). The footer/history round added four more, and the
+// onboarding round eight — the first *sentences* in the app rather than
+// labels, and the one place where the wording is the feature.
+//
+// The onboarding strings are the reason to keep resisting HTML-in-a-string:
+// `introBracketOpen` has to point at the block chip, and it does it by
+// being rendered *beside a real one* (Intro.tsx) rather than by naming the
+// symbol or embedding markup — the same trick the uniqueOnly sentence uses
+// for its bolded word, which is split into three plain fragments instead.
 //
 // No language switcher is built (PO decision): the player's language is
 // detected once, from the browser, and that's it — see settings.ts's
@@ -56,6 +65,22 @@ interface Strings {
   historyForwardLabel: string
   /** The page footer's attribution line. */
   footerMade: string
+  /**
+   * The first-run introduction (onboarding round, core/onboarding.ts).
+   * Two cards, one per onboarding puzzle: the first names the goal, the
+   * rule and the gesture; the second teaches the block, because a
+   * three-number group is drag-only and nothing else on screen says so.
+   */
+  introGoal: string
+  introRule: string
+  introHow: string
+  introStart: string
+  introBracketLead: string
+  /** Rendered beside a real block chip, so the sentence never has to name the symbol in words. */
+  introBracketOpen: string
+  introBracketGrow: string
+  /** Board.tsx's nudge in the otherwise-empty notation line, while onboarding and the field is untouched. */
+  nudgeTapNumber: string
   /** The page footer's second line — the label of a link to the PO's ko-fi page (footer/history round; the URL itself lives in Game.tsx, not here). */
   footerCoffee: string
 }
@@ -76,6 +101,14 @@ const de: Strings = {
   historyForwardLabel: 'Nächstes Rätsel',
   footerMade: 'Mit ❤️ und Claude gemacht',
   footerCoffee: 'Auf einen Kaffee einladen ☕',
+  introGoal: 'Erreiche die Zahl im blauen Feld.',
+  introRule: 'Benutze jede Zahl genau einmal.',
+  introHow: 'Tippe auf eine Zahl, dann auf ein Rechenzeichen.',
+  introStart: 'Los geht’s',
+  introBracketLead: 'Dieses Rätsel braucht eine Klammer.',
+  introBracketOpen: 'Tippe hierauf, um eine zu öffnen.',
+  introBracketGrow: 'Zieh eine Zahl auf den Klammerrand, damit sie hineinkommt.',
+  nudgeTapNumber: 'Tippe auf eine Zahl',
 }
 
 const en: Strings = {
@@ -94,6 +127,14 @@ const en: Strings = {
   historyForwardLabel: 'Next puzzle',
   footerMade: 'Made with ❤️ and Claude',
   footerCoffee: 'Buy me a coffee ☕',
+  introGoal: 'Reach the number in the blue field.',
+  introRule: 'Use every number exactly once.',
+  introHow: 'Tap a number, then an operator.',
+  introStart: 'Let’s go',
+  introBracketLead: 'This puzzle needs a bracket.',
+  introBracketOpen: 'Tap this to open one.',
+  introBracketGrow: 'Drag a number onto the bracket edge to put it inside.',
+  nudgeTapNumber: 'Tap a number',
 }
 
 const ru: Strings = {
@@ -112,6 +153,14 @@ const ru: Strings = {
   historyForwardLabel: 'Следующая задача',
   footerMade: 'Сделано с ❤️ и Claude',
   footerCoffee: 'Угостить кофе ☕',
+  introGoal: 'Получи число в синем поле.',
+  introRule: 'Используй каждое число ровно один раз.',
+  introHow: 'Нажми на число, потом на знак.',
+  introStart: 'Поехали',
+  introBracketLead: 'Здесь нужны скобки.',
+  introBracketOpen: 'Нажми сюда, чтобы открыть их.',
+  introBracketGrow: 'Перетащи число на край скобки, чтобы оно оказалось внутри.',
+  nudgeTapNumber: 'Нажми на число',
 }
 
 // `Record<Language, Strings>` is what gives every language compile-time key

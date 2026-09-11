@@ -29,6 +29,21 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
+**One thing is open, and it is a real piece of work rather than an
+investigation: teach `core/hints.ts`'s `completions` to propose
+three-number groups.** The bug it caused — 39.8% of four-number puzzles
+opening with the dead-end border lit on an empty field — is fixed (the
+border is withheld where the search is blind; see "Where v2 stands"), but
+the underlying gap is not: on those boards the hint button still doesn't
+appear at all, because the budget is read from the same continuation that
+comes back null. Note this is **not** just widening the search's span: a
+hint move has to be a gesture the player has, and a three-number group is
+block-chip-then-drag, so it needs a new `HintMove` kind wired to
+`useGame`'s `insertLeafIntoGroup`/`absorbPairIntoGroup` path. It also
+moves the budget on those puzzles from zero to a real number, so
+`Hint.test.tsx`'s budget assertions come with it. Everything below this
+paragraph is about concept 16's roadmap, which remains finished.
+
 **Step 6 (concept section 16, "Feinschliff") is done, and it was the last
 row in concept 16's own table — there is no step 7.** Animations, landscape
 (Querformat) and the PWA work (concept section 19) are all built and
@@ -107,9 +122,199 @@ button needed no change: they never depended on drag, so Enter/Space
 already worked on them, confirmed by tabbing through a real build
 (Playwright): only those two remain in tab order now, the submit button
 rejoins it the moment it's enabled, and everything else is skipped rather
-than sitting there looking clickable.
+than sitting there looking clickable. (The onboarding round added a third:
+the intro card's own dismiss button, which takes focus on mount — the only
+focus move in the app, and it has nothing to restore focus *to* precisely
+because of this decision.)
 
 ## Where v2 stands
+
+**An onboarding round gave the game a first-run introduction — two fixed
+puzzles and a card each — after feedback from players who had never seen
+the idea: "if a user opens the game for the first time, it's not clear
+what to do there."** Like the footer/history round, this is scope the PO
+asked for after concept 16's roadmap was already finished, not a step.
+
+*The round started by looking at the actual first screen rather than
+reasoning about it*, and that is what set the agenda. Outside the footer
+there is not one word on it. The board explains its own **shape**
+completely — the scaffold says how many chips go where, the target chip
+says what to hit, the greyed `=` says something is still missing — and
+says nothing at all about the **one real rule**, that every number must be
+used exactly once. A newcomer reads `4 6 7 → 14` as "make 14 somehow".
+
+**The single worst finding was that `?` did not mean help.** `Header.tsx`'s
+`HintIcon` was literally a question mark in a ring — the universal glyph
+for *help* — so a first-time player hunting for an explanation tapped the
+one thing on screen that looked like one and got a chip silently placed on
+their board, a hint poorer. It is a **lightbulb** now (inline SVG per
+concept 13.2, not v1's 💡). No `?` remains anywhere in the app, verified
+against a real render: nothing now promises help without giving it.
+
+**Two fixed puzzles, not a GIF and not a coach-mark tutorial** (both were
+offered; the PO chose neither). A GIF is three files across three
+languages, goes stale on every UI change, and teaches the *rule* — the one
+invisible thing — not at all. A guided-overlay tutorial would have to hook
+into `useDrag`'s hit-testing, which is where this repo's worst bugs have
+lived. `core/onboarding.ts` (new) holds the two boards instead:
+
+- **`1 + 2 = 3`.** Not teaching arithmetic — teaching "I touched a thing
+  and it worked". Concept 6.4's promise ("für Erstklässler die ganze
+  Anleitung, ohne Worte") is literally true at two numbers and one
+  operator; the app's own default (3 numbers, all four operators) never
+  delivered it on a cold open.
+- **`(1+1+1) × 3 = 9`** (PO). The three-number group is the one capability
+  in the game that trying things cannot find: tap structurally can't build
+  it (concept 6.2) and neither can the hint (`hints.ts` only proposes
+  two-number groups). Scripted, with a card naming the gesture, it's the
+  lesson.
+
+**The PO's first candidate for that second puzzle, `(1+2+3) × 1 = 6`, was
+measured and rejected before anything was built.** `reachable()` reports
+its representative solution as `n+n+n×n` — flat, no bracket — and
+`computeHint` on the empty board returns seven plain tap moves. A player
+taps `1+2+3×1`, wins, and never meets a bracket. A bracket that is merely
+*permitted* teaches nothing; the one that ships is required
+(`onboarding.test.ts` pins both facts).
+
+**The second puzzle needs Board to suppress the hint layer, and that is
+the whole reason the `onboarding` prop exists.** `useHint`'s `deadEnd` is
+`hint === null` recomputed every render, and `computeHint` returns null on
+this board — the exact case `hints.test.ts` already pinned for `[1,1,1,3]
+→ 9`. Untouched, a first-time player's second board opens **already
+outlined as a dead end, before they touch anything**. `Board.tsx` forces
+`deadEnd` false and `blockingIds` null while onboarding, and reports
+`offered: false` so the header keeps the lightbulb away. That second part
+is belt-and-braces rather than load-bearing — the budget is read from the
+same null continuation and comes out 0, so `offered` was already false —
+and the test file says so: removing the `deadEnd` half fails a test,
+removing the `offered` half does not.
+
+**Two things were hidden during onboarding that the first render caught,
+and neither was in the plan.** The selection chip showed `3 numbers, 4
+operators` over a two-number, one-operator board — and changing it would
+have visibly done nothing, which is exactly the silent-no-op class the
+bug-fix round removed four of. And the history arrows appeared after the
+first onboarding puzzle, mid-lesson, inviting a detour that empties the
+board. `Header.tsx` gained `selectionHidden`; `Game.tsx` passes
+`total={0}` to `HistoryNav`. The update pill keeps its slot regardless.
+
+**"Shown until played", not "shown once"** (PO: *"do we really need help
+again if the user saw it once and played already?"*). That closed the
+permanent rules button this round had proposed, and with it concept 12.7's
+header-left menu icon — reserved since v2 began, now unbuilt on purpose in
+*both* halves (language by the i18n round, rules by this one). The real
+risk was never the player who read and played, but the one who dismissed
+the card *before* reading it: so the **step** is persisted
+(`zahlenkoenig:onboarding-v1`) and the **card's dismissal is not**. A
+reload brings the card back; a solved puzzle stays solved. Its own key and
+module rather than a sixth `Settings` field or a count off
+`solvedHistory.length` — deriving it from the archive would silently
+restart onboarding the day that archive is cleared or its cap lowered.
+
+**Drag is deliberately not mentioned on the first card, and is the whole
+of the second.** On a two-number `+` board drag can't do anything, so
+naming it there teaches a gesture with no use yet and costs a line nobody
+reads. The nudge line ("Tap a number") borrows the notation line, which is
+already laid out and blank at 22.8px on an untouched board, and removes
+itself with the first chip — which is also when it stops being true.
+
+**Both puzzles were played through in a real browser** (Playwright, real
+pointer events), not just jsdom. The second is solvable with **exactly one
+drag**: tap `1`, `+`, `1`, tap the block chip, drag the third `1` onto the
+right bracket edge, then `+`, `×`, `3`, `=`. The card's literal order
+works too — tapping the block chip on an empty field yields `()`, which
+then fills by tapping.
+
+**The scan that round left open has been run, and it found a live bug that
+is much bigger than onboarding: two in five four-number puzzles open as a
+dead end.** `scripts/checkHintReachable.ts` (new) asks whether the
+generator can hand a player a board `computeHint` cannot even start. This
+file asserted it could not. It can, constantly.
+
+| Numbers | Exhaustive pool | Real `nextPuzzle` draws |
+|---|---|---|
+| 2 | clean | 0 / 2 200 |
+| 3 | clean | 0 / 13 200 |
+| 4 | **35 selection/band rows affected** | **7 037 / 17 700 — 39.8%** |
+
+Two rows are their *entire* pool: `4 Zahlen, −×÷` uniqueOnly in XL
+(800/800) and XXL (453/453). Several more clear 98%. And no four-number
+selection is clean — the mildest, `+−÷` band 0, still lands at 5%.
+
+**Every single case is a three-number group** — the patterns are
+`(n+n+n)×n` and `(n+n×n)×n`, checked on the browser-confirmed examples.
+That is exactly what `completions` cannot propose, and the reason is
+unchanged since step 4: a hint move is a tap, and growing a group past two
+numbers is drag-only (concept 6.2). **Three numbers is clean for a
+structural reason rather than by luck** — a three-number group there spans
+the whole expression, so it is just the flat chain and reaches nothing new;
+at four numbers `(a∘b∘c)∘d` is a genuinely different value.
+
+**Confirmed in the real app, not only against the model**: with `4 Zahlen,
++×÷, XL` selected, 3 of 12 freshly loaded boards came up with the
+dead-end border already lit on the empty field *and* no hint button at all
+(the budget is read from the same null continuation, so `offered` is
+false and the header hides the icon). `[2,3,5,6] → 102` is one of them —
+solvable as `(2+3×5)×6`, and the player is told it is hopeless before
+touching a chip.
+
+**The border half is fixed; the search half is not.** The two were always
+independent, and conflating them would have delayed the cheap one behind
+the expensive one.
+
+*`useHint.ts` no longer derives `deadEnd` from `hint === null`.* The first
+draft of this guard read "a dead-end border on an **empty** field is
+always a false alarm" — true, but too narrow: on these boards `computeHint`
+is null at *every* stage, so a player two chips in was being blamed just
+as wrongly as one who had touched nothing. The rule that shipped withholds
+the verdict for the whole puzzle, and it is `findBlockers`'s own rule,
+which has always had this right — "nothing the player placed is to blame"
+when the empty field could not reach the target either.
+
+*The distinction it turns on is the one the first draft missed: `hint ===
+null` from an empty field has two causes.* Either the search is blind to
+the puzzle (three-number group — solvable, by drag) or the puzzle really
+is unsolvable. `computeHint` cannot tell them apart; `solver.ts`'s
+`reachable()` can, because it is the model that does not care how a
+group's shape gets built. So `useHint` asks it — and only where the hint
+came back null, since the `&&` short-circuits, so 60% of boards pay
+nothing and the rest pay ~23ms against a `computeHint` that already costs
+~30ms. The generator cannot produce the second case at all (`nextPuzzle`
+only returns targets `reachable()` gave it), so it arrives only from a
+hand-built puzzle — and `Hint.test.tsx`'s own `[1,1,1,1] → 1000` test,
+which *should* show a border, still does. That test failing against the
+too-broad first draft is what surfaced the distinction.
+
+*It also dissolved a special case.* `Board.tsx`'s `onboarding` prop no
+longer suppresses the dead-end border — the general rule covers the
+onboarding bracket puzzle on the way past, since it is exactly one of
+these boards. The prop keeps only the hint *offer*. A special case turning
+out to be an instance of a general rule is usually a sign the general rule
+is right.
+
+*Verified the same way the bug was found*: the browser check that reported
+3 of 12 freshly loaded boards with the border lit now reports **0 of 12**,
+on the same selection. The 3 that still show no hint button are the
+remaining gap, correctly reported.
+
+**Still open — the real fix:** teach `completions` to propose three-number
+groups, so the hint reappears on those boards. It closes the gap properly
+and makes the block the onboarding card teaches supported everywhere. It
+is a change to the most delicate search code in the repo; the walled
+patterns show it needs mixed-operator interiors (`(n+n×n)`), not just
+repeated ones; and it needs a new `HintMove` kind, because a three-number
+group is not a tap. See "Next v2 step".
+
+**The obvious third fix is a trap, and is written down here so nobody
+reaches for it later: do not make the generator refuse these puzzles.**
+Two selections are 100% walled, so refusing would empty them, `nextPuzzle`
+would exhaust its attempts and throw, and that unmounts the app — the
+exact crash class the bug-fix round fixed. More fundamentally these
+puzzles are not broken: a player can solve them, the drag gesture exists.
+Deleting hundreds of good puzzles to work around a hint limitation is
+backwards. The fraction-only refusal was different — those puzzles were
+genuinely unsuitable for the audience.
 
 **A second hint round, from three more PO play-test reports, changed the
 search itself and put two guards on the budget.**
@@ -704,6 +909,7 @@ of the model — which is what `generateBandTable.mjs` and
 | `scripts/checkBands.ts` | How many bands a selection can carry without starving an operator, and where the boundaries go |
 | `scripts/checkFloorAndIdentity.ts` | Whether the operator floor starves a band, and how often puzzles waste a chip or leave the whole numbers |
 | `scripts/generateBandTable.ts` | Emits `BAND_TABLE` and `UNIQUE_EXCEPTIONS` — regenerate and paste after any model change |
+| `scripts/checkHintReachable.ts` | Whether the generator can draw a board the hint cannot start (onboarding round). Two passes: exhaustive over every multiset `randomNumbers` can produce, and over real `nextPuzzle` draws — the second is what covers uniqueOnly's exception-list branch, which never touches the pool path |
 
 `scripts/varietyModel.ts` holds what the measurement scripts share. Its
 self-test cross-checks its own `minDistinctOps` against `reachable()`, which
@@ -844,10 +1050,14 @@ flat chain cannot") where `solver.ts`'s `reachable()` — which the *generator*
 uses, and which doesn't care how a group's shape gets built — says the
 puzzle is solvable, but `computeHint` correctly reports a dead end, because
 the only solution needs a 3-number block a hint press could never construct.
-No puzzle actually generated hits this today (the generator doesn't favor
-3-number-only solutions), but it's a real gap between what the game can
-generate and what the hint can walk a player through, worth knowing about
-before either side changes.
+**That sentence used to continue "no puzzle actually generated hits this
+today (the generator doesn't favor 3-number-only solutions)", and that was
+wrong — measured, not argued, by `scripts/checkHintReachable.ts`.** At four
+numbers it happens on **39.8% of real draws**, and on two selections it is
+every single puzzle in the pool. See "Where v2 stands" for the numbers and
+`scripts/checkHintReachable.ts`'s own header for the method. The gap
+between what the game can generate and what the hint can walk a player
+through is not hypothetical and never was.
 
 **A hint move is expressed as a tap, and applying one reuses the exact
 placement functions a manual tap already calls** (`useGame.ts`'s
@@ -1130,14 +1340,38 @@ actual `--cell` range, not just `entwurf.html`'s one measurement.
 
 - **Specifications are written in German**, matching the existing ones. Code,
   comments and commit messages are in English.
-- **Verify claims rather than estimating them.** `scripts/checkDepth1.mjs` and
-  `scripts/checkBankShapes.mjs` are the pattern: each answers a design question
-  exhaustively and is itself checked against known-good and known-bad cases
-  before it reports anything. This applies to the specs too — `checkBankShapes`
-  exists because two confident sentences in the v2.1 concept turned out to be
-  wrong.
+- **Verify claims rather than estimating them.** `scripts/checkVariety.ts` and
+  `scripts/checkHintReachable.ts` are the pattern: each answers a design
+  question exhaustively and is itself checked against known-good and
+  known-bad cases before it reports anything. This applies to the documents
+  too, **this file very much included** — `checkHintReachable.ts` exists
+  because a confident sentence right here ("no puzzle actually generated
+  hits this today") turned out to be wrong about 39.8% of four-number
+  draws, and the two sentences in the v2.1 concept that a scan disproved in
+  round 3 were the same lesson. A claim nobody has measured is a claim,
+  however long it has sat in a document unchallenged.
 - **Decide layout questions by looking.** Where two options exist, render both
   and compare, rather than arguing them in prose.
+- **CI runs on every push and pull request** (`.github/workflows/ci.yml`):
+  `npm ci`, `npm run build` (which is `tsc && vite build`, so it is the
+  typecheck too) and `npm test`. About a minute in total — the suite is
+  ~25s and the build ~6s — which is why it can afford to run on everything.
+  `deploy.yml` runs the suite before building too, so a red `main` cannot
+  reach the live site even on a direct push.
+  **The exhaustive scripts in `scripts/` deliberately stay out of CI**:
+  `checkHintReachable.ts`'s four-number pool pass alone takes ~17 minutes.
+  What they check belongs in the suite as a *fast sample* instead —
+  `Hint.test.tsx`'s "a freshly drawn puzzle never opens as a dead end"
+  draws real puzzles from four selections and asserts the property on each
+  in about a second. That is the pattern worth copying: the script proves
+  the property exhaustively once, the test keeps it from regressing on
+  every push.
+- **Write the test as the invariant, not as the bug.** The dead-end
+  regression tests assert "a freshly drawn puzzle never opens as a dead
+  end", not "these selections produce walled puzzles" — so they keep
+  passing, unchanged, once `completions` learns three-number groups. A test
+  that encodes the bug has to be deleted by whoever fixes it, which is
+  exactly when you would rather it still ran.
 - The sibling project `funnygerman/flashcards` is the reference for house style:
   one aspect-ratio switch instead of width breakpoints, sizes derived from a
   single variable, `system-ui`, SVG icons rather than emoji, `100dvh` with no
@@ -1148,9 +1382,35 @@ actual `--cell` range, not just `entwurf.html`'s one measurement.
 ```sh
 npm install
 npm run dev        # vite
-npm run build      # tsc && vite build
+npm run build      # tsc && vite build  (this is the typecheck too)
 npm run preview
+npm test           # vitest run — ~25s, the same command CI runs
 ```
 
-`node --max-old-space-size=512 scripts/generatePuzzles.mjs` regenerates the
-puzzle bank; it skips files that already exist.
+**There is no puzzle bank and no command to regenerate one.** Generation is
+on-device (`puzzles.ts`'s `nextPuzzle()`, step 2b); this section used to
+document a `scripts/generatePuzzles.mjs` that wrote level banks into
+`src/data/`, a directory step 5 deleted. That instruction outlived what it
+described by several rounds, which is worth knowing about this file in
+general: a command that still *reads* plausibly is not evidence it still
+*does* anything.
+
+The one generator that remains is not a scan but a source step:
+
+```sh
+npx tsx scripts/generateBandTable.ts   # emits BAND_TABLE + UNIQUE_EXCEPTIONS
+```
+
+Its output is pasted into `puzzles.ts` by hand, so it has to be re-run and
+re-pasted after any change to the model underneath it.
+
+`scripts/` holds three on-demand measurement tools besides that
+(`checkVariety.ts`, `checkFloorAndIdentity.ts`, `checkHintReachable.ts`,
+plus `checkBands.ts` kept as historical record and `varietyModel.ts` as
+their shared helper). **They are investigation tools, not infrastructure** —
+run one when you are changing the generator or the solver and have a
+question, not on a schedule and not in CI. Four bank-era scripts that used
+to sit here were deleted: two crashed on `src/data` files that no longer
+exist, one regenerated a bank nothing loads, and the fourth's findings are
+written out in full at `MAX_ATTEMPTS` in `puzzles.ts`, which is the only
+place they ever decided anything.

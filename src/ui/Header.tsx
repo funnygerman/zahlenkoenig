@@ -2,9 +2,13 @@
 // and changes the current selection — "das anzeigende Element ist das
 // ändernde" — plus, as of step 4, the hint icon on the right (concept
 // 10.3). Concept 12.7 also puts a menu icon on the left, but that belongs
-// to language/rules, which no step has built yet: a button with no handler
-// is worse than no button, so this still renders only the chip and the
-// hint icon.
+// to language/rules, and the PO has since closed both halves: the language
+// is detected once with no switcher (settings.ts), and the onboarding round
+// chose a first-run card over a permanent rules button. So the left slot
+// stays unbuilt on purpose, and hosts only concept 19.3's update pill.
+//
+// The chip itself is hidden while an onboarding puzzle is on the board
+// (`selectionHidden`) — see that prop's own note.
 //
 // The panel it opens is concept 15.6's selection UI — three rows the
 // player can change independently, plus the uniqueOnly switch — laid over
@@ -74,15 +78,63 @@ export interface HeaderProps {
    */
   updateAvailable?: boolean
   onUpdate?: () => void
+  /**
+   * Hide the selection chip entirely (onboarding round). An onboarding
+   * board is fixed — its numbers and its deliberately narrow tray come
+   * from core/onboarding.ts, not from `settings` — so the chip would be
+   * displaying a selection that is not what is on screen (three numbers
+   * and four operators over a two-number, one-operator board), and, worse,
+   * changing it would visibly do nothing. Concept 12.7 calls the chip
+   * "zugleich Anzeige und Bedienelement"; while neither half is true it
+   * should not be there at all.
+   *
+   * The update pill keeps its own slot regardless: a waiting service-worker
+   * update is not part of the puzzle and shouldn't wait for onboarding to
+   * finish.
+   */
+  selectionHidden?: boolean
 }
 
-/** concept 13.2: inline SVG, never emoji. */
+/**
+ * concept 13.2: inline SVG, never emoji.
+ *
+ * A lightbulb, not the circled question mark this used to be (onboarding
+ * round). The old icon was `?` in a ring — which is the universal glyph
+ * for *help* — so a first-time player looking for "what do I do here?"
+ * tapped the one thing on screen that looked like an explanation and got a
+ * chip silently placed on their board instead, one hint poorer. A bulb is
+ * what "hint" means everywhere, and it is what v1's own copy already said
+ * ("Tippe auf 💡 wenn du nicht weiterkommst") — as an inline SVG stroke
+ * symbol here, since concept 13.2 rules out the emoji.
+ *
+ * With this, no `?` remains anywhere in the app, which is the other half of
+ * the fix: there is now nothing that promises help and doesn't give it.
+ */
 function HintIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="9.5" />
-      <path d="M9.3 9.6a2.7 2.7 0 1 1 4 2.35c-.85.5-1.3 1-1.3 2.05" />
-      <circle cx="12" cy="17.2" r="1.1" fill="currentColor" stroke="none" />
+      <path d="M12 2.9a5.75 5.75 0 0 0-3.4 10.4c.6.45.95 1.15.95 1.9v.25h4.9v-.25c0-.75.35-1.45.95-1.9A5.75 5.75 0 0 0 12 2.9Z" />
+      <path d="M9.55 18.4h4.9" />
+      <path d="M10.6 21h2.8" />
+    </svg>
+  )
+}
+
+/**
+ * The selection chip's "this is a button" mark (onboarding round). Reported
+ * by the PO from the same first-time feedback as the rest of this round:
+ * the chip is a flat filled pill showing the current selection, and it
+ * reads as a status badge rather than as the control that changes it —
+ * which matters more than it looks, because it is also the only route to
+ * "two numbers, only +", the selection that makes the game legible to a
+ * beginner. A chevron is the cheapest fix that needs no translation and no
+ * extra width worth measuring (the chip sits at ~128px inside a ~367px
+ * header).
+ */
+function ChevronIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <path d="M6 9.5 12 15.5l6-6" />
     </svg>
   )
 }
@@ -91,7 +143,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate, selectionHidden = false }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -128,6 +180,7 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
         </button>
       )}
 
+      {!selectionHidden && (
       <button
         type="button"
         className={styles.chip}
@@ -142,7 +195,9 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
           {settings.ops.map(op => <i key={op} className={styles.circle} />)}
         </span>
         <span className={styles.range}>{lo}–{hi}</span>
+        <span className={styles.chevron}><ChevronIcon /></span>
       </button>
+      )}
 
       {!hintHidden && (
         <button type="button" className={styles.hintButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>

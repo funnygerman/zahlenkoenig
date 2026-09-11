@@ -242,3 +242,25 @@
 .footer input:disabled {
   cursor: not-allowed;
 }
+
+/* Onboarding round: the selection chip's affordance mark. Muted, so it
+ * reads as a hint about the chip rather than as a second thing to look at,
+ * and flipped when the panel is open so the chip says which way it goes. */
+.chevron {
+  display: grid;
+  place-items: center;
+  margin-left: -2px;
+  color: var(--zk-muted);
+  transition: transform 140ms ease;
+}
+
+.chip[aria-expanded='true'] .chevron {
+  transform: rotate(180deg);
+  color: var(--zk-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}

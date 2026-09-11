@@ -43,6 +43,38 @@ export interface BoardProps {
    * icon mutes. See the effect in Board that reports it.
    */
   onHintState?: (state: { offered: boolean; available: boolean }) => void
+  /**
+   * This board is one of the onboarding puzzles (core/onboarding.ts): the
+   * header offers no hint on it, whatever the puzzle itself could support.
+   *
+   * This used to also suppress the dead-end border, because the second
+   * onboarding puzzle (`(1+1+1)×3 = 9`) needs a three-number group and
+   * `computeHint` therefore returns null on it — so the border would have
+   * been lit on the empty field before a first-time player touched
+   * anything. That is no longer a special case: `useHint`'s own
+   * `puzzleHintable` now withholds the verdict on *any* puzzle the hint
+   * could never walk, which is the general form of the same rule and
+   * covers this board on the way past. `scripts/checkHintReachable.ts` is
+   * why — the same thing was happening on 39.8% of ordinary four-number
+   * draws, so it was never an onboarding problem at all.
+   *
+   * What stays here is only the hint *offer*. Both onboarding boards
+   * already report `offered: false` on their own (two numbers get no
+   * hints by the PO's rule; the bracket puzzle has a zero budget for the
+   * reason above), so this is belt-and-braces — but it states the
+   * intention rather than leaning on two unrelated facts continuing to
+   * agree, and it keeps holding if a future onboarding puzzle is one the
+   * hint *could* solve.
+   */
+  onboarding?: boolean
+  /**
+   * A short instruction to show in the notation line while the field is
+   * still empty (onboarding round). The line is already laid out and
+   * blank on an untouched board, so this costs no layout and removes
+   * itself the moment the first chip lands — which is also exactly when
+   * it stops being true.
+   */
+  nudge?: string
 }
 
 /** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
@@ -105,7 +137,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, onboarding = false, nudge }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -123,7 +155,12 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // (the two-hint budget spent, or the puzzle already correctly built).
   // Reported upward rather than lifted: the hint still belongs to the board
   // it is about, and Board is remounted per puzzle while Header is not.
-  useEffect(() => { onHintState?.({ offered: hint.offered, available: hint.available }) }, [hint.offered, hint.available, onHintState])
+  // `onboarding` forces `offered` false — see the prop's own note for why
+  // the header must not show a hint icon on an onboarding board even
+  // though, on both of them as they stand, it would already hide it.
+  const hintOffered = hint.offered && !onboarding
+  const hintAvailable = hint.available && !onboarding
+  useEffect(() => { onHintState?.({ offered: hintOffered, available: hintAvailable }) }, [hintOffered, hintAvailable, onHintState])
 
   // Concept 6.7's dissolve fade: the real trigger is a tap detected by
   // useDrag (handleTap below), not Expression's own onClick (that path
@@ -200,6 +237,12 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // `game.result` can be negative now (result-on-submit round): a wrong
   // attempt shows its own "= −3" rather than hiding behind bare notation.
   const readout = game.status !== 'idle' && game.result !== null ? `${notation} = ${formatResult(game.result)}` : notation
+  // The nudge borrows the notation line rather than adding a row: the line
+  // is empty exactly while the field is, so the two never compete for it,
+  // and an untouched board is precisely when "tap a number" is worth
+  // saying. `notation` (not `readout`) is the right test — `readout` only
+  // differs once a verdict exists, which implies chips are down.
+  const showNudge = nudge !== undefined && notation === ''
 
   return (
     <div className={styles.board}>
@@ -229,8 +272,8 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           being built, above the tray, rather than below it — real notation
           as the tree grows, "= result" appended only once `=` has been
           pressed on it. */}
-      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong)} role="status">
-        {readout}
+      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong, showNudge && styles.nudge)} role="status">
+        {showNudge ? nudge : readout}
       </div>
 
       <Tray

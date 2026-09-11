@@ -4,9 +4,11 @@ import { render, screen, act, renderHook } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { Board, type BoardHandle } from './Board'
 import { useGame } from './useGame'
-import { hintBudget } from './useHint'
+import { hintBudget, useHint } from './useHint'
 import { computeHint } from '../core/hints'
-import type { Operator } from '../core/expression'
+import { createExpression, createTray, type Operator } from '../core/expression'
+import { reachable } from '../core/solver'
+import { nextPuzzle, type PuzzleSettings } from '../core/puzzles'
 
 /** pressHint is called directly on the imperative handle, outside any DOM event — wrap it so React flushes the resulting state update before assertions run. */
 function press(ref: React.RefObject<BoardHandle | null>) {
@@ -292,6 +294,85 @@ describe('Board — the dead-end border (concept 10.3: "kostenlos, dauerhaft")',
     render(<Board numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
     expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
   })
+
+  // The regression `scripts/checkHintReachable.ts` found. `completions`
+  // proposes groups of two and no more (a hint move is a tap; growing a
+  // group past its minimum is drag-only, concept 6.2), so on a puzzle whose
+  // only solutions need a *three*-number group `computeHint` returns null —
+  // at every stage, empty field included. `deadEnd` used to be exactly
+  // `hint === null`, so such a board opened already outlined as
+  // unsolvable, before the player had touched a chip. Measured at 39.8% of
+  // four-number draws.
+  //
+  // `[1,1,1,3] → 9` is the case `hints.test.ts` pins at the core level:
+  // `(1+1+1)×3`, solvable by drag, invisible to the hint.
+  it('is withheld on a puzzle the hint could never walk, however solvable that puzzle is', () => {
+    const dragOnly = { numbers: [1, 1, 1, 3], target: 9, ops: ['+', '*'] as Operator[] }
+    expect(computeHint(createExpression(), createTray(dragOnly.numbers), dragOnly.target, dragOnly.ops, 4)).toBeNull()
+
+    render(<Board numbers={dragOnly.numbers} target={dragOnly.target} ops={dragOnly.ops} />)
+    expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
+  })
+
+  // The border must stay withheld for the *whole* puzzle, not just while
+  // the field is empty: on these boards `computeHint` is null at every
+  // stage, so a player two chips in is no more to blame than one who has
+  // touched nothing.
+  it('stays withheld once chips are down on such a puzzle', async () => {
+    const user = userEvent.setup()
+    render(<Board numbers={[1, 1, 1, 3]} target={9} ops={['+', '*']} />)
+
+    await user.click(screen.getAllByText('1', { selector: 'button' })[0])
+    await user.click(screen.getByText('+', { selector: 'button' }))
+    expect(placed()).toHaveLength(2)
+    expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
+  })
+
+  // The distinction the fix turns on, and the reason `reachable()` is
+  // consulted rather than trusting `hint === null`: a null hint on a
+  // genuinely unsolvable board is honest and keeps its border (the test
+  // above this block), while a null hint on a solvable one is the search's
+  // own blind spot and says nothing about the player.
+  it('tells "the search cannot see it" apart from "the puzzle cannot be solved"', () => {
+    const blind = reachable([1, 1, 1, 3], ['+', '*']).some(e => e.target === 9)
+    const impossible = reachable([1, 1, 1, 1], ['+', '-', '*', '/']).some(e => e.target === 1000)
+    expect(blind).toBe(true)       // solvable — border withheld
+    expect(impossible).toBe(false) // not solvable — border kept
+  })
+})
+
+// Stated as the invariant rather than as the bug: whatever the generator
+// draws, a fresh board must never greet the player with a dead-end border.
+// This is what `scripts/checkHintReachable.ts` measures exhaustively, kept
+// here as a fast sample so a regression fails the suite rather than waiting
+// for someone to run a script — and it keeps passing, unchanged, once
+// `completions` learns three-number groups.
+describe('a freshly drawn puzzle never opens as a dead end', () => {
+  const SELECTIONS: PuzzleSettings[] = [
+    { numbers: 4, ops: ['+', '*', '/'], band: 2, uniqueOnly: false },   // 40% walled before the fix
+    { numbers: 4, ops: ['-', '*', '/'], band: 2, uniqueOnly: true },    // 100% walled before the fix
+    { numbers: 4, ops: ['+', '-', '*', '/'], band: 3, uniqueOnly: false },
+    { numbers: 3, ops: ['+', '-', '*', '/'], band: 0, uniqueOnly: false },
+  ]
+
+  for (const settings of SELECTIONS) {
+    const name = `${settings.numbers}n ${settings.ops.join('')} band ${settings.band}${settings.uniqueOnly ? ' uniqueOnly' : ''}`
+    it(`holds across draws from ${name}`, () => {
+      for (let i = 0; i < 8; i++) {
+        const puzzle = nextPuzzle(settings, [], [])
+        const { result, unmount } = renderHook(() => useHint({
+          expr: createExpression(),
+          tray: createTray(puzzle.numbers),
+          target: puzzle.target,
+          opsAllowed: settings.ops,
+          numbersCount: puzzle.numbers.length,
+          onApplyMove: () => {},
+        }))
+        expect(result.current.deadEnd, `[${puzzle.numbers}] -> ${puzzle.target}`).toBe(false)
+        unmount()
+      }
+    })
+  }
 })
 
 // The two hint failures a browser QA pass found, at the level where they
