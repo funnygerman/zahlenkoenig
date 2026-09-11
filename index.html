@@ -1,5 +1,11 @@
 <!doctype html>
-<html lang="de">
+<!-- English, matching the app's own fallback language: `detectLanguage()`
+     returns 'en' for anything it does not recognise and
+     `DEFAULT_SETTINGS.language` is 'en' (core/settings.ts). Game.tsx
+     rewrites this attribute to the player's detected language on mount, so
+     this value is what a crawler reads and what an unrecognised locale
+     gets — exactly the two cases the i18n fallback already covers. -->
+<html lang="en">
   <head>
     <meta charset="UTF-8" />
     <link rel="icon" type="image/svg+xml" href="/zahlenkoenig/crown.svg" />
@@ -10,10 +16,122 @@
          own note on why this can't just read the CSS custom property, and
          why this and the manifest's theme_color have to stay in sync by hand. -->
     <meta name="theme-color" content="#2962ae" />
-    <meta name="description" content="Zahlenkönig – Mathematisches Rätselspiel" />
+
     <title>Zahlenkönig</title>
+    <meta
+      name="description"
+      content="Reach the target using every number exactly once. Plus, minus, times, divide and brackets you place yourself. Free, no sign-up, plays offline."
+    />
+    <meta name="author" content="funnygerman" />
+    <!-- No `canonical` and no `robots`: this is a single page with no
+         query strings, no duplicate URLs and nothing to disambiguate, and
+         the default crawl behaviour is already index+follow. Both were
+         here and both were doing nothing. There are no hreflang tags for
+         a related reason — the app runs in three languages off this one
+         URL, and hreflang needs a second URL to point at. -->
+
+    <!-- Sharing previews (Open Graph / Twitter). A scraper fetches this URL
+         from its own server, once, with no idea who will see the result, so
+         a card is fixed per URL and cannot follow a reader's language the
+         way the app itself does — which is the same reason this page is in
+         the fallback language rather than in any particular player's. The
+         game's own name stays German because it is a name.
+         The absolute URLs are required by both specs — a relative og:image
+         is ignored by most scrapers — so they repeat the deployed base from
+         vite.config.ts's `base`. src/seo.test.ts pins the two to each
+         other, and pins the Twitter card to the Open Graph one so the two
+         can't drift apart. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Zahlenkönig" />
+    <meta property="og:title" content="Zahlenkönig – a free number puzzle game" />
+    <meta
+      property="og:description"
+      content="Reach the target using every number exactly once. Plus, minus, times, divide — and brackets you place yourself. No sign-up, plays offline."
+    />
+    <meta property="og:url" content="https://funnygerman.github.io/zahlenkoenig/" />
+    <meta property="og:image" content="https://funnygerman.github.io/zahlenkoenig/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Zahlenkönig: the puzzle (6 + 2) × (9 − 3) with the target 48" />
+    <meta property="og:locale" content="en_US" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Zahlenkönig – a free number puzzle game" />
+    <meta
+      name="twitter:description"
+      content="Reach the target using every number exactly once. Plus, minus, times, divide — and brackets you place yourself. No sign-up, plays offline."
+    />
+    <meta name="twitter:image" content="https://funnygerman.github.io/zahlenkoenig/og-image.png" />
+
+    <!-- Structured data (schema.org). This is the one part of the page a
+         search engine and an LLM-based crawler can read *as data* rather
+         than as prose, so it carries the facts that matter: what the thing
+         is, that it costs nothing, who it is for, and what it can do. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://funnygerman.github.io/zahlenkoenig/#website",
+            "url": "https://funnygerman.github.io/zahlenkoenig/",
+            "name": "Zahlenkönig",
+            "inLanguage": ["en", "de", "ru"]
+          },
+          {
+            "@type": ["SoftwareApplication", "Game"],
+            "@id": "https://funnygerman.github.io/zahlenkoenig/#app",
+            "name": "Zahlenkönig",
+            "url": "https://funnygerman.github.io/zahlenkoenig/",
+            "description": "Zahlenkönig is a number puzzle for the browser. You are given two to four numbers and a target, and you have to reach the target using every number exactly once. Plus, minus, times and divide are allowed, as are brackets you place yourself; how many numbers, which operators and how big the target should be are all chosen before you start. Every puzzle is generated on the device and is guaranteed to be solvable.",
+            "applicationCategory": ["GameApplication", "EducationalApplication"],
+            "applicationSubCategory": "Puzzle",
+            "operatingSystem": "Web browser (Android, iOS, Windows, macOS, Linux)",
+            "browserRequirements": "Requires JavaScript",
+            "inLanguage": ["en", "de", "ru"],
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "EUR"
+            },
+            "audience": {
+              "@type": "EducationalAudience",
+              "educationalRole": "student",
+              "audienceType": "From first-graders to adults"
+            },
+            "educationalUse": "Mental arithmetic practice, the four basic operations, order of operations, brackets",
+            "teaches": "Mental arithmetic with the four basic operations and brackets",
+            "featureList": [
+              "Two to four numbers per puzzle",
+              "Plus, minus, times and divide, each switched on separately",
+              "Brackets you place yourself by dragging",
+              "Four target sizes, from small to very large",
+              "A hint that plays the next move for you",
+              "Puzzles with exactly one solution, on request",
+              "Step back into puzzles you have already solved",
+              "No sign-up and no ads",
+              "Installable as an app and playable offline"
+            ],
+            "screenshot": "https://funnygerman.github.io/zahlenkoenig/og-image.png",
+            "author": {
+              "@type": "Person",
+              "name": "funnygerman",
+              "url": "https://github.com/funnygerman"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
+    <!-- Deliberately empty. A prose fallback lived here (it is what a
+         non-JavaScript crawler would read, since `createRoot` clears this
+         container on first render) and was removed on the PO's call: it
+         was the one part of the SEO round with a cost a player could see —
+         a brief flash of text on a slow first paint — against the most
+         speculative benefit in it. What a non-JS crawler still gets is the
+         title, the meta description and the JSON-LD above, which is the
+         part such a crawler actually parses. -->
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>

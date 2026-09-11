@@ -138,6 +138,178 @@ because of this decision.)
 
 ## Where v2 stands
 
+**An SEO round gave the page something to find.** Like the footer/history
+and onboarding rounds, this is scope the PO asked for after concept 16's
+roadmap was already finished, not a step. The starting point, measured
+rather than assumed: the served HTML was 943 bytes, of which the only prose
+was a nine-word German `<meta name="description">`, and `<div id="root">`
+was empty. There was no `<h1>` anywhere — not in the static file *and not
+in the rendered app*, which the board's own design explains (it says its
+shape completely and never names the game).
+
+*The finding that set the agenda is that this app has two audiences of
+crawler, not one, and they need different things.* A search engine renders
+JavaScript, so it would eventually see the board — but a board is chips and
+digits, and it never states the one real rule. Most LLM-based crawlers do
+**not** run JavaScript at all; they fetch the HTML and read it. For those,
+the page was literally an empty div. So the fix is two-sided:
+
+- **`index.html`'s `#root` briefly held the page as prose, and the PO cut
+  it again — see "the trim" below.** What a non-JavaScript crawler gets
+  instead is the title, the meta description and the JSON-LD, which is the
+  part such a crawler parses anyway.
+- **`Game.tsx` renders a visually hidden `<h1>` and one-sentence
+  description** (`.srOnly` in `Game.module.css`), for the renderer-based
+  crawler and for a screen reader, which had no heading either. The
+  sentences are `introGoal`/`introRule` — the onboarding card's own words —
+  rather than two new i18n keys, so there is one place to change the
+  wording and it is already translated into all three languages.
+
+*The fallback was measured in a real browser while it existed, because it
+was the one change here a player could feel — and the measurement is what
+made cutting it an easy call.* React replaces it **57–81ms**
+after navigation normally and **~470ms** on a 6× throttled CPU; **CLS is
+0.0000 either way**, checked against a control build with the fallback
+stripped back out, so it costs nothing in Core Web Vitals. It introduces no
+scrolling (`scrollHeight === clientHeight`, which `tokens.css`'s own
+`overflow: hidden` already guaranteed since the stylesheet is
+render-blocking). With JavaScript off it is simply the page. Worth being
+plain about the tradeoff: on a slow phone there is now a brief flash of
+prose where there used to be a blank white screen — which is the
+comparison that matters, and it is an improvement rather than a cost.
+Confirmed by screenshot afterwards against a build of the previous commit:
+the mounted game is **pixel-identical**, same MD5, since the new `<h1>` is
+clipped to 1×1 and lives only in the accessibility tree. The first attempt
+at that comparison was worthless and worth remembering — both builds
+screenshotted at a fixed delay under CPU throttling, which sampled a race
+rather than controlling it (the "after" shot had already mounted). Turning
+JavaScript off in both holds the pre-mount paint still and treats them
+identically.
+
+**The served page is in English, and the sharing card with it (PO).** It
+started out German, matching the app's origin, and the PO's own question
+settled it: English is already the app's fallback language —
+`detectLanguage()` returns `'en'` for anything it does not recognise and
+`DEFAULT_SETTINGS.language` is `'en'` — so a German static page was the
+one place that did not follow the rule the rest of the app already has.
+The constraint underneath is worth stating once, because it is what makes
+this a decision rather than a preference: **a crawler, a link scraper and
+an install prompt all fetch this URL once, from their own servers, with no
+reader to follow.** None of them can be given "the user's language" the
+way the app can — `Game.tsx` rewrites `documentElement.lang` and the
+sr-only heading per player, and that half was always translated. So these
+surfaces get the fallback language, and per-language cards would need
+per-language *URLs* (`/en/`, `/ru/`), which was offered and declined as
+out of proportion. Verified after the switch: a `de-DE` browser still
+loads the German app and `html lang` still becomes `de` — the English is
+only ever what a crawler or an unrecognised locale sees. The game's own
+name stays German because it is a name. What this costs is German-language
+query matching, which was near-worthless anyway for the reason under
+"worth it" below. Two `og:locale:alternate` lines went out with the same
+round: they declared translations no alternate URL served, which is this
+file's own "reads plausibly, does nothing" failure in miniature.
+
+**Worth being honest about how much of this pays.** Ranking is mostly a
+function of inbound links, and this is a project page on `github.io` with
+no links pointing at it, so the search-engine half will not bring traffic
+and should not be described as if it will. The part that does pay is the
+**sharing card**, which is not a search-engine feature at all: a link
+posted into a chat now renders as a titled card with the board on it
+instead of a bare URL, and this game spreads by being passed around. That
+is the reason the card got the language decision above and the sitemap did
+not.
+
+*The rest of the round is metadata that did not exist at all:* a title that
+says what the thing is, a 150-character description, `canonical`, `robots`,
+full Open Graph and Twitter cards, and **schema.org structured data**
+(`SoftwareApplication` + `Game` in a `@graph`, with `offers` at price 0,
+`audience`, `educationalUse` and a `featureList`). The structured data is
+the part aimed squarely at the AI crawlers: it is the only place on the
+page that states the facts *as data* rather than as prose.
+
+*`public/og-image.png` is generated from the app's own tokens*, not from a
+second palette — 1200×630, the worst-case board `(6+2) × (9−3) = 48` drawn
+with `tokens.css`'s real HSL values and the crown from `public/crown.svg`.
+**Building it surfaced a real cost the build reported on itself**: at first
+it was precached by the service worker, 36 KB — 13% of the whole precache —
+that no player ever downloads, since link-preview scrapers never reach a
+service worker and the image is never rendered in the app. `workbox.globIgnores`
+excludes it now; the precache went from 277.69 KiB back to 242.33 KiB.
+
+**The trim (PO). Asked outright whether any of this was worth it, the
+honest answer was no for the search-engine half, and the round was cut
+back to what pays.** Ranking is mostly a function of inbound links; this
+is a project page on `github.io` with none, so no amount of metadata makes
+it rank for anything competitive, and saying otherwise would have been the
+kind of unmeasured claim this file exists to catch. What *does* pay is the
+**sharing card**, which is not a search-engine feature at all: a link
+posted into a chat renders as a titled card with the board on it instead
+of a bare URL, and this game spreads by being passed around.
+
+Kept: the Open Graph/Twitter tags and `og-image.png`, the meta
+description, the JSON-LD, the README, and the sr-only `<h1>` (an
+accessibility fix on its own merits — the page had no heading at all).
+
+Removed, with the reason each was droppable:
+
+| Removed | Why |
+|---|---|
+| The `#root` prose fallback | The only change in the round with a cost a player could see — a flash of text on a slow first paint — against its most speculative benefit. Confirmed gone afterwards: the pre-mount paint is blank again |
+| The build-time `sitemap.xml` plugin | One URL. Nothing to enumerate, and no `robots.txt` at this origin to announce it from |
+| `canonical` and `robots` | A single page with no query strings has nothing to disambiguate, and the default crawl behaviour is already index+follow. Both were doing nothing |
+| The long `<title>` | Back to `Zahlenkönig`. It was buying search-result wording, which is the half that does not pay; the browser tab is the half a player reads every time |
+
+**After the trim, nothing in this round is visible to a player at all** —
+not a pixel in the game (proven identical before the trim), no flash, the
+tab title back to what it was, and the manifest's `name` shortened to
+match it (PO), so the install prompt reads `Zahlenkönig` rather than a
+descriptive tail. `name` and `short_name` being equal is the point, not an
+oversight: `name` is a surface a player reads, so it follows the tab, and
+the manifest's `description` is where the explaining goes. The one
+remaining visible change is outside the app entirely — the card a shared
+link renders as.
+
+`siteUrl` stays in `vite.config.ts` although the sitemap that used it is
+gone: it is the one declared home of the deployed origin, and
+`src/seo.test.ts` reads it to check `index.html`'s hand-written meta tags
+have not drifted from `base`.
+
+**`robots.txt` was deliberately not added, and this is the one thing here
+that cannot be fixed from this repository.** Crawlers read robots.txt only
+at the origin root — `https://funnygerman.github.io/robots.txt` — and this
+is a project page, so anything shipped here would land at
+`/zahlenkoenig/robots.txt` and never be read by anything. A file that looks
+like it works and doesn't is worse than no file. The practical consequence
+is small: a missing robots.txt means "crawl everything", which is what is
+wanted; only the `Sitemap:` directive has nowhere to live, and submitting
+the sitemap URL once in Google Search Console does that job instead. The
+other half of it is worth knowing for later: **if the site ever moves to a
+custom domain, `public/robots.txt` starts working and should be added.**
+
+*`src/seo.test.ts` pins what survived the trim, and it caught two defects
+in the round that produced it* — a 210-character meta description that a search
+result would have truncated mid-sentence, and structured data that
+paraphrased the rule instead of stating it, so the two disagreed. What it
+holds still is the three things nothing else in the build fails on: the
+deployed URL is written by hand in two files that cannot read each other
+(`vite.config.ts`'s `siteUrl` and `index.html`'s meta tags — a static tag
+cannot read `base`), the fallback prose is the only text a non-JS crawler
+gets, and the JSON-LD is a JSON string inside HTML where a bad edit is
+invisible. Its assertions about the prose fallback and the canonical
+tag were deleted along with them, rather than left asserting something the
+page no longer does. It reads both files through Vite's own `?raw` imports
+rather than `node:fs`: `npm run build` typechecks `src`, and `@types/node` is not
+a dependency here — a node builtin in a test would have broken CI while the
+test itself passed.
+
+**`README.md` was one line ("# zahlenkoenig") and is now a real
+description.** Not housekeeping: a GitHub repository page is itself a
+heavily crawled surface, and for the LLM crawlers it is often a better one
+than the app, because it is static text. It leads with the rule, links the
+live site, and shows the og image. No `## License` section was written —
+there is no `LICENSE` file, and that call is the PO's to make, not one to
+invent in a README.
+
 **An onboarding round gave the game a first-run introduction — two fixed
 puzzles and a card each — after feedback from players who had never seen
 the idea: "if a user opens the game for the first time, it's not clear

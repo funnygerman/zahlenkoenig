@@ -19,6 +19,16 @@ import { VitePWA } from 'vite-plugin-pwa'
 const themeColor = '#2962ae' // --zk-accent
 const backgroundColor = '#fafbfc' // --zk-bg
 
+// The deployed origin. `base` below is only the path, and og:url and
+// og:image need the absolute URL — so this is the one place the host is
+// written down. `index.html` repeats it in its meta tags because a static
+// HTML file cannot read this, and `src/seo.test.ts` reads this constant to
+// check the two have not drifted. That test is its only consumer: the
+// build-time sitemap that also used it was removed with the rest of the
+// search-engine trim (one URL, nothing to enumerate, and no robots.txt at
+// this origin to announce it from — see CLAUDE.md's SEO round).
+const siteUrl = 'https://funnygerman.github.io/zahlenkoenig/'
+
 export default defineConfig({
   base: '/zahlenkoenig/',
   plugins: [
@@ -32,9 +42,27 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null, // registered by hand in main.tsx, alongside the update-hint wiring, not auto-injected
       manifest: {
+        // Same as `short_name`, and deliberately so: `name` is what the
+        // install prompt shows, which is a surface a player reads rather
+        // than a crawler, so it matches the browser tab (index.html's
+        // `<title>`) rather than carrying a descriptive tail. The
+        // description below is where the explaining goes.
         name: 'Zahlenkönig',
         short_name: 'Zahlenkönig',
-        description: 'Zahlenkönig – Mathematisches Rätselspiel',
+        // The same sentence index.html's meta description leads with. An
+        // install prompt and an app-store-style listing both surface this,
+        // so it states the rule rather than restating the name. English,
+        // matching `lang` below and the served HTML: a manifest is fetched
+        // once per install with no reader to follow, the same constraint
+        // the sharing card has, so it uses the app's own fallback language
+        // (core/settings.ts's `detectLanguage`).
+        description:
+          'Reach the target using every number exactly once. Plus, minus, times, divide and brackets you place yourself. Free, no sign-up, plays offline.',
+        lang: 'en',
+        dir: 'ltr',
+        // Used by app catalogues that read web manifests; both are on the
+        // spec's own registered-category list, so neither is invented.
+        categories: ['education', 'games'],
         start_url: '/zahlenkoenig/',
         scope: '/zahlenkoenig/',
         display: 'standalone',
@@ -56,6 +84,11 @@ export default defineConfig({
         // cache). Everything the build emits, precached; no runtime
         // caching rules at all.
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // The sharing image is 36 KB that no player ever downloads: it is
+        // fetched by link-preview scrapers (Open Graph / Twitter), which
+        // never reach the service worker, and it is never rendered inside
+        // the app. Left in, it was 13% of the precache for nothing.
+        globIgnores: ['og-image.png'],
       },
     }),
   ],

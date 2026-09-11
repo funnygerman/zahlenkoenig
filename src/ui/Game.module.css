@@ -164,3 +164,26 @@
   color: var(--zk-accent);
   font-variant-numeric: normal;
 }
+
+/* The page's own heading and one-sentence description, for a screen reader
+ * and for a crawler that renders the app rather than reading index.html's
+ * static fallback (Googlebot does; most LLM crawlers do not, which is why
+ * the fallback exists too). Not `display: none` and not `visibility:
+ * hidden` — either removes the element from the accessibility tree as
+ * well, which defeats the point. The clip-rect pattern keeps it in the
+ * tree while taking no space.
+ *
+ * `white-space: nowrap` guards against the 1px box wrapping the text into
+ * a tall column that some browsers still expose to a magnifier. */
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  margin: -1px;
+  padding: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
