@@ -2,24 +2,24 @@ import { describe, it, expect } from 'vitest'
 import { computeHint, findBlockers, isStuck, type HintMove } from './hints'
 import {
   createExpression, createTray, createOperatorLeaf,
-  nextOpenSurface, resolveBlockDrop, applyBlockDrop, dissolveGroup, insertLeafIntoGroup, placeAt, trimTrailingGaps, withMinimumShape,
+  nextOpenSurface, resolveBlockDrop, applyBlockDrop, rootWidth, dissolveGroup, insertLeafIntoGroup, placeAt, trimTrailingGaps, withMinimumShape,
   type Expression, type Group, type Leaf, type NumberLeaf, type Operator, type Slot,
 } from './expression'
 import { evaluate } from './evaluate'
 
 // Re-plays a hint's moves with the same primitives useGame.ts's tap
-// handlers use (nextOpenSurface for numbers/operators, nextBlockTarget +
+// handlers use (nextOpenSurface for numbers/operators, tapBlockTarget +
 // resolveBlockDrop + applyBlockDrop for the block chip) — a lightweight
 // stand-in for useGame's own tree edits, just enough to prove the moves a
 // hint hands back are ones a real tap sequence could actually make.
 function applyMove(expr: Expression, move: HintMove, tray: readonly NumberLeaf[]): Expression {
   if (move.kind === 'block') {
-    // the position the hint named, not nextBlockTarget's tap position —
+    // the position the hint named, not tapBlockTarget's anchored position —
     // mirroring useGame's `placeBlockAt`.
-    const index = move.index
-    const resolved = resolveBlockDrop(expr.root.children, index)
-    if (!resolved) throw new Error('hint proposed an unresolvable block tap')
-    const children = applyBlockDrop(expr.root.children, index, resolved)
+    const width = rootWidth(expr.root.children, tray.length)
+    const start = resolveBlockDrop(expr.root.children, move.index, width)
+    if (start === null) throw new Error('hint proposed an unresolvable block tap')
+    const children = applyBlockDrop(expr.root.children, start, width)
     return { root: { ...expr.root, children: trimTrailingGaps(children) } }
   }
 

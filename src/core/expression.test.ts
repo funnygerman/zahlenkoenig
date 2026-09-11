@@ -3,7 +3,7 @@ import {
   createExpression, createTray, createOperatorLeaf, createEmptyGroup,
   insertOperand, placeAt, trimTrailingGaps, fillGap, swapSlots, removeOperand, removeOperator,
   wrapGroup, dissolveGroup, dropZones, nextOpenSurface, nextOpenRootSurface, resolveBlockDrop,
-  nextBlockTarget, applyBlockDrop, absorbIntoGroup, connectingPair, absorbPairIntoGroup,
+  tapBlockTarget, rootWidth, applyBlockDrop, absorbIntoGroup, connectingPair, absorbPairIntoGroup,
   insertLeafIntoGroup, moveGroup,
   isGroupComplete, isExpressionComplete,
   type Group, type Slot, type NumberLeaf,
@@ -417,95 +417,168 @@ describe('nextOpenRootSurface (a block only ever targets a root position)', () =
 
 // --------------------------------------------------------- block drop targeting
 
-describe('resolveBlockDrop (concept 6.1)', () => {
-  it('an empty operand slot: places a bare empty group', () => {
+describe('resolveBlockDrop (concept 6.1 — a block always encloses three root positions)', () => {
+  // `width` is the board's own root width: 2n−1 positions, less 2 for each
+  // group already placed (`rootWidth`). Passed explicitly here so each case
+  // says which puzzle it is about.
+
+  it('an empty operand slot: the bracket lands exactly there', () => {
     const children: Slot[] = [null]
-    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'empty' })
+    expect(resolveBlockDrop(children, 0, 5)).toBe(0)
   })
 
   it('the trailing frontier of an empty (or not-yet-that-long) root is also just an open slot, not a crash', () => {
-    expect(resolveBlockDrop([], 0)).toEqual({ kind: 'empty' })
-    expect(resolveBlockDrop([num(3, 0), createOperatorLeaf('+')], 2)).toEqual({ kind: 'empty' })
+    expect(resolveBlockDrop([], 0, 5)).toBe(0)
+    expect(resolveBlockDrop([num(3, 0), createOperatorLeaf('+')], 2, 5)).toBe(2)
+  })
+
+  it('an empty slot never slides sideways — it is where the player put the block, and the hint depends on it (`2 ×` needs a bracket at 2, not a wrap of the 2)', () => {
+    const children: Slot[] = [num(2, 0), createOperatorLeaf('*')]
+    expect(resolveBlockDrop(children, 2, 5)).toBe(2)
   })
 
   it('an operator position is never resolved in this pass', () => {
     const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
-    expect(resolveBlockDrop(children, 1)).toBeNull()
+    expect(resolveBlockDrop(children, 1, 5)).toBeNull()
   })
 
   it('an existing group is not itself a valid target', () => {
     const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
-    expect(resolveBlockDrop([g], 0)).toBeNull()
+    expect(resolveBlockDrop([g], 0, 3)).toBeNull()
   })
 
   it('right-before-left: "6 + 2 × 9", targeting 6 wraps (6+2) — the pair to the right', () => {
     const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
-    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'wrap', span: 3, start: 0 })
+    expect(resolveBlockDrop(children, 0, 5)).toBe(0)
   })
 
   it('targeting the middle number (2) also prefers the pair to its right: (2×9)', () => {
     const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
-    expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 3, start: 2 })
+    expect(resolveBlockDrop(children, 2, 5)).toBe(2)
   })
 
   it('the last number has no pair to its right, so it falls back to the pair on its left', () => {
     const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
-    expect(resolveBlockDrop(children, 4)).toEqual({ kind: 'wrap', span: 3, start: 2 })
+    expect(resolveBlockDrop(children, 4, 5)).toBe(2)
   })
 
-  it('a lone number with neither pair available wraps itself alone', () => {
+  it('a placed operator to the right is enough on its own — "a +" wraps (a + ⬚), it does not fall back to wrapping the a alone (PO)', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+')]
+    expect(resolveBlockDrop(children, 0, 7)).toBe(0)
+  })
+
+  it('...and the same board one chip later: "a + b −" faces right again, because the − is there', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('-')]
+    expect(resolveBlockDrop(children, 2, 7)).toBe(2)
+  })
+
+  it('...while "a + b" with nothing after it faces left and wraps all three', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
+    expect(resolveBlockDrop(children, 2, 7)).toBe(0)
+  })
+
+  it('a lone number with nothing either side encloses itself and the two open positions after it', () => {
     const children: Slot[] = [num(5, 0)]
-    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'wrap', span: 1, start: 0 })
+    expect(resolveBlockDrop(children, 0, 5)).toBe(0)
   })
 
   it('never reaches across an existing group — a neighboring group is treated as absent, not as a pairable leaf', () => {
     const g: Group = { id: 'g1', kind: 'group', children: [num(1, 0), createOperatorLeaf('+'), num(1, 1)] }
-    // g, *, 9  — targeting 9: no leaf to its right, and its left neighbor (*) pairs with a group, not a leaf
+    // (1+1) × 9 on a four-number board. Targeting the 9 encloses it and the
+    // two open positions after it — never the group on its left, which is
+    // what "treated as absent" means: the answer is 2, not 0.
     const children: Slot[] = [g, createOperatorLeaf('*'), num(9, 2)]
-    expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 1, start: 2 })
+    expect(resolveBlockDrop(children, 2, 5)).toBe(2)
   })
 
   it('an open operator gap between two numbers still pairs them — the gap travels into the group, it does not block the wrap', () => {
-    // "6, ⬚, 2" (concept 3.1's two-numbers-in-a-row): only the *other
-    // operand* of a pair has to be real content; the operator between them
-    // can be anything, including still open.
+    // "6, ⬚, 2" (concept 3.1's two-numbers-in-a-row): a real operand two
+    // positions along reads as a pair even with no operator tapped yet,
+    // which is why the rightward test is an *or*, not just the operator.
     const children: Slot[] = [num(6, 0), null, num(2, 1)]
-    expect(resolveBlockDrop(children, 0)).toEqual({ kind: 'wrap', span: 3, start: 0 })
-    expect(resolveBlockDrop(children, 2)).toEqual({ kind: 'wrap', span: 3, start: 0 })
+    expect(resolveBlockDrop(children, 0, 5)).toBe(0)
+    expect(resolveBlockDrop(children, 2, 5)).toBe(0)
+  })
+
+  it('refuses rather than enclosing positions the puzzle does not have', () => {
+    // Two numbers: three board positions in all, so a bracket can only ever
+    // start at 0. Targeting the last number falls back to that one...
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
+    expect(resolveBlockDrop(children, 2, 3)).toBe(0)
+    // ...and once that one bracket is placed, the board is two positions
+    // narrower and there is nowhere left at all.
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expect(resolveBlockDrop([g], 0, 3)).toBeNull()
+    expect(resolveBlockDrop([g], 2, 3)).toBeNull()
   })
 })
 
-describe('nextBlockTarget (where a tapped block chip lands — "Tippen ist dieselbe Operation mit anderem Auslöser", PO)', () => {
-  it('an empty root: the very first position', () => {
-    expect(nextBlockTarget([])).toBe(0)
+describe('rootWidth (how many root positions a board has left to offer)', () => {
+  it('a flat board: 2n−1', () => {
+    expect(rootWidth([], 4)).toBe(7)
+    expect(rootWidth([num(6, 0)], 3)).toBe(5)
+  })
+
+  it('each placed group costs two — it shows three board positions inside one root slot', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
+    expect(rootWidth([g], 4)).toBe(5)
+    expect(rootWidth([g, createOperatorLeaf('*'), g], 4)).toBe(3)
+  })
+})
+
+describe('tapBlockTarget (where a tapped block chip lands — it borrows the anchor, PO)', () => {
+  it('an empty root with no anchor yet: the very first position', () => {
+    expect(tapBlockTarget([], 0, 7)).toBe(0)
   })
 
   it('a number already placed: that same position, not past it — a tapped block wraps content, it does not skip it', () => {
-    expect(nextBlockTarget([num(6, 0)])).toBe(0)
+    expect(tapBlockTarget([num(6, 0)], 0, 5)).toBe(0)
   })
 
-  it('an existing group: skips its interior and lands on the next root operand position', () => {
-    const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
-    expect(nextBlockTarget([g])).toBe(2)
+  it('the anchor is what decides, not document order: the same flat board wraps the head or the tail depending on where the player last worked', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), num(9, 2)]
+    expect(tapBlockTarget(children, 0, 5)).toBe(0) // last worked on the 6 -> (6 + 2) × 9
+    expect(tapBlockTarget(children, 4, 5)).toBe(2) // last worked on the 9 -> 6 + (2 × 9)
   })
 
-  it('a group followed by real content: the content, not a fresh position past it', () => {
+  it('an existing group is never a target: the scan steps past it to the next spot that fits', () => {
     const g: Group = { id: 'g1', kind: 'group', children: [num(6, 0), createOperatorLeaf('+'), num(2, 1)] }
-    expect(nextBlockTarget([g, createOperatorLeaf('*'), num(9, 2)])).toBe(2)
+    expect(tapBlockTarget([g], 0, 5)).toBe(2)
+  })
+
+  it('a bracket on the right leaves only the left end, whatever the anchor says', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(9, 2), createOperatorLeaf('+'), num(3, 3)] }
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1), createOperatorLeaf('*'), g]
+    expect(tapBlockTarget(children, 4, 5)).toBe(0)
+    expect(tapBlockTarget(children, 0, 5)).toBe(0)
+  })
+
+  it('a bracket in the middle leaves nowhere for a second one, so the tap does nothing at all (PO)', () => {
+    const g: Group = { id: 'g1', kind: 'group', children: [num(2, 1), createOperatorLeaf('+'), num(9, 2)] }
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), g, createOperatorLeaf('*'), num(3, 3)]
+    expect(tapBlockTarget(children, 0, 5)).toBeNull()
+    expect(tapBlockTarget(children, 4, 5)).toBeNull()
   })
 })
 
 describe('applyBlockDrop (concept 6.1/6.3: resolve, then apply — one place for the minimum-shape rule)', () => {
   it('an empty target: places a bare group at that index, minimum-shaped', () => {
-    const result = applyBlockDrop([], 0, { kind: 'empty' })
-    expect(result).toHaveLength(1)
+    const result = applyBlockDrop([], 0, 5)
+    expect(result[0]).toMatchObject({ kind: 'group' })
     expect((result[0] as Group).children).toEqual([null, null, null])
   })
 
-  it('a wrap target: encloses the resolved span and pads a lone-number wrap to the minimum shape', () => {
+  it('pads the scaffold first, so a bracket lands at the position it resolved to and not at the end of the stored array', () => {
+    // an empty field is stored as `[]`, but the scaffold draws five
+    // positions — a block released on the third one means that position.
+    const result = applyBlockDrop([], 4, 5)
+    expect(result.slice(0, 4)).toEqual([null, null, null, null])
+    expect(result[4]).toMatchObject({ kind: 'group' })
+  })
+
+  it('a lone number is padded to the minimum shape', () => {
     const children: Slot[] = [num(6, 0)]
-    const result = applyBlockDrop(children, 0, { kind: 'wrap', span: 1, start: 0 })
-    expect(result).toHaveLength(1)
+    const result = applyBlockDrop(children, 0, 5)
     const group = result[0] as Group
     expect(group.children[0]).toMatchObject({ value: 6 })
     expect(group.children).toHaveLength(3)
@@ -513,9 +586,17 @@ describe('applyBlockDrop (concept 6.1/6.3: resolve, then apply — one place for
 
   it('a full pair needs no padding — it is already the minimum shape', () => {
     const children: Slot[] = [num(6, 0), createOperatorLeaf('+'), num(2, 1)]
-    const result = applyBlockDrop(children, 0, { kind: 'wrap', span: 3, start: 0 })
-    expect(result).toHaveLength(1)
+    const result = applyBlockDrop(children, 0, 5)
     expect((result[0] as Group).children).toHaveLength(3)
+  })
+
+  it('a number with an operator after it and nothing yet beyond: the open position travels into the bracket (PO)', () => {
+    const children: Slot[] = [num(6, 0), createOperatorLeaf('+')]
+    const result = applyBlockDrop(children, 0, 7)
+    const group = result[0] as Group
+    expect(group.children[0]).toMatchObject({ value: 6 })
+    expect(group.children[1]).toMatchObject({ value: '+' })
+    expect(group.children[2]).toBeNull()
   })
 })
 

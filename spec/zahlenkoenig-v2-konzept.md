@@ -218,33 +218,85 @@ Dieser Abschnitt beschreibt ihn vollständig.
 
 ### 6.1 Wohin ein Block gesetzt werden darf
 
-Während ein Block in der Luft ist, sind vier Arten von Zielen aktiv:
+**Ein Block umschließt immer genau drei Wurzelpositionen** – Operand,
+Operator, Operand –, gleich wie viele davon schon belegt sind (Revision, PO).
+Was früher drei Fälle waren (leere Fläche → leerer Block, Zahl mit echtem
+Partner → Paar, Zahl ohne Partner → Zahl allein), ist damit ein einziger
+Fall in verschiedenen Füllgraden: 6.3s Minimalform macht aus jedem von
+ihnen ohnehin `⬚ ○ ⬚`.
+
+Während ein Block in der Luft ist, sind diese Ziele aktiv:
 
 | Ziel | Ergebnis |
 |---|---|
-| **leere Operandenfläche** | ein leerer Block landet dort |
-| **Zahl**, rechts daneben Operator + Nicht-Block-Operand | umschließt diese drei |
-| **Zahl**, rechts nichts Brauchbares, links Operator + Nicht-Block-Operand | umschließt diese drei |
+| **leere Operandenfläche** | die Klammer beginnt genau dort und nimmt die beiden Flächen dahinter mit |
+| **Zahl**, rechts daneben ein gesetzter Operator **oder** ein echter Operand | umschließt diese drei |
+| **Zahl**, rechts nichts davon | umschließt die drei Positionen links: Operand, Operator, diese Zahl |
 | **Operator**, beide Nachbarn belegt und keiner davon ein Block | umschließt das Paar |
 
-Findet sich weder rechts noch links ein vollständiges Paar, umschließt der Block
-**die Zahl allein**. Das ist zulässig – der Block ist dann unvollständig, `=`
-bleibt ohnehin gedimmt, und der Spieler kann Operator und Zahl anschließend
-hineinziehen.
+Eine leere Fläche rutscht **nie** zur Seite: dort hingesetzt heißt dort. Nur
+eine Fläche, auf der schon etwas steht, schaut überhaupt nach rechts und
+links.
+
+Passt an keiner der beiden Stellen eine Klammer – weil ein vorhandener Block
+im Weg steht oder weil die drei Positionen über das Brett hinausreichen
+würden –, **geschieht nichts**; beim Ziehen springt der Chip zurück.
+Das ersetzt die frühere Rückfallebene „umschließt die Zahl allein": die gibt
+es nicht mehr als eigenen Fall, weil eine Klammer über eine Zahl und zwei
+noch leere Flächen dasselbe ist.
 
 Nichts innerhalb eines Blocks ist je ein Ziel. Genau das hält die
-Verschachtelung draußen.
+Verschachtelung draußen. Ein Block reicht auch nie über einen anderen
+hinweg – bei vier Zahlen bleibt neben einer gesetzten Klammer deshalb
+höchstens *eine* Stelle für die zweite übrig, und steht die erste in der
+Mitte, gar keine. Das ist keine eigene Regel, sondern fällt aus der
+Geometrie heraus.
 
-„Operator + Nicht-Block-Operand" verlangt nur, dass die **zweite Zahl** des
-Paars echt und gesetzt ist – der Operator zwischen den beiden zählt so oder
-so mit, ob gesetzt oder noch offen. `6, ⬚, 2` (zwei Zahlen ohne Operator
-dazwischen, Abschnitt 3.1s „zwei Zahlen hintereinander") ist damit ein
-genauso gültiges Paar wie `6, +, 2` und wird zu `(6 ⬚ 2)` – eine frühere
-Implementierung verlangte irrtümlich auch den Operator als gesetzt und ließ
-diesen Fall auf „Zahl allein" zurückfallen (Entscheidungen Abschnitt 3).
+**Was rechts genügt, ist der gesetzte Operator *oder* die echte zweite
+Zahl.** Beides einzeln reicht: `a +` wird zu `(a + ⬚)` – die offene Fläche
+wandert mit in die Klammer –, und `6, ⬚, 2` (zwei Zahlen ohne Operator
+dazwischen, Abschnitt 3.1s „zwei Zahlen hintereinander") wird zu `(6 ⬚ 2)`.
+Eine frühere Fassung verlangte nur die zweite **Zahl** und ließ `a +` auf
+„Zahl allein" zurückfallen – das war der Auslöser dieser Revision
+(Entscheidungen Abschnitt 3).
 
 **Rechts vor links**, weil eine angetippte Zahl sich wie „hier beginnt die
 Klammer" liest – in Leserichtung.
+
+#### Tippen: der Block borgt sich einen Anker (PO)
+
+Ein Tipp nennt keine Position. Er nimmt deshalb die, an der der Spieler
+**zuletzt gearbeitet hat** – die Zahl, die er gesetzt, verschoben oder
+zurückgenommen hat – und löst dort genau so auf, wie ein Ziehen auf diese
+Stelle es täte. Abschnitt 3s „Tippen ist dieselbe Operation mit anderem
+Auslöser" gilt damit wieder wörtlich; die Zwischenzeit, in der Tippen eine
+eigene Regel hatte (erste in Frage kommende Position in Dokumentreihenfolge,
+also praktisch immer ganz links), war genau das Problem: die Klammer landete
+fast nie dort, wo der Spieler stand, und musste hinterher verschoben werden.
+
+Drei Schritte als Beispiel, auf einem Brett mit vier Zahlen:
+
+| Feld | Tipp auf den Block-Chip |
+|---|---|
+| `a + ⬚ ⬚ ⬚ ⬚ ⬚` | `(a + ⬚) ⬚ ⬚ ⬚ ⬚` – rechts steht ein Operator |
+| `a + b ⬚ ⬚ ⬚ ⬚` | `(a + b) ⬚ ⬚ ⬚ ⬚` – rechts steht nichts, also nach links |
+| `a + b − ⬚ ⬚ ⬚` | `a + (b − ⬚) ⬚ ⬚` – derselbe Anker, wieder nach rechts |
+
+Der Anker bewegt sich **nur mit Zahlen**, nie mit Operatoren. Das ist kein
+Detail, sondern der Grund, warum die drei Zeilen oben mit *einer* Regel
+auskommen: der Anker bleibt im dritten Schritt auf `b` stehen, und der neu
+gesetzte Operator beantwortet bloß die Frage, in welche Richtung von dort
+gelesen wird. Ein Operator, der den Anker mitnähme, würde seine eigene Frage
+beantworten.
+
+**Eine zurückgenommene Zahl zählt als Arbeit an dieser Stelle** und setzt den
+Anker auf die Fläche, die sie hinterlässt: aus `a + b + c + d` wird durch
+Antippen von `b` ein `a + ⬚ + c + d`, und der Block-Chip macht daraus
+`a + (⬚ + c) + d` – dort, wo der Spieler gerade hinsieht, nicht bei einer
+Zahl, die er vor fünf Tipps gesetzt hat.
+
+Findet der Anker keine Stelle, an der eine Klammer passt, sucht der Tipp von
+dort aus nach außen weiter; findet er gar keine, geschieht nichts.
 
 #### Die nützliche Überschneidung
 
@@ -257,6 +309,11 @@ Zahl und Operator ergeben oft dasselbe. In `6 + 2 × 9`:
 | `2` | `6 + (2 × 9)` |
 | `×` | `6 + (2 × 9)` |
 | `9` | `6 + (2 × 9)` – kein Paar rechts, fällt nach links |
+
+Diese Tabelle gilt nach der Revision unverändert: auf einem fertig
+geschriebenen `6 + 2 × 9` steht überall dort, wo rechts ein Operator steht,
+auch eine echte Zahl – das breitere Kriterium ändert erst auf halb gefüllten
+Feldern etwas.
 
 **Die Umschließung einer Zahl ist stets identisch mit der des Operators rechts
 daneben.** Die Zahl ist damit keine zweite Regel, sondern eine *große
