@@ -29,14 +29,13 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Two concrete things are open, both from the onboarding round (see "Where
-v2 stands" for the full account), and neither needs a product decision
-first:** finish the generator scan that asks whether `nextPuzzle` can draw
-a board `computeHint` calls a dead end (a stale claim in this file, and a
-live bug if it turns out true), and teach `hints.ts`'s `completions` to
-propose three-number groups so the block the onboarding card teaches is
-supported everywhere else too. Everything below this paragraph is about
-concept 16's roadmap, which remains finished.
+**The most important open item is a measured, confirmed live bug: 39.8% of
+four-number puzzles open with the dead-end border already lit on an empty
+field and no hint button** — full numbers and the two candidate fixes are
+under "Where v2 stands" below, and `scripts/checkHintReachable.ts`
+reproduces it. Nothing about it is hypothetical any more, so it needs
+deciding (which fix, or both) rather than investigating. Everything below
+this paragraph is about concept 16's roadmap, which remains finished.
 
 **Step 6 (concept section 16, "Feinschliff") is done, and it was the last
 row in concept 16's own table — there is no step 7.** Animations, landscape
@@ -220,22 +219,55 @@ right bracket edge, then `+`, `×`, `3`, `=`. The card's literal order
 works too — tapping the block chip on an empty field yields `()`, which
 then fills by tapping.
 
-**One measurement was started and never finished, and it matters beyond
-onboarding: can the shipping generator draw a board where `computeHint`
-returns null?** CLAUDE.md has asserted it can't ("no puzzle actually
-generated hits this today"), but that note predates the generation round
-that stopped brackets losing every tie, so the claim is stale and
-untested. If such a board *can* be drawn, real players meet a pre-marked
-dead end with a hint button that only marks blockers — a live bug, nothing
-to do with onboarding. Scanning every reachable selection with
-`nextPuzzle` + `computeHint` answers it in a few minutes.
+**The scan that round left open has been run, and it found a live bug that
+is much bigger than onboarding: two in five four-number puzzles open as a
+dead end.** `scripts/checkHintReachable.ts` (new) asks whether the
+generator can hand a player a board `computeHint` cannot even start. This
+file asserted it could not. It can, constantly.
 
-**Also still open, and the honest limit of this round: the three-number
-block is taught but not supported.** `hints.ts` still can't propose one, so
-a player who gets stuck on such a board outside onboarding gets a dead-end
-verdict rather than help. Teaching `completions` to offer three-number
-groups is the real fix; it's a change to the most delicate search code in
-the repo and was deliberately not bolted onto this round.
+| Numbers | Exhaustive pool | Real `nextPuzzle` draws |
+|---|---|---|
+| 2 | clean | 0 / 2 200 |
+| 3 | clean | 0 / 13 200 |
+| 4 | **35 selection/band rows affected** | **7 037 / 17 700 — 39.8%** |
+
+Two rows are their *entire* pool: `4 Zahlen, −×÷` uniqueOnly in XL
+(800/800) and XXL (453/453). Several more clear 98%. And no four-number
+selection is clean — the mildest, `+−÷` band 0, still lands at 5%.
+
+**Every single case is a three-number group** — the patterns are
+`(n+n+n)×n` and `(n+n×n)×n`, checked on the browser-confirmed examples.
+That is exactly what `completions` cannot propose, and the reason is
+unchanged since step 4: a hint move is a tap, and growing a group past two
+numbers is drag-only (concept 6.2). **Three numbers is clean for a
+structural reason rather than by luck** — a three-number group there spans
+the whole expression, so it is just the flat chain and reaches nothing new;
+at four numbers `(a∘b∘c)∘d` is a genuinely different value.
+
+**Confirmed in the real app, not only against the model**: with `4 Zahlen,
++×÷, XL` selected, 3 of 12 freshly loaded boards came up with the
+dead-end border already lit on the empty field *and* no hint button at all
+(the budget is read from the same null continuation, so `offered` is
+false and the header hides the icon). `[2,3,5,6] → 102` is one of them —
+solvable as `(2+3×5)×6`, and the player is told it is hopeless before
+touching a chip.
+
+**Two fixes, and they are independent — worth not conflating:**
+
+1. *The real one:* teach `completions` to propose three-number groups.
+   That closes the gap properly and makes the block the onboarding card
+   teaches supported everywhere. It is a change to the most delicate
+   search code in the repo, and the walled patterns show it would need
+   mixed-operator interiors (`(n+n×n)`), not just repeated ones.
+2. *The cheap one, and correct on its own terms:* **a dead-end border on
+   an empty, untouched field is always a false alarm.** `reachable()`
+   guarantees every generated puzzle is solvable, so on an empty board
+   `hint === null` never means "this puzzle is impossible" — only "the
+   hint can't do this one". `findBlockers` already refuses to mark
+   anything in that situation for exactly this reason ("nothing the player
+   placed is to blame there"); the border should follow the same rule.
+   That removes the "you already lost" first impression immediately,
+   without touching the search.
 
 **A second hint round, from three more PO play-test reports, changed the
 search itself and put two guards on the budget.**
@@ -830,6 +862,7 @@ of the model — which is what `generateBandTable.mjs` and
 | `scripts/checkBands.ts` | How many bands a selection can carry without starving an operator, and where the boundaries go |
 | `scripts/checkFloorAndIdentity.ts` | Whether the operator floor starves a band, and how often puzzles waste a chip or leave the whole numbers |
 | `scripts/generateBandTable.ts` | Emits `BAND_TABLE` and `UNIQUE_EXCEPTIONS` — regenerate and paste after any model change |
+| `scripts/checkHintReachable.ts` | Whether the generator can draw a board the hint cannot start (onboarding round). Two passes: exhaustive over every multiset `randomNumbers` can produce, and over real `nextPuzzle` draws — the second is what covers uniqueOnly's exception-list branch, which never touches the pool path |
 
 `scripts/varietyModel.ts` holds what the measurement scripts share. Its
 self-test cross-checks its own `minDistinctOps` against `reachable()`, which
@@ -970,10 +1003,14 @@ flat chain cannot") where `solver.ts`'s `reachable()` — which the *generator*
 uses, and which doesn't care how a group's shape gets built — says the
 puzzle is solvable, but `computeHint` correctly reports a dead end, because
 the only solution needs a 3-number block a hint press could never construct.
-No puzzle actually generated hits this today (the generator doesn't favor
-3-number-only solutions), but it's a real gap between what the game can
-generate and what the hint can walk a player through, worth knowing about
-before either side changes.
+**That sentence used to continue "no puzzle actually generated hits this
+today (the generator doesn't favor 3-number-only solutions)", and that was
+wrong — measured, not argued, by `scripts/checkHintReachable.ts`.** At four
+numbers it happens on **39.8% of real draws**, and on two selections it is
+every single puzzle in the pool. See "Where v2 stands" for the numbers and
+`scripts/checkHintReachable.ts`'s own header for the method. The gap
+between what the game can generate and what the hint can walk a player
+through is not hypothetical and never was.
 
 **A hint move is expressed as a tap, and applying one reuses the exact
 placement functions a manual tap already calls** (`useGame.ts`'s
