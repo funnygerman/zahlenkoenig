@@ -6,8 +6,11 @@ function targetsOf(numbers: number[], ops: ('+' | '-' | '*' | '/')[]) {
 }
 
 describe('reachable — known depth-1 (un)solvability facts', () => {
-  // Same facts checkDepth1.mjs's own self-check pins down, verified here
-  // through solver.ts's own reachable() instead of a separate script copy.
+  // These facts used to be pinned by a separate script's self-check
+  // (`checkDepth1.mjs`, deleted with the bank-era scripts) against its own
+  // copy of the model. They are pinned here instead, against solver.ts's
+  // own `reachable()` — which is the point: one model, checked where it
+  // actually lives.
   it('[1,1,1,1] cannot reach 1000 under any operator combination', () => {
     expect(targetsOf([1, 1, 1, 1], ['+', '-', '*', '/']).has(1000)).toBe(false)
   })

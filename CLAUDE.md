@@ -1340,12 +1340,16 @@ actual `--cell` range, not just `entwurf.html`'s one measurement.
 
 - **Specifications are written in German**, matching the existing ones. Code,
   comments and commit messages are in English.
-- **Verify claims rather than estimating them.** `scripts/checkDepth1.mjs` and
-  `scripts/checkBankShapes.mjs` are the pattern: each answers a design question
-  exhaustively and is itself checked against known-good and known-bad cases
-  before it reports anything. This applies to the specs too — `checkBankShapes`
-  exists because two confident sentences in the v2.1 concept turned out to be
-  wrong.
+- **Verify claims rather than estimating them.** `scripts/checkVariety.ts` and
+  `scripts/checkHintReachable.ts` are the pattern: each answers a design
+  question exhaustively and is itself checked against known-good and
+  known-bad cases before it reports anything. This applies to the documents
+  too, **this file very much included** — `checkHintReachable.ts` exists
+  because a confident sentence right here ("no puzzle actually generated
+  hits this today") turned out to be wrong about 39.8% of four-number
+  draws, and the two sentences in the v2.1 concept that a scan disproved in
+  round 3 were the same lesson. A claim nobody has measured is a claim,
+  however long it has sat in a document unchallenged.
 - **Decide layout questions by looking.** Where two options exist, render both
   and compare, rather than arguing them in prose.
 - **CI runs on every push and pull request** (`.github/workflows/ci.yml`):
@@ -1378,9 +1382,35 @@ actual `--cell` range, not just `entwurf.html`'s one measurement.
 ```sh
 npm install
 npm run dev        # vite
-npm run build      # tsc && vite build
+npm run build      # tsc && vite build  (this is the typecheck too)
 npm run preview
+npm test           # vitest run — ~25s, the same command CI runs
 ```
 
-`node --max-old-space-size=512 scripts/generatePuzzles.mjs` regenerates the
-puzzle bank; it skips files that already exist.
+**There is no puzzle bank and no command to regenerate one.** Generation is
+on-device (`puzzles.ts`'s `nextPuzzle()`, step 2b); this section used to
+document a `scripts/generatePuzzles.mjs` that wrote level banks into
+`src/data/`, a directory step 5 deleted. That instruction outlived what it
+described by several rounds, which is worth knowing about this file in
+general: a command that still *reads* plausibly is not evidence it still
+*does* anything.
+
+The one generator that remains is not a scan but a source step:
+
+```sh
+npx tsx scripts/generateBandTable.ts   # emits BAND_TABLE + UNIQUE_EXCEPTIONS
+```
+
+Its output is pasted into `puzzles.ts` by hand, so it has to be re-run and
+re-pasted after any change to the model underneath it.
+
+`scripts/` holds three on-demand measurement tools besides that
+(`checkVariety.ts`, `checkFloorAndIdentity.ts`, `checkHintReachable.ts`,
+plus `checkBands.ts` kept as historical record and `varietyModel.ts` as
+their shared helper). **They are investigation tools, not infrastructure** —
+run one when you are changing the generator or the solver and have a
+question, not on a schedule and not in CI. Four bank-era scripts that used
+to sit here were deleted: two crashed on `src/data` files that no longer
+exist, one regenerated a bank nothing loads, and the fourth's findings are
+written out in full at `MAX_ATTEMPTS` in `puzzles.ts`, which is the only
+place they ever decided anything.

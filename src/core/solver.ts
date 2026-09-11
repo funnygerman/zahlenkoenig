@@ -1,18 +1,22 @@
 // The depth-1 evaluation model shared between the puzzle generator
-// (puzzles.ts, concept 15.10) and the hint system (concept 10 — not yet
-// implemented; needs expression.ts's tree first, v2 step 4). Concept 15.3:
-// "ein Modell für Generator und Löser" — one model, not two that can drift
-// apart the way v1's generator and validator did (concept 15.1).
+// (puzzles.ts, concept 15.10) and the hint system (hints.ts, concept 10).
+// Concept 15.3: "ein Modell für Generator und Löser" — one model, not two
+// that can drift apart the way v1's generator and validator did (concept
+// 15.1). The model: operands in a row, each operand a bare number or a
+// flat group of >=2 numbers, no group inside a group, standard precedence.
 //
-// Same model as scripts/checkDepth1.mjs / checkBankShapes.mjs /
-// checkNextPuzzle.mjs / generateBandTable.mjs: operands in a row, each
-// operand a bare number or a flat group of >=2 numbers, no group inside a
-// group, standard precedence.
+// "One model" is now literal rather than aspirational. This comment used
+// to list four scripts that reimplemented the same rules alongside it, and
+// keeping copies in step was a real cost — `varietyModel.ts`'s self-test
+// exists because one of them drifted the moment the solver stopped
+// counting fractional routes. Every script under `scripts/` *imports* this
+// file today, and the four hand-written copies were deleted along with the
+// bank-era questions they answered.
 //
-// TODO(v2 step 4): the canonical-continuation half of the solver (concept
-// 10.2 — "given the tree already built, what's the smallest completion?")
-// isn't implemented yet; only the reachability half generation needs is
-// here so far.
+// The canonical-continuation half of the solver (concept 10.2 — "given the
+// tree already built, what's the smallest completion?") lives in
+// `core/hints.ts`, built in v2 step 4; what is here is the reachability
+// half the generator needs.
 
 import type { Operator } from './expression'
 
@@ -361,9 +365,12 @@ export interface ReachableEntry {
  * Every target 1..999 reachable from this specific multiset under `ops`,
  * with whether it has exactly one canonical solution. Cheap enough (well
  * under 15,000 evaluations even for 4 numbers and all four operators) to
- * run synchronously per call — scripts/checkNextPuzzle.mjs measured
- * puzzles.ts's whole retry loop built on this and found single-digit
- * median attempts almost everywhere (concept 15.10/15.11).
+ * run synchronously per call — measured across puzzles.ts's whole retry
+ * loop built on this, which found single-digit median attempts almost
+ * everywhere (concept 15.10/15.11). The script that measured it
+ * (`checkNextPuzzle.mjs`) is gone with the rest of the bank-era scripts;
+ * its numbers live on at `MAX_ATTEMPTS` in puzzles.ts, which is the only
+ * place they ever decided anything.
  */
 /**
  * Visits every depth-1 arrangement of `numbers` under `ops` whose value is

@@ -9,12 +9,14 @@
 // generator and a dead end to the hint. `hints.test.ts` already pins one:
 // `[1,1,1,3] → 9`.
 //
-// On such a board, `useHint`'s `deadEnd` (which is literally `hint === null`,
-// recomputed every render) is true on the **empty field** — so the player
-// opens a freshly drawn puzzle that is already outlined as unsolvable, and
-// pressing the hint button runs `findBlockers` instead of helping. That is a
-// live bug if it can happen, and has nothing to do with the onboarding round
-// that raised the question.
+// **What this script found, and what is still true.** `useHint`'s `deadEnd`
+// used to be literally `hint === null`, so such a board opened already
+// outlined as unsolvable on an untouched field. That half is fixed: the
+// verdict is withheld wherever this search is blind to a solvable puzzle.
+// What is *not* fixed is the gap itself — the hint budget is read from the
+// same null continuation, so the hint button still does not appear on these
+// boards at all. Re-run this after teaching `completions` three-number
+// groups: the numbers below are what should go to zero.
 //
 // CLAUDE.md asserted it could not happen ("no puzzle actually generated hits
 // this today — the generator doesn't favor 3-number-only solutions"). That
@@ -23,8 +25,8 @@
 // construction**. An assertion about a draw that has since been rewritten is
 // exactly the kind this repo's own convention says to re-measure rather than
 // trust — see CLAUDE.md, "Verify claims rather than estimating them", and
-// `checkBankShapes.mjs`, which exists because two confident sentences turned
-// out to be wrong.
+// the v2.1 concept, two of whose confident sentences turned out to be
+// wrong when someone finally measured them.
 //
 // Two passes, because they answer different halves:
 //
@@ -43,8 +45,11 @@
 //   --numbers 3,4 restrict to these number counts; default 2,3,4
 //   --pool-only / --draw-only   run just one pass
 //
-// Like the other four measurement scripts, this imports `solver.ts` and
-// `hints.ts` rather than keeping a copy of either model.
+// Like the other measurement scripts under `scripts/`, this imports
+// `solver.ts` and `hints.ts` rather than keeping a copy of either model —
+// the four scripts that did keep copies were deleted along with the
+// bank-era questions they answered, and `varietyModel.ts`'s self-test
+// exists because one of them drifted.
 
 import { reachable } from '../src/core/solver'
 import { computeHint } from '../src/core/hints'
