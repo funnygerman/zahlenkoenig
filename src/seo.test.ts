@@ -8,21 +8,24 @@ import html from '../index.html?raw'
 import viteConfig from '../vite.config.ts?raw'
 
 /**
- * What a search engine and an LLM-based crawler receive.
+ * What a link scraper and a crawler receive.
  *
- * The app is a client-rendered SPA on GitHub Pages: there is no server to
- * render into `index.html`, so that file *is* the page for every crawler
- * that does not run JavaScript — which is most of the LLM ones. Three
- * facts about it are worth holding still, and all three are things a
- * later edit could break silently, because nothing else in the build
- * fails when they do:
+ * After the trim (CLAUDE.md's SEO round) what is left in `index.html` is
+ * the part that pays for itself: the sharing card, and enough machine-
+ * readable description for a crawler that does not run JavaScript. There
+ * is no prose fallback, no canonical and no sitemap any more, and the
+ * assertions below went with them — a test that outlives what it
+ * describes is worse than no test.
  *
- *  1. the deployed URL is written down by hand in two files that cannot
- *     read each other (a static `<meta>` tag can't read `base`), so they
- *     can drift;
- *  2. the no-JavaScript fallback inside `#root` is the only prose on the
- *     page, and deleting it leaves a crawler with an empty `<div>`;
- *  3. the structured data is a JSON string inside HTML, so a malformed
+ * Three things are worth holding still, all of them invisible to the
+ * build when they break:
+ *
+ *  1. the deployed URL is written by hand in two files that cannot read
+ *     each other (a static `<meta>` tag can't read `base`), so they drift;
+ *  2. the Open Graph and Twitter cards are two tag families describing one
+ *     card, maintained side by side, so editing one and forgetting the
+ *     other is the obvious mistake;
+ *  3. the structured data is a JSON string inside HTML, where a malformed
  *     edit is invisible until a validator sees it.
  *
  * Written as invariants rather than as string snapshots: the wording may
@@ -49,28 +52,19 @@ function meta(attr: 'name' | 'property', key: string): string | null {
 }
 
 describe('index.html, as a crawler receives it', () => {
-  it('states the one rule both in the description and in the visible fallback', () => {
+  it('states the one rule in the description', () => {
     // The rule — every number used exactly once — is the single thing the
-    // board itself never says in words. If it is missing here, nothing a
-    // crawler reads explains what the game is.
+    // board itself never says in words. With the prose fallback gone this
+    // tag and the JSON-LD below are the only places a crawler can read it.
     expect(meta('name', 'description')).toContain(RULE)
-    const fallback = html.slice(html.indexOf('<div id="root">'), html.indexOf('</body>'))
-    expect(fallback).toContain(RULE)
-    expect(fallback).toMatch(/<h1[^>]*>\s*Zahlenkönig\s*<\/h1>/)
   })
 
   it('agrees with vite.config.ts about where the site is deployed', () => {
-    // `base` is the path; `siteUrl` is the absolute URL the meta tags need
-    // and cannot compute for themselves. This is the drift that a build
-    // would never catch on its own.
     const base = viteConfig.match(/base:\s*'([^']+)'/)?.[1]
     const siteUrl = viteConfig.match(/const siteUrl = '([^']+)'/)?.[1]
     expect(base).toBeTruthy()
     expect(siteUrl).toBeTruthy()
     expect(siteUrl!.endsWith(base!)).toBe(true)
-
-    const canonical = html.match(/<link rel="canonical" href="([^"]+)"/)?.[1]
-    expect(canonical).toBe(siteUrl)
     expect(meta('property', 'og:url')).toBe(siteUrl)
 
     // Both scrapers ignore a relative image, so this one has to be absolute.
@@ -80,12 +74,8 @@ describe('index.html, as a crawler receives it', () => {
   })
 
   it('says the same thing on the Open Graph and Twitter cards', () => {
-    // Two tag families describing one card, maintained by hand side by
-    // side: editing one and forgetting the other is the obvious mistake,
-    // and nothing else in the build notices. Deliberately checks that they
-    // are equal rather than what they say — the card is in English while
-    // the page is German (a scraper cannot follow a reader's language), and
-    // that choice should stay free to change without editing a test.
+    // Deliberately checks that the two are equal rather than what they
+    // say, so the copy stays free to change without editing a test.
     expect(meta('name', 'twitter:title')).toBe(meta('property', 'og:title'))
     expect(meta('name', 'twitter:description')).toBe(meta('property', 'og:description'))
   })
@@ -107,11 +97,10 @@ describe('index.html, as a crawler receives it', () => {
     expect(app!.description).toContain(RULE)
   })
 
-  it('keeps title and description inside what a result snippet shows', () => {
-    // Not cosmetic: past these lengths a search result silently truncates
+  it('keeps the description inside what a card and a result snippet show', () => {
+    // Past this length a search result and most link previews truncate
     // mid-sentence, and the part that gets cut is the part that says what
-    // the game is. The numbers are the usual rendering limits, not a spec.
-    expect(html.match(/<title>([^<]*)<\/title>/)![1].length).toBeLessThanOrEqual(60)
+    // the game is. The number is the usual rendering limit, not a spec.
     const description = meta('name', 'description')!
     expect(description.length).toBeGreaterThanOrEqual(70)
     expect(description.length).toBeLessThanOrEqual(165)

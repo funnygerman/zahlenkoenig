@@ -154,11 +154,10 @@ digits, and it never states the one real rule. Most LLM-based crawlers do
 **not** run JavaScript at all; they fetch the HTML and read it. For those,
 the page was literally an empty div. So the fix is two-sided:
 
-- **`index.html`'s `#root` now holds the page as prose** — the name, the
-  rule ("every number exactly once"), what the operators and brackets do,
-  and who it is for. `createRoot` clears its container on first render
-  (`src/main.tsx`), so this is the no-JavaScript fallback and the loading
-  state in one, and it is never on screen beside the game.
+- **`index.html`'s `#root` briefly held the page as prose, and the PO cut
+  it again — see "the trim" below.** What a non-JavaScript crawler gets
+  instead is the title, the meta description and the JSON-LD, which is the
+  part such a crawler parses anyway.
 - **`Game.tsx` renders a visually hidden `<h1>` and one-sentence
   description** (`.srOnly` in `Game.module.css`), for the renderer-based
   crawler and for a screen reader, which had no heading either. The
@@ -166,8 +165,9 @@ the page was literally an empty div. So the fix is two-sided:
   rather than two new i18n keys, so there is one place to change the
   wording and it is already translated into all three languages.
 
-*The fallback was measured in a real browser before it landed, because it
-is the one change here a player could feel.* React replaces it **57–81ms**
+*The fallback was measured in a real browser while it existed, because it
+was the one change here a player could feel — and the measurement is what
+made cutting it an easy call.* React replaces it **57–81ms**
 after navigation normally and **~470ms** on a 6× throttled CPU; **CLS is
 0.0000 either way**, checked against a control build with the fallback
 stripped back out, so it costs nothing in Core Web Vitals. It introduces no
@@ -236,11 +236,39 @@ that no player ever downloads, since link-preview scrapers never reach a
 service worker and the image is never rendered in the app. `workbox.globIgnores`
 excludes it now; the precache went from 277.69 KiB back to 242.33 KiB.
 
-*`sitemap.xml` is emitted at build time by a small Vite plugin, not checked
-in.* `lastmod` is the build date, which is right by construction every
-deploy — a literal date in the repo is wrong the day after it is written,
-and this file's own "a command that still reads plausibly is not evidence
-it still does anything" warning applies to data as much as to commands.
+**The trim (PO). Asked outright whether any of this was worth it, the
+honest answer was no for the search-engine half, and the round was cut
+back to what pays.** Ranking is mostly a function of inbound links; this
+is a project page on `github.io` with none, so no amount of metadata makes
+it rank for anything competitive, and saying otherwise would have been the
+kind of unmeasured claim this file exists to catch. What *does* pay is the
+**sharing card**, which is not a search-engine feature at all: a link
+posted into a chat renders as a titled card with the board on it instead
+of a bare URL, and this game spreads by being passed around.
+
+Kept: the Open Graph/Twitter tags and `og-image.png`, the meta
+description, the JSON-LD, the README, and the sr-only `<h1>` (an
+accessibility fix on its own merits — the page had no heading at all).
+
+Removed, with the reason each was droppable:
+
+| Removed | Why |
+|---|---|
+| The `#root` prose fallback | The only change in the round with a cost a player could see — a flash of text on a slow first paint — against its most speculative benefit. Confirmed gone afterwards: the pre-mount paint is blank again |
+| The build-time `sitemap.xml` plugin | One URL. Nothing to enumerate, and no `robots.txt` at this origin to announce it from |
+| `canonical` and `robots` | A single page with no query strings has nothing to disambiguate, and the default crawl behaviour is already index+follow. Both were doing nothing |
+| The long `<title>` | Back to `Zahlenkönig`. It was buying search-result wording, which is the half that does not pay; the browser tab is the half a player reads every time |
+
+**After the trim, nothing in this round is visible to a player at all** —
+not a pixel in the game (proven identical before the trim), no flash, and
+the tab title back to what it was. The remaining visible surfaces are
+outside the app: the card a shared link renders as, and the install
+prompt's name, which still carries the longer wording.
+
+`siteUrl` stays in `vite.config.ts` although the sitemap that used it is
+gone: it is the one declared home of the deployed origin, and
+`src/seo.test.ts` reads it to check `index.html`'s hand-written meta tags
+have not drifted from `base`.
 
 **`robots.txt` was deliberately not added, and this is the one thing here
 that cannot be fixed from this repository.** Crawlers read robots.txt only
@@ -254,8 +282,8 @@ the sitemap URL once in Google Search Console does that job instead. The
 other half of it is worth knowing for later: **if the site ever moves to a
 custom domain, `public/robots.txt` starts working and should be added.**
 
-*`src/seo.test.ts` pins the invariants, and it caught two defects in the
-round that produced it* — a 210-character meta description that a search
+*`src/seo.test.ts` pins what survived the trim, and it caught two defects
+in the round that produced it* — a 210-character meta description that a search
 result would have truncated mid-sentence, and structured data that
 paraphrased the rule instead of stating it, so the two disagreed. What it
 holds still is the three things nothing else in the build fails on: the
@@ -263,8 +291,10 @@ deployed URL is written by hand in two files that cannot read each other
 (`vite.config.ts`'s `siteUrl` and `index.html`'s meta tags — a static tag
 cannot read `base`), the fallback prose is the only text a non-JS crawler
 gets, and the JSON-LD is a JSON string inside HTML where a bad edit is
-invisible. It reads both files through Vite's own `?raw` imports rather
-than `node:fs`: `npm run build` typechecks `src`, and `@types/node` is not
+invisible. Its assertions about the prose fallback and the canonical
+tag were deleted along with them, rather than left asserting something the
+page no longer does. It reads both files through Vite's own `?raw` imports
+rather than `node:fs`: `npm run build` typechecks `src`, and `@types/node` is not
 a dependency here — a node builtin in a test would have broken CI while the
 test itself passed.
 

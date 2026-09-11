@@ -17,20 +17,18 @@
          why this and the manifest's theme_color have to stay in sync by hand. -->
     <meta name="theme-color" content="#2962ae" />
 
-    <title>Zahlenkönig – a free number puzzle game</title>
+    <title>Zahlenkönig</title>
     <meta
       name="description"
       content="Reach the target using every number exactly once. Plus, minus, times, divide and brackets you place yourself. Free, no sign-up, plays offline."
     />
     <meta name="author" content="funnygerman" />
-    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
-    <!-- One page, one URL. The app is a single view whose state (puzzle,
-         language, settings) lives in LocalStorage rather than in the URL,
-         so there is nothing else to canonicalize to and no query string a
-         crawler could turn into a duplicate. That is also why there are no
-         hreflang tags: the app runs in three languages off this one URL,
-         and hreflang needs a second URL to point at. -->
-    <link rel="canonical" href="https://funnygerman.github.io/zahlenkoenig/" />
+    <!-- No `canonical` and no `robots`: this is a single page with no
+         query strings, no duplicate URLs and nothing to disambiguate, and
+         the default crawl behaviour is already index+follow. Both were
+         here and both were doing nothing. There are no hreflang tags for
+         a related reason — the app runs in three languages off this one
+         URL, and hreflang needs a second URL to point at. -->
 
     <!-- Sharing previews (Open Graph / Twitter). A scraper fetches this URL
          from its own server, once, with no idea who will see the result, so
@@ -126,31 +124,15 @@
     </script>
   </head>
   <body>
-    <!-- What a crawler that does not run JavaScript receives, and what a
-         player with JavaScript switched off sees. React's `createRoot`
-         clears this container on its first render (src/main.tsx), so this
-         is the app's loading state and its no-JS fallback in one — it is
-         never shown alongside the game, and it says nothing the game does
-         not. Measured in a real browser before it landed: see CLAUDE.md's
-         SEO round. Keep it in sync with the meta description above;
-         src/seo.test.ts checks that the rule sentence is present in both. -->
-    <div id="root">
-      <main style="max-width: 34rem; margin: 0 auto; padding: 2rem 1.25rem; font-family: system-ui, sans-serif; color: #223449; line-height: 1.55">
-        <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem">Zahlenkönig</h1>
-        <p>
-          A number puzzle for the browser: you get two to four numbers and a target.
-          Reach the target, and use <strong>every number exactly once</strong>.
-        </p>
-        <ul>
-          <li>Plus, minus, times and divide — you choose which operators turn up.</li>
-          <li>Brackets are yours to place: drag a number onto a bracket edge to pull it inside.</li>
-          <li>A hint plays the next move when you get stuck.</li>
-          <li>From first-graders to mental-arithmetic veterans: two to four numbers, four target sizes.</li>
-          <li>Free, no sign-up, no ads — installable and playable offline.</li>
-        </ul>
-        <p>This page needs JavaScript to play. With it switched on, the game starts straight away.</p>
-      </main>
-    </div>
+    <!-- Deliberately empty. A prose fallback lived here (it is what a
+         non-JavaScript crawler would read, since `createRoot` clears this
+         container on first render) and was removed on the PO's call: it
+         was the one part of the SEO round with a cost a player could see —
+         a brief flash of text on a slow first paint — against the most
+         speculative benefit in it. What a non-JS crawler still gets is the
+         title, the meta description and the JSON-LD above, which is the
+         part such a crawler actually parses. -->
+    <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

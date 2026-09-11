@@ -1,4 +1,4 @@
-import { defineConfig, type Plugin } from 'vitest/config'
+import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -19,58 +19,20 @@ import { VitePWA } from 'vite-plugin-pwa'
 const themeColor = '#2962ae' // --zk-accent
 const backgroundColor = '#fafbfc' // --zk-bg
 
-// The deployed origin. `base` below is only the path, and a sitemap, a
-// canonical link and an og:url all need the absolute URL — so this is the
-// one place the host is written down, and index.html repeats it in its
-// meta tags (a static HTML file can't read this). `src/seo.test.ts` pins
-// the two together so they can't drift.
+// The deployed origin. `base` below is only the path, and og:url and
+// og:image need the absolute URL — so this is the one place the host is
+// written down. `index.html` repeats it in its meta tags because a static
+// HTML file cannot read this, and `src/seo.test.ts` reads this constant to
+// check the two have not drifted. That test is its only consumer: the
+// build-time sitemap that also used it was removed with the rest of the
+// search-engine trim (one URL, nothing to enumerate, and no robots.txt at
+// this origin to announce it from — see CLAUDE.md's SEO round).
 const siteUrl = 'https://funnygerman.github.io/zahlenkoenig/'
-
-/**
- * Emits `sitemap.xml` at build time.
- *
- * One URL, because the app is one URL: puzzle, language and settings all
- * live in LocalStorage rather than in the address bar, so there is nothing
- * else to list. `lastmod` is the build date rather than a literal in the
- * repo — a hardcoded date is wrong the day after it is written, and this
- * one is right by construction every deploy.
- *
- * Note that this file lands at `/zahlenkoenig/sitemap.xml`, not at the
- * origin root. That is valid: a sitemap may list any URL at or below its
- * own directory, and the single URL here is exactly that. It is not
- * auto-discovered, though — the `Sitemap:` directive would have to live in
- * `https://funnygerman.github.io/robots.txt`, which belongs to the
- * `funnygerman.github.io` repository and not to this one. Submitting the
- * URL once in Google Search Console does the same job.
- */
-function sitemap(): Plugin {
-  return {
-    name: 'zk-sitemap',
-    apply: 'build',
-    generateBundle() {
-      const lastmod = new Date().toISOString().slice(0, 10)
-      this.emitFile({
-        type: 'asset',
-        fileName: 'sitemap.xml',
-        source:
-          '<?xml version="1.0" encoding="UTF-8"?>\n' +
-          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
-          '  <url>\n' +
-          `    <loc>${siteUrl}</loc>\n` +
-          `    <lastmod>${lastmod}</lastmod>\n` +
-          '    <changefreq>monthly</changefreq>\n' +
-          '  </url>\n' +
-          '</urlset>\n',
-      })
-    },
-  }
-}
 
 export default defineConfig({
   base: '/zahlenkoenig/',
   plugins: [
     react(),
-    sitemap(),
     VitePWA({
       // 'prompt', not the default 'autoUpdate': concept 19.3 explicitly
       // wants an update surfaced as "ein knapper Hinweis... statt eines
@@ -121,8 +83,6 @@ export default defineConfig({
         // fetched by link-preview scrapers (Open Graph / Twitter), which
         // never reach the service worker, and it is never rendered inside
         // the app. Left in, it was 13% of the precache for nothing.
-        // `sitemap.xml` isn't matched by the patterns above anyway, and
-        // shouldn't be — same reasoning.
         globIgnores: ['og-image.png'],
       },
     }),
