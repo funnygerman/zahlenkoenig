@@ -42,7 +42,12 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null, // registered by hand in main.tsx, alongside the update-hint wiring, not auto-injected
       manifest: {
-        name: 'Zahlenkönig – a free number puzzle game',
+        // Same as `short_name`, and deliberately so: `name` is what the
+        // install prompt shows, which is a surface a player reads rather
+        // than a crawler, so it matches the browser tab (index.html's
+        // `<title>`) rather than carrying a descriptive tail. The
+        // description below is where the explaining goes.
+        name: 'Zahlenkönig',
         short_name: 'Zahlenkönig',
         // The same sentence index.html's meta description leads with. An
         // install prompt and an app-store-style listing both surface this,

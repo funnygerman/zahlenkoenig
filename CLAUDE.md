@@ -260,10 +260,14 @@ Removed, with the reason each was droppable:
 | The long `<title>` | Back to `Zahlenkönig`. It was buying search-result wording, which is the half that does not pay; the browser tab is the half a player reads every time |
 
 **After the trim, nothing in this round is visible to a player at all** —
-not a pixel in the game (proven identical before the trim), no flash, and
-the tab title back to what it was. The remaining visible surfaces are
-outside the app: the card a shared link renders as, and the install
-prompt's name, which still carries the longer wording.
+not a pixel in the game (proven identical before the trim), no flash, the
+tab title back to what it was, and the manifest's `name` shortened to
+match it (PO), so the install prompt reads `Zahlenkönig` rather than a
+descriptive tail. `name` and `short_name` being equal is the point, not an
+oversight: `name` is a surface a player reads, so it follows the tab, and
+the manifest's `description` is where the explaining goes. The one
+remaining visible change is outside the app entirely — the card a shared
+link renders as.
 
 `siteUrl` stays in `vite.config.ts` although the sitemap that used it is
 gone: it is the one declared home of the deployed origin, and
