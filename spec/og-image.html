@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Zahlenkönig — sharing-card source (1200×630)</title>
+<!--
+  Source for `public/og-image.png`, the Open Graph / Twitter sharing card.
+
+  Open in a browser at exactly 1200×630 and screenshot the viewport; that
+  PNG is what `index.html`'s og:image points at. Self-contained, no build
+  step, same as spec/entwurf.html and spec/generator-audit.html.
+
+  It exists as a file rather than as a one-off render because the image
+  needs editing from time to time and a binary with no source cannot be
+  edited — the first version was drawn from memory of the board and got
+  the brackets wrong (plain vertical bars instead of the real "[" with
+  feet) and gave the group a border-radius it does not have.
+
+  Every value below is copied from the app rather than re-derived, and is
+  expressed against one `--cell` the way the app does it:
+
+    tokens.css        --hue, the palette, --stroke, --fg, --gp
+    Expression.module.css
+                      .group    padding .05/.14 x cell, --zk-group-bg,
+                                NO border-radius
+                      .bracketEdge  absolute, top:0 bottom:0,
+                                width .18 x cell, border 0
+                      .bracketLeft  border-left/top/bottom, radius 3px 0 0 3px
+                      .bracketRight border-right/top/bottom, radius 0 3px 3px 0
+
+  If any of those change in the app, change them here and re-shoot.
+-->
+<style>
+:root {
+  /* tokens.css, hue 214 */
+  --hue: 214;
+  --zk-bg: hsl(var(--hue) 20% 98.5%);
+  --zk-chip: hsl(var(--hue) 26% 95%);
+  --zk-line: hsl(var(--hue) 22% 85%);
+  --zk-ink: hsl(var(--hue) 30% 18%);
+  --zk-muted: hsl(var(--hue) 14% 58%);
+  --zk-accent: hsl(var(--hue) 62% 42%);
+  --zk-group-bg: hsl(var(--hue) 48% 42% / .17);
+  --zk-group-chip: hsl(var(--hue) 30% 100%);
+
+  /* The card is the board at a larger --cell; everything derives from it,
+     exactly as concept 12.5's formula does in the app. --stroke is the
+     app's 2px expressed as its true ratio (2 / 88) so the bracket keeps
+     the same weight relative to the chips that it has on a phone. */
+  --cell: 92px;
+  --stroke: calc(var(--cell) * 0.0227);
+  --fg: calc(var(--cell) * 0.10);
+  --radius: calc(var(--cell) * 0.18);
+}
+* { box-sizing: border-box; margin: 0 }
+body {
+  width: 1200px; height: 630px; overflow: hidden;
+  background: var(--zk-bg);
+  font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  color: var(--zk-ink);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 38px;
+}
+.brand { display: flex; align-items: center; gap: 22px }
+.brand svg { width: 88px; height: 88px; display: block }
+h1 { font-size: 82px; font-weight: 700; letter-spacing: -.02em; line-height: 1 }
+.tagline { font-size: 34px; color: var(--zk-muted); font-weight: 500 }
+
+.row { display: flex; align-items: center; gap: var(--fg) }
+
+.chip {
+  width: var(--cell); height: var(--cell);
+  border-radius: var(--radius);
+  background: var(--zk-chip); border: 2px solid var(--zk-line);
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--cell) * .5); font-weight: 600;
+}
+
+/* Expression.module.css .group — a plain tinted rectangle, no radius. */
+.grp {
+  position: relative;
+  display: flex; align-items: center; gap: var(--fg);
+  padding: calc(var(--cell) * .05) calc(var(--cell) * .14);
+  background: var(--zk-group-bg);
+}
+.grp .chip { background: var(--zk-group-chip); border-color: transparent }
+
+/* Expression.module.css .bracketEdge / .bracketLeft / .bracketRight —
+   a real "[" and "]": a vertical stroke plus a top and bottom foot,
+   absolutely positioned so the edges cost no width. */
+.grp::before, .grp::after {
+  content: ""; position: absolute; top: 0; bottom: 0;
+  width: calc(var(--cell) * .18);
+}
+.grp::before {
+  left: 0;
+  border-left: var(--stroke) solid var(--zk-accent);
+  border-top: var(--stroke) solid var(--zk-accent);
+  border-bottom: var(--stroke) solid var(--zk-accent);
+  border-radius: 3px 0 0 3px;
+}
+.grp::after {
+  right: 0;
+  border-right: var(--stroke) solid var(--zk-accent);
+  border-top: var(--stroke) solid var(--zk-accent);
+  border-bottom: var(--stroke) solid var(--zk-accent);
+  border-radius: 0 3px 3px 0;
+}
+
+.op, .eq { font-size: calc(var(--cell) * .5); font-weight: 600; color: var(--zk-muted) }
+.op { padding: 0 4px }
+.eq { padding: 0 8px }
+.target {
+  width: calc(var(--cell) * 1.35); height: var(--cell);
+  border-radius: var(--radius);
+  background: var(--zk-accent); color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: calc(var(--cell) * .52); font-weight: 700;
+}
+</style>
+</head>
+<body>
+  <div class="brand">
+    <!-- public/crown.svg, inlined -->
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+      <path fill="#2962ae" d="M10 58 L21 28 L34 50 L50 14 L66 50 L79 28 L90 58 Z"/>
+      <rect x="10" y="58" width="80" height="34" fill="#22508f"/>
+      <g stroke="#fff" stroke-width="4.2" stroke-linecap="round">
+        <line x1="30" y1="75" x2="42" y2="75"/><line x1="36" y1="69" x2="36" y2="81"/>
+        <line x1="59" y1="69" x2="70" y2="81"/><line x1="59" y1="81" x2="70" y2="69"/>
+      </g>
+      <circle cx="21" cy="24" r="6.5" fill="#d9a441"/>
+      <circle cx="50" cy="10" r="7.5" fill="#d9a441"/>
+      <circle cx="79" cy="24" r="6.5" fill="#d9a441"/>
+    </svg>
+    <h1>Zahlenkönig</h1>
+  </div>
+
+  <!-- concept 12.5's worst case, the same board the layout is tuned against -->
+  <div class="row">
+    <div class="grp"><div class="chip">6</div><div class="op">+</div><div class="chip">2</div></div>
+    <div class="op">×</div>
+    <div class="grp"><div class="chip">9</div><div class="op">−</div><div class="chip">3</div></div>
+    <div class="eq">=</div>
+    <div class="target">48</div>
+  </div>
+
+  <p class="tagline">Reach the target — and use every number exactly once.</p>
+</body>
+</html>

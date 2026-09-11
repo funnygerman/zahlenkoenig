@@ -330,6 +330,24 @@ page that states the facts *as data* rather than as prose.
 *`public/og-image.png` is generated from the app's own tokens*, not from a
 second palette — 1200×630, the worst-case board `(6+2) × (9−3) = 48` drawn
 with `tokens.css`'s real HSL values and the crown from `public/crown.svg`.
+**Its source is `spec/og-image.html`** — open at 1200×630 and screenshot,
+same "self-contained, no build step" convention as `entwurf.html` and
+`generator-audit.html`. It exists as a file because the first version was
+a one-off render with no source, drawn from memory of the board rather
+than from its CSS, and it got two things wrong that a reader spotted in a
+real WhatsApp preview: **the brackets were plain vertical bars instead of
+the app's real `[`** (`Expression.module.css` builds each edge from
+`border-left` *plus* `border-top` and `border-bottom` — a stroke with two
+feet), and the group carried a `border-radius` the app does not give it.
+Both are copied from the stylesheet now, expressed against one `--cell`
+the way concept 12.5 does, with the comment naming every rule it mirrors.
+The lesson is the file's own: a binary asset with no source cannot be
+corrected, and "drawn from the app's tokens" was true of the palette while
+being false of the geometry. The stroke weight is the app's own 2px ratio
+(2 ÷ 88 of `--cell`) rather than a thickened marketing version — checked
+by rendering both and looking at them square-cropped at ~280px, the size
+WhatsApp actually shows: once the *shape* is right, both read as brackets,
+so there was nothing to buy by departing from the app.
 **Building it surfaced a real cost the build reported on itself**: at first
 it was precached by the service worker, 36 KB — 13% of the whole precache —
 that no player ever downloads, since link-preview scrapers never reach a
