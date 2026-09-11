@@ -4,15 +4,25 @@
 // contradicts what's already built. No React import (CLAUDE.md's rule that
 // core/ is pure TypeScript).
 //
-// "Smallest way to finish" is modelled as the ordered taps a player could
-// make to reach it (10.3's "das Spiel setzt einen weiteren Chip"): a
-// block-chip tap, a number tap, or an operator tap, each resolved through
-// the SAME rules the board itself places by (nextOpenSurface/nextBlockTarget
-// in expression.ts — see applyHintMove in useGame.ts, which literally calls
-// the placement functions a manual tap would). That constrains a
-// hint-introduced block to its two-number minimum shape: growing one past
-// that is a drag-only gesture (CLAUDE.md has the full account of why), and
-// a hint press is a tap, never a drag.
+// "Smallest way to finish" is modelled as the ordered *gestures* a player
+// could make to reach it (10.3's "das Spiel setzt einen weiteren Chip"),
+// each resolved through the SAME rules the board itself places by — see
+// `applyHintMove` in useGame.ts, which literally calls the placement
+// functions a manual tap or drop would.
+//
+// That used to mean taps only, and it cost more than anyone had checked.
+// A tap cannot grow a group past two numbers (concept 6.2), so the search
+// could not propose a three-number group — and
+// `scripts/checkHintReachable.ts` measured the consequence: on **39.8% of
+// four-number draws** every solution needed one, so the hint had nothing
+// to say at all, and the board opened outlined as a dead end. The
+// three-number-group round added `HintMove`'s `grow` kind for exactly that
+// gesture (a tray chip dragged onto a bracket edge), which is why a move
+// here is a gesture rather than a tap. After it, the search reaches
+// everything `solver.ts`'s `reachable()` does at two, three and four
+// numbers — 0 walled boards over 19 100 real draws, and the exhaustive
+// pool of every multiset the generator can draw is clean at all three
+// number counts.
 //
 // 10.2's own wording — "die kleinste bezüglich einer festen Ordnung: erst
 // nach Anzahl der Blöcke, dann nach Dokumentreihenfolge" — names two
@@ -41,6 +51,27 @@ export type HintMove =
    * tap-shaped one.
    */
   | { kind: 'block'; index: number }
+  /**
+   * A third number dragged onto the **right bracket edge** of the group at
+   * root position `index` — concept 6.2's "grow past the minimum shape",
+   * the one gesture in the game that tapping structurally cannot perform.
+   *
+   * This is the move that exists so the hint can propose three-number
+   * groups at all. Without it `completions` could only ever reach the
+   * shapes a tap builds, and `scripts/checkHintReachable.ts` measured what
+   * that cost: on **39.8% of four-number draws** the hint had nothing to
+   * say, because every solution needed a group of three.
+   *
+   * It carries its position for the same reason `block` does — a drag
+   * chooses where it lands and a tap cannot — and it is applied through
+   * `insertLeafIntoGroup`, exactly the call `useGame`'s own drop handler
+   * makes for a tray chip released on a bracket edge. That leaves an open
+   * operator slot beside the new number (`withPair` splices in a null
+   * partner), which the following `operator` move fills: one chip per
+   * press, as concept 10.3 requires, and both of them gestures the player
+   * has.
+   */
+  | { kind: 'grow'; index: number; leafId: string }
   | { kind: 'number'; leafId: string }
   | { kind: 'operator'; op: Operator }
 
@@ -156,7 +187,39 @@ function completions(
 
     if (existing !== undefined && existing !== null && existing.kind === 'group') {
       for (const filling of completeGroup(existing, remaining, opsAllowed)) {
-        out.push(...go(index + 1, [...acc, filling.group], [...moves, ...filling.moves], remaining.filter(l => !filling.used.has(l.id)), blocksLeft))
+        const left = remaining.filter(l => !filling.used.has(l.id))
+        out.push(...go(index + 1, [...acc, filling.group], [...moves, ...filling.moves], left, blocksLeft))
+
+        // …and the same group grown by one more number (concept 6.2).
+        //
+        // This branch is not an optimisation, it is what makes the whole
+        // three-number-group plan survive its own first press. `useHint`
+        // recomputes from scratch on every press and applies `moves[0]`, so
+        // a plan that starts "put a block at position 2" is re-derived one
+        // press later against a board that now *holds* that block — and
+        // without this, the search could only fill the two slots it found
+        // and never reach the third. Measured directly: the plan for
+        // `[1,1,1,3] → 9` used to die after three presses at `3 × ()`, with
+        // the hint reporting a dead end on a board it had just built
+        // itself.
+        //
+        // Only a pair-shaped group grows, and only by one pair: that is the
+        // largest a four-number puzzle can use, and `grow`'s own note
+        // explains why the number must come from the tray.
+        if (filling.group.children.length !== 3) continue
+        for (const tail of left) {
+          for (const op of OP_PRIORITY) {
+            if (!opsAllowed.includes(op)) continue
+            const grown: Group = { ...filling.group, children: [...filling.group.children, createOperatorLeaf(op), tail] }
+            const next = [
+              ...moves,
+              ...filling.moves,
+              { kind: 'grow', index: acc.length, leafId: tail.id } as HintMove,
+              { kind: 'operator', op } as HintMove,
+            ]
+            out.push(...go(index + 1, [...acc, grown], next, left.filter(l => l.id !== tail.id), blocksLeft))
+          }
+        }
       }
       return out
     }
@@ -204,6 +267,51 @@ function completions(
             : a.rest.map(leaf => ({ leaf: leaf as Leaf, move: { kind: 'number', leafId: leaf.id } as HintMove | null, rest: a.rest.filter(l => l.id !== leaf.id) }))
 
           for (const z of lasts) {
+            // (b2) the same bracket grown to a *third* number, covering two
+            // positions more. Built on top of the pair rather than beside
+            // it, because that is how a player builds one: wrap two, then
+            // drag the third onto a bracket edge (concept 6.2). The `grow`
+            // move is that drag; the operator that follows fills the slot
+            // it opened.
+            //
+            // Both extra positions have to be untouched, and the third
+            // number has to still be in the tray — `insertLeafIntoGroup`
+            // takes a chip from the tray, and a chip already at root would
+            // need the other gesture (`absorbPairIntoGroup`) and its own
+            // move kind. Left out on purpose: the boards this is for are
+            // overwhelmingly empty ones (a hint's budget is read from an
+            // empty field), and one new move kind is enough risk for one
+            // round.
+            const fourth = at(index + 3)
+            const fifth = at(index + 4)
+            if (blocksLeft > 0 && (fourth === undefined || fourth === null) && (fifth === undefined || fifth === null)) {
+              for (const tail of z.rest) {
+                for (const op2 of OP_PRIORITY) {
+                  if (!opsAllowed.includes(op2)) continue
+                  const grown: Group = {
+                    id: 'hint-group',
+                    kind: 'group',
+                    children: [a.leaf, m.leaf, z.leaf, createOperatorLeaf(op2), tail],
+                  }
+                  const coreFills = [a.move, m.move, z.move].filter((x): x is HintMove => x !== null)
+                  const blockMove = { kind: 'block', index: acc.length } as HintMove
+                  // Same rule as the pair below: a bracket over positions
+                  // nobody has touched is placed first and filled inside,
+                  // one over chips already down has to come last.
+                  const core = coreFills.length < 3
+                    ? [...coreFills, blockMove]
+                    : [blockMove, ...coreFills]
+                  const next = [
+                    ...moves,
+                    ...core,
+                    { kind: 'grow', index: acc.length, leafId: tail.id } as HintMove,
+                    { kind: 'operator', op: op2 } as HintMove,
+                  ]
+                  out.push(...go(index + 5, [...acc, grown], next, z.rest.filter(l => l.id !== tail.id), blocksLeft - 1))
+                }
+              }
+            }
+
             const group: Group = { id: 'hint-group', kind: 'group', children: [a.leaf, m.leaf, z.leaf] }
             const fills = [a.move, m.move, z.move].filter((x): x is HintMove => x !== null)
             // `acc.length` is this group's own root index once every
@@ -250,16 +358,36 @@ export function computeHint(
   const pool = tray.filter(leaf => !used.has(leaf.source))
   const blockBudget = Math.floor(numbersCount / 2) - countGroups(expr.root.children)
 
-  let best: { moves: HintMove[]; blockCount: number } | null = null
-  for (const candidate of completions(expr.root.children, pool, opsAllowed, blockBudget)) {
-    const value = evaluate({ root: { id: 'root', kind: 'group', children: candidate.root } })
-    if (value === null || Math.abs(value - target) > 1e-9) continue
-    const blockCount = countGroups(candidate.root)
-    if (!best || blockCount < best.blockCount) best = { moves: candidate.moves, blockCount }
+  // 10.2's order — "erst nach Anzahl der Blöcke" — is searched rather than
+  // filtered for: ask for a completion using no new bracket at all, then
+  // one, and so on, and take the first budget that answers. The result is
+  // identical to enumerating everything and keeping the minimum (within a
+  // budget the first candidate still wins, so the document-order tie-break
+  // is unchanged), and it is what keeps the search affordable now that a
+  // bracket can hold three numbers.
+  //
+  // It matters because a puzzle solvable with fewer brackets exits before
+  // the expensive branches are ever built. Measured against real
+  // `nextPuzzle` draws (four numbers, all four operators, empty board),
+  // which is what `useHint` actually runs this on:
+  //
+  //   ~30ms  before three-number groups existed
+  //    70ms  with them, enumerating everything and filtering
+  //   ~20ms  with them, searching budget by budget
+  //
+  // So the wider search ended up cheaper than the narrow one it replaced.
+  // The one case that is slower is a board no budget can complete — every
+  // budget is exhausted in turn, ~48ms — and that is the dead-end path,
+  // which is rarer and was already the expensive one. `useHint` runs this
+  // in a memo on every board change, so these figures are felt directly.
+  for (let k = 0; k <= blockBudget; k++) {
+    for (const candidate of completions(expr.root.children, pool, opsAllowed, k)) {
+      const value = evaluate({ root: { id: 'root', kind: 'group', children: candidate.root } })
+      if (value === null || Math.abs(value - target) > 1e-9) continue
+      return { moves: candidate.moves }
+    }
   }
-  if (!best) return null
-
-  return { moves: best.moves }
+  return null
 }
 
 /** Concept 10.1's dead-end check on its own, for callers that don't also need the continuation. */

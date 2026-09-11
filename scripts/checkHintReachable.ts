@@ -71,21 +71,37 @@ function hintCanStart(numbers: number[], target: number, ops: Operator[]): boole
 // anything. Without this, a scan that silently always answers "fine" is
 // indistinguishable from a scan that found nothing.
 function selfTest(): void {
-  // Known bad: hints.test.ts's own pinned case — reachable() says solvable,
-  // computeHint correctly says dead end, because (1+1+1)×3 needs a
-  // three-number group.
-  const badSolvable = reachable([1, 1, 1, 3], ['+', '*']).some(e => e.target === 9 && e.wholeSolution)
-  const badHintable = hintCanStart([1, 1, 1, 3], 9, ['+', '*'])
-  // Known good: the flat counter-case. Same numbers, a target a chain reaches.
-  const goodHintable = hintCanStart([1, 2, 3, 4], 10, ['+', '*'])
+  // This self-test used to assert the opposite of its middle line, and it
+  // is worth saying why it changed rather than quietly rewriting it.
+  // `[1,1,1,3] → 9` was the canonical *known-bad* case: solvable per
+  // `reachable()`, un-hintable because `(1+1+1)×3` needs a three-number
+  // group. The three-number-group round taught `completions` to propose
+  // one, so the case flipped — and this self-test is how that was noticed,
+  // by refusing to report anything at all on the first run afterwards.
+  // That is the whole point of holding every measurement script to a
+  // known-good/known-bad pair: an instrument whose assumptions have gone
+  // stale should fail loudly, not quietly return zero findings.
+  //
+  // It is now the known-*good* case, and a sharp one: it passes only if the
+  // search can see three-number groups, which is exactly the capability
+  // this script's numbers depend on. A zero below therefore means "nothing
+  // walled", not "instrument blind".
+  const solvable = reachable([1, 1, 1, 3], ['+', '*']).some(e => e.target === 9 && e.wholeSolution)
+  const threeGroupHintable = hintCanStart([1, 1, 1, 3], 9, ['+', '*'])
+  const flatHintable = hintCanStart([1, 2, 3, 4], 10, ['+', '*'])
+  // Known bad: genuinely out of reach, so `computeHint` must say so. Keeps
+  // the instrument able to return false at all — without this, a build in
+  // which `hintCanStart` always answered true would sail through.
+  const impossibleHintable = hintCanStart([1, 1, 1, 1], 1000, ['+', '-', '*', '/'])
 
-  if (!badSolvable || badHintable || !goodHintable) {
+  if (!solvable || !threeGroupHintable || !flatHintable || impossibleHintable) {
     throw new Error(
-      `self-test failed (solvable=${badSolvable} hintable=${badHintable} good=${goodHintable}) — ` +
-      'the instrument is wrong, so its findings mean nothing. Fix this before reading anything below.',
+      `self-test failed (solvable=${solvable} threeGroup=${threeGroupHintable} flat=${flatHintable} ` +
+      `impossible=${impossibleHintable}) — the instrument is wrong, so its findings mean nothing. ` +
+      'Fix this before reading anything below.',
     )
   }
-  console.log('self-test ok: [1,1,1,3]→9 is solvable and un-hintable; [1,2,3,4]→10 is hintable\n')
+  console.log('self-test ok: three-number groups are visible to the search; an unreachable target still reports null\n')
 }
 
 // ------------------------------------------------------------------ helpers

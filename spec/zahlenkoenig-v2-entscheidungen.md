@@ -512,3 +512,40 @@ Ziehgeste** lösbar – `1`, `+`, `1` tippen, Blockchip tippen, die dritte
 `1` auf den rechten Klammersteg ziehen, dann `+`, `×`, `3`, `=`. Auch der
 wörtliche Weg der Karte (erst den Block öffnen, auf leerem Feld) trägt:
 `()` entsteht und füllt sich durch Tippen zu `(1 + 1)`.
+
+---
+
+## 13. Dreiergruppen im Tipp (Runde „Dreiergruppe")
+
+Die Onboarding-Runde hinterließ eine gemessene, bestätigte Lücke:
+`core/hints.ts` konnte **keine Dreiergruppe vorschlagen**, weil jeder
+Tippzug ein Antippen war und „über das Minimum hinaus wachsen" (6.2) nur
+durch Ziehen geht. `scripts/checkHintReachable.ts` maß, was das kostete:
+bei **39,8 % aller Vierer-Ziehungen** brauchte jede Lösung eine
+Dreiergruppe, der Tipp hatte dort also gar nichts zu sagen — und das Brett
+öffnete sich als Sackgasse markiert. Die Markierung wurde sofort behoben;
+die Lücke selbst ist diese Runde.
+
+| Entscheidung | Begründung |
+|---|---|
+| **`HintMove` bekommt eine Art `grow`** | Ein Tippzug reichte nicht, und „die Suche einfach weiter spannen" auch nicht: ein Zug muss eine Geste sein, die der Spieler wirklich hat. `grow` ist das Ziehen einer Zahl aus der Ablage auf den **rechten Klammersteg** und wird über genau dieselbe `insertLeafIntoGroup` ausgeführt, die `useGame`s eigener Drop-Zweig aufruft. Es bleibt bei einem Chip pro Druck (10.3): das Ziehen setzt die Zahl, der folgende Operator füllt den Platz, den `withPair` daneben öffnet. |
+| **Auch eine Gruppe, die schon auf dem Brett liegt, darf wachsen** | Nicht Kür, sondern Bedingung dafür, dass der Plan seinen eigenen ersten Druck überlebt. `useHint` rechnet nach jedem Druck neu und wendet `moves[0]` an — ein Plan, der mit „Block auf Position 2" beginnt, wird einen Druck später gegen ein Brett neu hergeleitet, das diesen Block bereits *hat*. Ohne diesen Zweig konnte die Suche die drei Plätze der Gruppe füllen, sie aber nie erweitern: das Brett starb bei `3 × ()`, und der Tipp meldete Sackgasse auf einem Brett, das er selbst gerade gebaut hatte. Gefunden hat das erst der Testlauf durch den **echten** `useGame`-Hook, nicht die Suche gegen ihre eigenen Hilfsfunktionen. |
+| **Die dritte Zahl kommt aus der Ablage, nicht vom Brett** | Für eine bereits gesetzte Zahl wäre `absorbPairIntoGroup` nötig — eine zweite neue Zugart. Bewusst ausgelassen: die Bretter, um die es geht, sind ganz überwiegend leere (das Tipp-Kontingent wird am leeren Feld abgelesen), und eine neue Zugart ist genug Risiko für eine Runde. |
+| **Die Suche geht jetzt Budget für Budget vor, statt alles aufzuzählen und zu filtern** | 10.2 verlangt „erst nach Anzahl der Blöcke" — das wird jetzt *gesucht* statt hinterher sortiert: erst ohne neue Klammer, dann mit einer, dann mit zwei; das erste Budget, das antwortet, gewinnt. Ergebnis identisch (innerhalb eines Budgets gewinnt weiterhin der erste Kandidat, die Dokumentreihenfolge bleibt), aber gemessen an echten Ziehungen: **~30 ms vorher, 70 ms mit Dreiergruppen und Filterung, ~20 ms mit gestufter Suche.** Die breitere Suche ist damit billiger als die enge, die sie ersetzt. |
+| **Der Selbsttest des Messskripts hat die Runde selbst gemeldet** | `checkHintReachable.ts` weigerte sich beim ersten Lauf danach, überhaupt etwas zu berichten: sein bekannt-schlechter Fall (`[1,1,1,3] → 9`, lösbar aber nicht tippbar) war keiner mehr. Genau dafür hält dieses Repository jedes Messskript auf ein Paar aus bekannt-gut und bekannt-schlecht — ein Instrument, dessen Annahmen veraltet sind, soll laut scheitern und nicht still „null Befunde" melden. Der Fall ist jetzt der bekannt-*gute*. |
+| **Drei Tests mussten umgeschrieben werden, und das war vorhergesagt** | `hints.test.ts`, `onboarding.test.ts` und `Hint.test.tsx` hielten die alte Grenze als Zusicherung fest (`expect(hint).toBeNull()`). Die Konvention „schreibe den Test als Invariante, nicht als Fehler" stammt aus der Runde davor und sagt genau das voraus: wer den Fehler behebt, muss den Test löschen. Der Gegenbeweis steht daneben — „ein frisch gezogenes Rätsel öffnet nie als Sackgasse" galt vorher wie nachher unverändert. |
+| **Die Sackgassen-Sperre in `useHint` bleibt, obwohl sie nichts mehr auslöst** | Kein erzeugbares Rätsel kann sie noch treffen (0 von 19 100 echten Ziehungen, und der erschöpfende Pool ist bei allen drei Zahlenanzahlen sauber). Sie bleibt als Netz gegen genau den Rückfall, der diese 39,8 % gekostet hat: eine Tipp-Suche, die stiller wird als der Löser, aus dem der Generator zieht. Sie kostet im Ruhezustand nichts (`&&` bricht ab) und wird im Test gegen ein künstliches Brett geprüft, statt sich darauf zu verlassen, dass es heute noch einen blinden Fleck gibt. |
+| **Das Onboarding-Rätzel behält seinen ausgeblendeten Tipp — und die Sperre ist dort jetzt tragend** | `Board.tsx`s `onboarding` war „Gürtel und Hosenträger": beide Einstiegsbretter meldeten ohnehin `offered: false`. Für `(1+1+1) × 3` gilt das nicht mehr — es hat jetzt ein echtes Kontingent. Ohne die Sperre böte die Kopfzeile dort einen Tipp an, der die ganze Klammer laufen kann, also genau die Lektion, die die Karte den Spieler selbst ausführen lässt. Ob das so bleiben soll, ist eine PO-Frage, keine technische. |
+
+**Gemessen danach:** `checkHintReachable.ts` meldet **0 von 5900**
+Vierer-Ziehungen ohne Tipp (vorher 7 037 von 17 700). Im Browser geprüft,
+nicht nur im Modell: der Tipp baut auf echten Brettern `7 × (1 …)` für 154
+und `(6 + 7) × …` für 182, ohne Sackgassen-Rahmen, und hält sein
+Kontingent ein.
+
+**Was der Spieler davon *nicht* merkt:** das Kontingent (die Hälfte der
+Chips, aufgerundet — vier von acht) endet, bevor der `grow`-Zug an der
+Reihe wäre. Der Tipp führt die Ziehgeste auf einem frischen Brett also
+praktisch nie selbst aus; sein Gewinn ist, dass die Suche die Lösung
+überhaupt *sieht* — und damit, dass es auf diesen Brettern wieder einen
+Tipp gibt statt eines Sackgassen-Rahmens.

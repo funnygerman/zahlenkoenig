@@ -6,6 +6,7 @@ import { Board, type BoardHandle } from './Board'
 import { useGame } from './useGame'
 import { hintBudget, useHint } from './useHint'
 import { computeHint } from '../core/hints'
+import { notate } from '../core/notation'
 import { createExpression, createTray, type Operator } from '../core/expression'
 import { reachable } from '../core/solver'
 import { nextPuzzle, type PuzzleSettings } from '../core/puzzles'
@@ -295,37 +296,51 @@ describe('Board — the dead-end border (concept 10.3: "kostenlos, dauerhaft")',
     expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
   })
 
-  // The regression `scripts/checkHintReachable.ts` found. `completions`
-  // proposes groups of two and no more (a hint move is a tap; growing a
-  // group past its minimum is drag-only, concept 6.2), so on a puzzle whose
-  // only solutions need a *three*-number group `computeHint` returns null —
-  // at every stage, empty field included. `deadEnd` used to be exactly
-  // `hint === null`, so such a board opened already outlined as
-  // unsolvable, before the player had touched a chip. Measured at 39.8% of
-  // four-number draws.
+  // The board that used to open as a dead end. `(1+1+1)×3 = 9` from
+  // `[1,1,1,3]` needs a three-number group, and until the
+  // three-number-group round `computeHint` could not propose one — so this
+  // opened already outlined as unsolvable, before the player touched a
+  // chip, on a board that was perfectly solvable by drag.
   //
-  // `[1,1,1,3] → 9` is the case `hints.test.ts` pins at the core level:
-  // `(1+1+1)×3`, solvable by drag, invisible to the hint.
-  it('is withheld on a puzzle the hint could never walk, however solvable that puzzle is', () => {
+  // Two things fixed it, in that order, and this test now pins the second:
+  // the border was withheld wherever the search was blind, and then the
+  // search stopped being blind. So the assertion is no longer "no border
+  // because the verdict is suppressed" but "no border because there is
+  // genuinely a hint" — and it says which, rather than passing either way.
+  it('opens clean on a puzzle whose only solution is a three-number group, and can hint it', () => {
     const dragOnly = { numbers: [1, 1, 1, 3], target: 9, ops: ['+', '*'] as Operator[] }
-    expect(computeHint(createExpression(), createTray(dragOnly.numbers), dragOnly.target, dragOnly.ops, 4)).toBeNull()
+    const hint = computeHint(createExpression(), createTray(dragOnly.numbers), dragOnly.target, dragOnly.ops, 4)
+    expect(hint).not.toBeNull()
+    expect(hint!.moves.some(m => m.kind === 'grow')).toBe(true)
 
     render(<Board numbers={dragOnly.numbers} target={dragOnly.target} ops={dragOnly.ops} />)
     expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
   })
 
-  // The border must stay withheld for the *whole* puzzle, not just while
-  // the field is empty: on these boards `computeHint` is null at every
-  // stage, so a player two chips in is no more to blame than one who has
-  // touched nothing.
-  it('stays withheld once chips are down on such a puzzle', async () => {
-    const user = userEvent.setup()
-    render(<Board numbers={[1, 1, 1, 3]} target={9} ops={['+', '*']} />)
-
-    await user.click(screen.getAllByText('1', { selector: 'button' })[0])
-    await user.click(screen.getByText('+', { selector: 'button' }))
-    expect(placed()).toHaveLength(2)
-    expect(document.querySelector('[class*="deadEnd"]')).toBeNull()
+  // The guard itself, which no generated puzzle can trigger any more — the
+  // search now reaches everything `reachable()` does at two, three and four
+  // numbers (`scripts/checkHintReachable.ts`: 0 of 5900 draws). It is kept
+  // as a safety net against exactly the regression that cost 39.8% of
+  // four-number boards, so it needs a test that does not depend on the
+  // search having a blind spot today.
+  //
+  // `numbersCount: 1` is the synthetic lever: it drives `blockBudget` to
+  // zero, so the search cannot propose any bracket at all while
+  // `reachable()` still finds the target — precisely the shape of "the hint
+  // is weaker than the solver", which is the only thing the guard is for.
+  it('withholds the verdict whenever the search is weaker than the solver', () => {
+    const { result } = renderHook(() => useHint({
+      expr: createExpression(),
+      tray: createTray([1, 1, 1, 3]),
+      target: 9,
+      opsAllowed: ['+', '*'],
+      numbersCount: 1,
+      onApplyMove: () => {},
+    }))
+    // No bracket is affordable, so the search finds nothing…
+    expect(computeHint(createExpression(), createTray([1, 1, 1, 3]), 9, ['+', '*'], 1)).toBeNull()
+    // …and the board is not blamed for it.
+    expect(result.current.deadEnd).toBe(false)
   })
 
   // The distinction the fix turns on, and the reason `reachable()` is
@@ -381,6 +396,53 @@ describe('a freshly drawn puzzle never opens as a dead end', () => {
 // can't reach the end any more (two hints per puzzle, PO) — so it drives
 // `useGame.applyHintMove` directly instead, which is exactly what a press
 // does, minus the budget.
+describe('the hint can build a three-number group through the real useGame', () => {
+  // The end-to-end proof of the three-number-group round: not "the search
+  // proposes a plan" (hints.test.ts covers that against its own
+  // primitives), but "the plan survives being applied, move by move,
+  // through the placement functions the board itself calls" — including
+  // `grow`, which has no tap equivalent at all and goes through
+  // `insertLeafIntoGroup`.
+  //
+  // This is the test that caught the round's real bug. The first version of
+  // the search proposed the bracket and then could not continue from it:
+  // `useHint` recomputes from scratch after every press, and the recomputed
+  // search could fill an existing group's slots but never grow it, so the
+  // board died at `3 × ()` with the hint reporting a dead end on a board it
+  // had just built itself. Driving the real hook is the only level at which
+  // that was visible.
+  //
+  // Note this walks *past* the hint's own budget on purpose. A player never
+  // gets the whole plan for free (four chips of eight, and the last two are
+  // always theirs — PO), so a press on a fresh board stops long before the
+  // `grow`; what is checked here is that every move in the plan is one the
+  // board can actually perform.
+  function walk(numbers: number[], target: number, ops: Operator[]) {
+    const { result } = renderHook(() => useGame({ numbers, target, ops }))
+    for (let i = 0; i < 16; i++) {
+      const hint = computeHint(result.current.expr, result.current.tray, target, ops, numbers.length)
+      expect(hint, `went null mid-walk at "${notate(result.current.expr)}"`).not.toBeNull()
+      if (hint!.moves.length === 0) break
+      act(() => result.current.applyHintMove(hint!.moves[0]))
+    }
+    return { notation: notate(result.current.expr), value: result.current.result }
+  }
+
+  for (const [numbers, target, ops, expected] of [
+    [[1, 1, 1, 3], 9, ['+', '*'], '3 \u00d7 (1 + 1 + 1)'],
+    [[2, 2, 2, 2], 12, ['+', '*'], '2 \u00d7 (2 + 2 + 2)'],
+    // mixed operators inside the bracket — `(n+n\u00d7n)\u00d7n`, the shape that
+    // makes up most of what checkHintReachable.ts found walled
+    [[2, 3, 5, 6], 102, ['+', '*', '/'], '6 \u00d7 (2 + 3 \u00d7 5)'],
+  ] as [number[], number, Operator[], string][]) {
+    it(`solves [${numbers}] to ${target}`, () => {
+      const out = walk(numbers, target, ops)
+      expect(out.value).toBe(target)
+      expect(out.notation).toBe(expected)
+    })
+  }
+})
+
 describe('the hint never walks the board into a dead end', () => {
   function walkOut(numbers: number[], target: number, ops: Operator[]) {
     const { result } = renderHook(() => useGame({ numbers, target, ops }))

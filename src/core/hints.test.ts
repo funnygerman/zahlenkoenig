@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest'
 import { computeHint, findBlockers, isStuck, type HintMove } from './hints'
 import {
   createExpression, createTray, createOperatorLeaf,
-  nextOpenSurface, resolveBlockDrop, applyBlockDrop, dissolveGroup, placeAt, trimTrailingGaps, withMinimumShape,
+  nextOpenSurface, resolveBlockDrop, applyBlockDrop, dissolveGroup, insertLeafIntoGroup, placeAt, trimTrailingGaps, withMinimumShape,
   type Expression, type Group, type Leaf, type NumberLeaf, type Operator, type Slot,
 } from './expression'
 import { evaluate } from './evaluate'
@@ -21,6 +21,15 @@ function applyMove(expr: Expression, move: HintMove, tray: readonly NumberLeaf[]
     if (!resolved) throw new Error('hint proposed an unresolvable block tap')
     const children = applyBlockDrop(expr.root.children, index, resolved)
     return { root: { ...expr.root, children: trimTrailingGaps(children) } }
+  }
+
+  if (move.kind === 'grow') {
+    // concept 6.2's drag-only growth, mirroring useGame's `growGroupAt`:
+    // a tray number onto the block's right bracket edge, which splices in
+    // the number *and* an open slot for the operator that will join it.
+    const grown = insertLeafIntoGroup(expr.root.children, move.index, 'after', tray.find(t => t.id === move.leafId)!)
+    if (!grown) throw new Error('hint proposed a grow onto something that is not a block')
+    return { root: { ...expr.root, children: trimTrailingGaps(grown) } }
   }
 
   const leaf = move.kind === 'number' ? tray.find(t => t.id === move.leafId)! : createOperatorLeaf(move.op)
@@ -82,18 +91,38 @@ describe('computeHint — continues the built tree, never contradicts it (concep
     expect(hint!.moves.some(m => m.kind === 'block')).toBe(false)
   })
 
-  it('a hint-introduced block never grows past its two-number minimum (a hint press is a tap, not a drag)', () => {
-    // solver.test.ts's own fact: "(1+1+1)×3=9 from [1,1,1,3]" — reachable()
-    // finds it because it doesn't care how a group's shape gets built. A
-    // hint press does: 6.2's "grow past minimum" is drag-only, so a block
-    // the hint proposes can only ever be 2 numbers. Exhaustively checking
-    // every size<=2-piece arrangement of {1,1,1,3} under +/* by hand turns
-    // up nothing that reaches 9 either (max is 7, via `1+1×3×2`-style
-    // groupings) — so this hint must report a dead end even though the
-    // puzzle is, in the generator's own sense, solvable.
+  it('a hint-introduced block grows to a third number, and says so with a `grow` move', () => {
+    // **This assertion used to be `toBeNull()`**, and the reversal is the
+    // whole point of the three-number-group round. `(1+1+1)×3 = 9` from
+    // `[1,1,1,3]` is `solver.test.ts`'s own worked example of a value a flat
+    // chain cannot reach; `reachable()` always found it, because it does not
+    // care how a group's shape gets built. `completions` could not, because
+    // every move it proposed had to be a tap and concept 6.2 makes growing a
+    // group past two numbers drag-only.
+    //
+    // That was not the edge case this test's old comment implied.
+    // `scripts/checkHintReachable.ts` measured it at **39.8% of four-number
+    // draws**, with two selections walled end to end. `HintMove` gained a
+    // `grow` kind — the drag onto a bracket edge, applied through the same
+    // `insertLeafIntoGroup` the board's own drop handler calls — and the
+    // search can now propose the shape.
     const tray = createTray([1, 1, 1, 3])
     const hint = computeHint(createExpression(), tray, 9, ['+', '*'], 4)
-    expect(hint).toBeNull()
+    expect(hint).not.toBeNull()
+    expect(hint!.moves.some(m => m.kind === 'grow')).toBe(true)
+
+    // …and the moves really do build it: replayed through the same
+    // primitives a tap and a drag call, the board reaches 9.
+    expect(evaluate(playOut(createExpression(), hint!.moves, tray))).toBe(9)
+  })
+
+  it('still prefers a flat continuation when one exists — fewest blocks first (10.2)', () => {
+    // The guard on the round above: a search that *can* reach for a
+    // three-number group must not start reaching when it has no need to.
+    // 48 is flat-reachable from 6,2,9,3 (`6×9−2×3`), so no bracket at all.
+    const tray = createTray([6, 2, 9, 3])
+    const hint = computeHint(createExpression(), tray, 48, ['+', '-', '*', '/'], 4)
+    expect(hint!.moves.some(m => m.kind === 'block' || m.kind === 'grow')).toBe(false)
   })
 })
 
