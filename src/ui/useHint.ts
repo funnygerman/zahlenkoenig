@@ -182,8 +182,9 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
    * and that is a change since this guard was written. It was measured at
    * **39.8% of four-number draws** then; the three-number-group round
    * taught `completions` the shape those boards needed, and
-   * `scripts/checkHintReachable.ts` now reports 0 walled over 5900 real
-   * draws. Case (b) cannot occur from the generator
+   * `scripts/checkHintReachable.ts` now reports 0 walled over 19 100 real
+   * draws and over the exhaustive pool. Case (b) cannot occur from the
+   * generator
    * either (`nextPuzzle` only ever returns a target `reachable()` gave
    * it), so in practice this guard is inert today.
    *

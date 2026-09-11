@@ -32,8 +32,9 @@ the v2 concept wins for anything being built now.
 **Nothing is open that has been scoped.** The three-number-group round
 closed the last measured gap (see "Where v2 stands"): the hint's search
 now reaches everything `solver.ts`'s `reachable()` does at two, three and
-four numbers, verified at 0 walled boards over 5900 real draws. Concept
-16's roadmap was already finished before that.
+four numbers — 0 walled boards over 19 100 real draws, and the exhaustive
+pool clean at every number count. Concept 16's roadmap was already
+finished before that.
 
 **One product question came out of that round and is genuinely the PO's**:
 the second onboarding puzzle `(1+1+1) × 3` now *has* a real hint budget,
@@ -233,8 +234,11 @@ then fills by tapping.
 
 **The three-number-group round closed the gap the scan found: the hint can
 propose a bracket holding three numbers, and every four-number board is
-hintable again.** `scripts/checkHintReachable.ts` now reports **0 of 5900**
-draws without a hint, against 7 037 of 17 700 before.
+hintable again.** `scripts/checkHintReachable.ts` now reports **0 of 19 100**
+draws without a hint, against 7 037 of 17 700 four-number draws before —
+and the **exhaustive pool is clean too**, at two, three and four numbers.
+That pool pass is the definitive one: 35 selection/band rows held walled
+boards before, and none does now.
 
 *It is not a wider search — it is a new gesture.* A hint move has to be
 something the player can actually do, and growing a group past two numbers

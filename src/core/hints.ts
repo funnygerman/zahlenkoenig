@@ -20,7 +20,9 @@
 // gesture (a tray chip dragged onto a bracket edge), which is why a move
 // here is a gesture rather than a tap. After it, the search reaches
 // everything `solver.ts`'s `reachable()` does at two, three and four
-// numbers — 0 walled boards over 5900 real draws.
+// numbers — 0 walled boards over 19 100 real draws, and the exhaustive
+// pool of every multiset the generator can draw is clean at all three
+// number counts.
 //
 // 10.2's own wording — "die kleinste bezüglich einer festen Ordnung: erst
 // nach Anzahl der Blöcke, dann nach Dokumentreihenfolge" — names two
