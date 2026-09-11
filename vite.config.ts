@@ -1,4 +1,4 @@
-import { defineConfig } from 'vitest/config'
+import { defineConfig, type Plugin } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 import { VitePWA } from 'vite-plugin-pwa'
 
@@ -19,10 +19,58 @@ import { VitePWA } from 'vite-plugin-pwa'
 const themeColor = '#2962ae' // --zk-accent
 const backgroundColor = '#fafbfc' // --zk-bg
 
+// The deployed origin. `base` below is only the path, and a sitemap, a
+// canonical link and an og:url all need the absolute URL — so this is the
+// one place the host is written down, and index.html repeats it in its
+// meta tags (a static HTML file can't read this). `src/seo.test.ts` pins
+// the two together so they can't drift.
+const siteUrl = 'https://funnygerman.github.io/zahlenkoenig/'
+
+/**
+ * Emits `sitemap.xml` at build time.
+ *
+ * One URL, because the app is one URL: puzzle, language and settings all
+ * live in LocalStorage rather than in the address bar, so there is nothing
+ * else to list. `lastmod` is the build date rather than a literal in the
+ * repo — a hardcoded date is wrong the day after it is written, and this
+ * one is right by construction every deploy.
+ *
+ * Note that this file lands at `/zahlenkoenig/sitemap.xml`, not at the
+ * origin root. That is valid: a sitemap may list any URL at or below its
+ * own directory, and the single URL here is exactly that. It is not
+ * auto-discovered, though — the `Sitemap:` directive would have to live in
+ * `https://funnygerman.github.io/robots.txt`, which belongs to the
+ * `funnygerman.github.io` repository and not to this one. Submitting the
+ * URL once in Google Search Console does the same job.
+ */
+function sitemap(): Plugin {
+  return {
+    name: 'zk-sitemap',
+    apply: 'build',
+    generateBundle() {
+      const lastmod = new Date().toISOString().slice(0, 10)
+      this.emitFile({
+        type: 'asset',
+        fileName: 'sitemap.xml',
+        source:
+          '<?xml version="1.0" encoding="UTF-8"?>\n' +
+          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n' +
+          '  <url>\n' +
+          `    <loc>${siteUrl}</loc>\n` +
+          `    <lastmod>${lastmod}</lastmod>\n` +
+          '    <changefreq>monthly</changefreq>\n' +
+          '  </url>\n' +
+          '</urlset>\n',
+      })
+    },
+  }
+}
+
 export default defineConfig({
   base: '/zahlenkoenig/',
   plugins: [
     react(),
+    sitemap(),
     VitePWA({
       // 'prompt', not the default 'autoUpdate': concept 19.3 explicitly
       // wants an update surfaced as "ein knapper Hinweis... statt eines
@@ -32,9 +80,20 @@ export default defineConfig({
       registerType: 'prompt',
       injectRegister: null, // registered by hand in main.tsx, alongside the update-hint wiring, not auto-injected
       manifest: {
-        name: 'Zahlenkönig',
+        name: 'Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel',
         short_name: 'Zahlenkönig',
-        description: 'Zahlenkönig – Mathematisches Rätselspiel',
+        // The same sentence index.html's meta description leads with. An
+        // install prompt and an app-store-style listing both surface this,
+        // so it states the rule rather than restating the name — and it is
+        // German, matching `lang` below and the served HTML, even though
+        // the app itself runs in three languages off one URL.
+        description:
+          'Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Plus, Minus, Mal, Geteilt und Klammern – von der ersten Klasse bis zum Kopfrechen-Profi.',
+        lang: 'de',
+        dir: 'ltr',
+        // Used by app catalogues that read web manifests; both are on the
+        // spec's own registered-category list, so neither is invented.
+        categories: ['education', 'games'],
         start_url: '/zahlenkoenig/',
         scope: '/zahlenkoenig/',
         display: 'standalone',
@@ -56,6 +115,13 @@ export default defineConfig({
         // cache). Everything the build emits, precached; no runtime
         // caching rules at all.
         globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // The sharing image is 36 KB that no player ever downloads: it is
+        // fetched by link-preview scrapers (Open Graph / Twitter), which
+        // never reach the service worker, and it is never rendered inside
+        // the app. Left in, it was 13% of the precache for nothing.
+        // `sitemap.xml` isn't matched by the patterns above anyway, and
+        // shouldn't be — same reasoning.
+        globIgnores: ['og-image.png'],
       },
     }),
   ],

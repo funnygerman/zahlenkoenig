@@ -138,6 +138,103 @@ because of this decision.)
 
 ## Where v2 stands
 
+**An SEO round gave the page something to find.** Like the footer/history
+and onboarding rounds, this is scope the PO asked for after concept 16's
+roadmap was already finished, not a step. The starting point, measured
+rather than assumed: the served HTML was 943 bytes, of which the only prose
+was a nine-word German `<meta name="description">`, and `<div id="root">`
+was empty. There was no `<h1>` anywhere — not in the static file *and not
+in the rendered app*, which the board's own design explains (it says its
+shape completely and never names the game).
+
+*The finding that set the agenda is that this app has two audiences of
+crawler, not one, and they need different things.* A search engine renders
+JavaScript, so it would eventually see the board — but a board is chips and
+digits, and it never states the one real rule. Most LLM-based crawlers do
+**not** run JavaScript at all; they fetch the HTML and read it. For those,
+the page was literally an empty div. So the fix is two-sided:
+
+- **`index.html`'s `#root` now holds the page as prose** — the name, the
+  rule ("jede Zahl genau einmal"), what the operators and brackets do, and
+  who it is for. `createRoot` clears its container on first render
+  (`src/main.tsx`), so this is the no-JavaScript fallback and the loading
+  state in one, and it is never on screen beside the game.
+- **`Game.tsx` renders a visually hidden `<h1>` and one-sentence
+  description** (`.srOnly` in `Game.module.css`), for the renderer-based
+  crawler and for a screen reader, which had no heading either. The
+  sentences are `introGoal`/`introRule` — the onboarding card's own words —
+  rather than two new i18n keys, so there is one place to change the
+  wording and it is already translated into all three languages.
+
+*The fallback was measured in a real browser before it landed, because it
+is the one change here a player could feel.* React replaces it **57–81ms**
+after navigation normally and **~470ms** on a 6× throttled CPU; **CLS is
+0.0000 either way**, checked against a control build with the fallback
+stripped back out, so it costs nothing in Core Web Vitals. It introduces no
+scrolling (`scrollHeight === clientHeight`, which `tokens.css`'s own
+`overflow: hidden` already guaranteed since the stylesheet is
+render-blocking). With JavaScript off it is simply the page. Worth being
+plain about the tradeoff: on a slow phone there is now a brief flash of
+German prose where there used to be a blank white screen — which is the
+comparison that matters, and it is an improvement rather than a cost.
+
+*The rest of the round is metadata that did not exist at all:* a title that
+says what the thing is, a 150-character description, `canonical`, `robots`,
+full Open Graph and Twitter cards, and **schema.org structured data**
+(`SoftwareApplication` + `Game` in a `@graph`, with `offers` at price 0,
+`audience`, `educationalUse` and a `featureList`). The structured data is
+the part aimed squarely at the AI crawlers: it is the only place on the
+page that states the facts *as data* rather than as prose.
+
+*`public/og-image.png` is generated from the app's own tokens*, not from a
+second palette — 1200×630, the worst-case board `(6+2) × (9−3) = 48` drawn
+with `tokens.css`'s real HSL values and the crown from `public/crown.svg`.
+**Building it surfaced a real cost the build reported on itself**: at first
+it was precached by the service worker, 36 KB — 13% of the whole precache —
+that no player ever downloads, since link-preview scrapers never reach a
+service worker and the image is never rendered in the app. `workbox.globIgnores`
+excludes it now; the precache went from 277.69 KiB back to 242.33 KiB.
+
+*`sitemap.xml` is emitted at build time by a small Vite plugin, not checked
+in.* `lastmod` is the build date, which is right by construction every
+deploy — a literal date in the repo is wrong the day after it is written,
+and this file's own "a command that still reads plausibly is not evidence
+it still does anything" warning applies to data as much as to commands.
+
+**`robots.txt` was deliberately not added, and this is the one thing here
+that cannot be fixed from this repository.** Crawlers read robots.txt only
+at the origin root — `https://funnygerman.github.io/robots.txt` — and this
+is a project page, so anything shipped here would land at
+`/zahlenkoenig/robots.txt` and never be read by anything. A file that looks
+like it works and doesn't is worse than no file. The practical consequence
+is small: a missing robots.txt means "crawl everything", which is what is
+wanted; only the `Sitemap:` directive has nowhere to live, and submitting
+the sitemap URL once in Google Search Console does that job instead. The
+other half of it is worth knowing for later: **if the site ever moves to a
+custom domain, `public/robots.txt` starts working and should be added.**
+
+*`src/seo.test.ts` pins the invariants, and it caught two defects in the
+round that produced it* — a 210-character meta description that a search
+result would have truncated mid-sentence, and structured data that
+paraphrased the rule instead of stating it, so the two disagreed. What it
+holds still is the three things nothing else in the build fails on: the
+deployed URL is written by hand in two files that cannot read each other
+(`vite.config.ts`'s `siteUrl` and `index.html`'s meta tags — a static tag
+cannot read `base`), the fallback prose is the only text a non-JS crawler
+gets, and the JSON-LD is a JSON string inside HTML where a bad edit is
+invisible. It reads both files through Vite's own `?raw` imports rather
+than `node:fs`: `npm run build` typechecks `src`, and `@types/node` is not
+a dependency here — a node builtin in a test would have broken CI while the
+test itself passed.
+
+**`README.md` was one line ("# zahlenkoenig") and is now a real
+description.** Not housekeeping: a GitHub repository page is itself a
+heavily crawled surface, and for the LLM crawlers it is often a better one
+than the app, because it is static text. It leads with the rule, links the
+live site, and shows the og image. No `## License` section was written —
+there is no `LICENSE` file, and that call is the PO's to make, not one to
+invent in a README.
+
 **An onboarding round gave the game a first-run introduction — two fixed
 puzzles and a card each — after feedback from players who had never seen
 the idea: "if a user opens the game for the first time, it's not clear

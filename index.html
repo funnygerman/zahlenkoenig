@@ -10,11 +10,139 @@
          own note on why this can't just read the CSS custom property, and
          why this and the manifest's theme_color have to stay in sync by hand. -->
     <meta name="theme-color" content="#2962ae" />
-    <meta name="description" content="Zahlenkönig – Mathematisches Rätselspiel" />
-    <title>Zahlenkönig</title>
+
+    <title>Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel</title>
+    <meta
+      name="description"
+      content="Kostenloses Rechenrätsel: Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Plus, Minus, Mal, Geteilt und Klammern."
+    />
+    <meta name="author" content="funnygerman" />
+    <meta name="robots" content="index, follow, max-image-preview:large, max-snippet:-1" />
+    <!-- One page, one URL. The app is a single view whose state (puzzle,
+         language, settings) lives in LocalStorage rather than in the URL,
+         so there is nothing else to canonicalize to and no query string a
+         crawler could turn into a duplicate. -->
+    <link rel="canonical" href="https://funnygerman.github.io/zahlenkoenig/" />
+
+    <!-- Sharing previews (Open Graph / Twitter). The absolute URLs are
+         required by both specs — a relative og:image is ignored by most
+         scrapers — so they repeat the deployed base from vite.config.ts's
+         `base`. src/seo.test.ts pins the two to each other. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Zahlenkönig" />
+    <meta property="og:title" content="Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel" />
+    <meta
+      property="og:description"
+      content="Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Kostenlos, ohne Anmeldung, offline spielbar."
+    />
+    <meta property="og:url" content="https://funnygerman.github.io/zahlenkoenig/" />
+    <meta property="og:image" content="https://funnygerman.github.io/zahlenkoenig/og-image.png" />
+    <meta property="og:image:width" content="1200" />
+    <meta property="og:image:height" content="630" />
+    <meta property="og:image:alt" content="Zahlenkönig: die Aufgabe (6 + 2) × (9 − 3) mit dem Ziel 48" />
+    <!-- The served HTML is German (`lang` above). The app itself detects
+         the player's language on first visit (core/settings.ts) and
+         supports English and Russian too, but all three live at this one
+         URL, so these are alternates rather than hreflang targets — there
+         is no second URL to point an hreflang at. -->
+    <meta property="og:locale" content="de_DE" />
+    <meta property="og:locale:alternate" content="en_US" />
+    <meta property="og:locale:alternate" content="ru_RU" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <meta name="twitter:title" content="Zahlenkönig – Rechenrätsel und Kopfrechnen-Spiel" />
+    <meta
+      name="twitter:description"
+      content="Erreiche mit zwei bis vier Zahlen ein Ziel und benutze dabei jede Zahl genau einmal. Kostenlos, ohne Anmeldung, offline spielbar."
+    />
+    <meta name="twitter:image" content="https://funnygerman.github.io/zahlenkoenig/og-image.png" />
+
+    <!-- Structured data (schema.org). This is the one part of the page a
+         search engine and an LLM-based crawler can read *as data* rather
+         than as prose, so it carries the facts that matter: what the thing
+         is, that it costs nothing, who it is for, and what it can do. -->
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "WebSite",
+            "@id": "https://funnygerman.github.io/zahlenkoenig/#website",
+            "url": "https://funnygerman.github.io/zahlenkoenig/",
+            "name": "Zahlenkönig",
+            "inLanguage": ["de", "en", "ru"]
+          },
+          {
+            "@type": ["SoftwareApplication", "Game"],
+            "@id": "https://funnygerman.github.io/zahlenkoenig/#app",
+            "name": "Zahlenkönig",
+            "url": "https://funnygerman.github.io/zahlenkoenig/",
+            "description": "Zahlenkönig ist ein Rechenrätsel für den Browser. Der Spieler bekommt zwei bis vier Zahlen und eine Zielzahl und muss das Ziel erreichen, indem er jede Zahl genau einmal benutzt. Erlaubt sind Plus, Minus, Mal und Geteilt sowie selbst gesetzte Klammern; welche Rechenzeichen, wie viele Zahlen und wie groß das Ziel sein soll, wählt der Spieler vorher aus. Jedes Rätsel wird auf dem Gerät erzeugt und ist garantiert lösbar.",
+            "applicationCategory": ["GameApplication", "EducationalApplication"],
+            "applicationSubCategory": "Puzzle",
+            "operatingSystem": "Web browser (Android, iOS, Windows, macOS, Linux)",
+            "browserRequirements": "Requires JavaScript",
+            "inLanguage": ["de", "en", "ru"],
+            "isAccessibleForFree": true,
+            "offers": {
+              "@type": "Offer",
+              "price": "0",
+              "priceCurrency": "EUR"
+            },
+            "audience": {
+              "@type": "EducationalAudience",
+              "educationalRole": "student",
+              "audienceType": "Grundschulkinder ab der ersten Klasse bis Erwachsene"
+            },
+            "educationalUse": "Kopfrechnen üben, Grundrechenarten, Punkt-vor-Strich, Klammerrechnung",
+            "teaches": "Kopfrechnen mit den vier Grundrechenarten und Klammern",
+            "featureList": [
+              "Zwei bis vier Zahlen pro Rätsel",
+              "Plus, Minus, Mal und Geteilt einzeln zuschaltbar",
+              "Klammern per Ziehen selbst setzen",
+              "Vier Zielgrößen von klein bis sehr groß",
+              "Tipp-Funktion, die den nächsten Zug setzt",
+              "Nur Rätsel mit genau einer Lösung, auf Wunsch",
+              "Bereits gelöste Rätsel wieder aufrufen",
+              "Ohne Anmeldung und ohne Werbung",
+              "Als App installierbar und offline spielbar"
+            ],
+            "screenshot": "https://funnygerman.github.io/zahlenkoenig/og-image.png",
+            "author": {
+              "@type": "Person",
+              "name": "funnygerman",
+              "url": "https://github.com/funnygerman"
+            }
+          }
+        ]
+      }
+    </script>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- What a crawler that does not run JavaScript receives, and what a
+         player with JavaScript switched off sees. React's `createRoot`
+         clears this container on its first render (src/main.tsx), so this
+         is the app's loading state and its no-JS fallback in one — it is
+         never shown alongside the game, and it says nothing the game does
+         not. Measured in a real browser before it landed: see CLAUDE.md's
+         SEO round. Keep it in sync with the meta description above;
+         src/seo.test.ts checks that the rule sentence is present in both. -->
+    <div id="root">
+      <main style="max-width: 34rem; margin: 0 auto; padding: 2rem 1.25rem; font-family: system-ui, sans-serif; color: #223449; line-height: 1.55">
+        <h1 style="font-size: 1.5rem; margin-bottom: 0.5rem">Zahlenkönig</h1>
+        <p>
+          Ein Rechenrätsel für den Browser: Du bekommst zwei bis vier Zahlen und ein Ziel.
+          Erreiche das Ziel und benutze dabei <strong>jede Zahl genau einmal</strong>.
+        </p>
+        <ul>
+          <li>Plus, Minus, Mal und Geteilt — du wählst selbst, welche Rechenzeichen vorkommen.</li>
+          <li>Klammern setzt du selbst, indem du eine Zahl auf den Klammerrand ziehst.</li>
+          <li>Ein Tipp setzt den nächsten Zug, wenn du nicht weiterkommst.</li>
+          <li>Von der ersten Klasse bis zum Kopfrechen-Profi: zwei bis vier Zahlen, vier Zielgrößen.</li>
+          <li>Kostenlos, ohne Anmeldung, ohne Werbung — installierbar und offline spielbar.</li>
+        </ul>
+        <p>Zum Spielen braucht diese Seite JavaScript. Ist es eingeschaltet, startet das Spiel sofort.</p>
+      </main>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

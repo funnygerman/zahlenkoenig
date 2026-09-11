@@ -209,6 +209,24 @@ export function Game() {
 
   return (
     <div className={styles.page}>
+      {/* The page's heading and its one-sentence description. Visually
+          hidden (.srOnly) rather than absent: the board explains its own
+          shape completely but never names the game or states the one real
+          rule, so without this the rendered DOM has no heading at all —
+          a gap a screen reader and a JavaScript-rendering crawler feel the
+          same way. index.html's static fallback carries the same two facts
+          for a crawler that does not run JavaScript.
+
+          The sentences are `introGoal`/`introRule`, the onboarding card's
+          own words, rather than two new i18n keys — they are already the
+          shortest true statement of the rule in all three languages, and
+          reusing them means there is only one place to change if the
+          wording ever does. */}
+      <h1 className={styles.srOnly}>Zahlenkönig</h1>
+      <p className={styles.srOnly}>
+        {t(settings.language, 'introGoal')} {t(settings.language, 'introRule')}
+      </p>
+
       {/* Everything the game itself needs (concept 12.1) lives in its own
           flexible area, separate from the footer below — see .gameArea's
           own comment in Game.module.css for why: without this split, a
