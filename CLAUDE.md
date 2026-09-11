@@ -293,11 +293,11 @@ paraphrased the rule instead of stating it, so the two disagreed. What it
 holds still is the three things nothing else in the build fails on: the
 deployed URL is written by hand in two files that cannot read each other
 (`vite.config.ts`'s `siteUrl` and `index.html`'s meta tags — a static tag
-cannot read `base`), the fallback prose is the only text a non-JS crawler
-gets, and the JSON-LD is a JSON string inside HTML where a bad edit is
-invisible. Its assertions about the prose fallback and the canonical
-tag were deleted along with them, rather than left asserting something the
-page no longer does. It reads both files through Vite's own `?raw` imports
+cannot read `base`), the Open Graph and Twitter cards are two tag families
+describing one card and maintained side by side, and the JSON-LD is a JSON
+string inside HTML where a bad edit is invisible. Its assertions about the
+prose fallback and the canonical tag were deleted along with them, rather
+than left asserting something the page no longer does. It reads both files through Vite's own `?raw` imports
 rather than `node:fs`: `npm run build` typechecks `src`, and `@types/node` is not
 a dependency here — a node builtin in a test would have broken CI while the
 test itself passed.

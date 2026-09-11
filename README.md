@@ -52,3 +52,7 @@ npm test           # vitest run
 studies you can open straight in a browser: `entwurf.html`, a clickable draft
 of the board, and `generator-audit.html`, a before/after audit of every puzzle
 setting the game offers.
+
+## Copyright
+
+© 2026 funnygerman. All rights reserved. Not licensed for reuse.
