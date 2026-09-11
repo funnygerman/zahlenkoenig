@@ -29,13 +29,20 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**The most important open item is a measured, confirmed live bug: 39.8% of
-four-number puzzles open with the dead-end border already lit on an empty
-field and no hint button** — full numbers and the two candidate fixes are
-under "Where v2 stands" below, and `scripts/checkHintReachable.ts`
-reproduces it. Nothing about it is hypothetical any more, so it needs
-deciding (which fix, or both) rather than investigating. Everything below
-this paragraph is about concept 16's roadmap, which remains finished.
+**One thing is open, and it is a real piece of work rather than an
+investigation: teach `core/hints.ts`'s `completions` to propose
+three-number groups.** The bug it caused — 39.8% of four-number puzzles
+opening with the dead-end border lit on an empty field — is fixed (the
+border is withheld where the search is blind; see "Where v2 stands"), but
+the underlying gap is not: on those boards the hint button still doesn't
+appear at all, because the budget is read from the same continuation that
+comes back null. Note this is **not** just widening the search's span: a
+hint move has to be a gesture the player has, and a three-number group is
+block-chip-then-drag, so it needs a new `HintMove` kind wired to
+`useGame`'s `insertLeafIntoGroup`/`absorbPairIntoGroup` path. It also
+moves the budget on those puzzles from zero to a real number, so
+`Hint.test.tsx`'s budget assertions come with it. Everything below this
+paragraph is about concept 16's roadmap, which remains finished.
 
 **Step 6 (concept section 16, "Feinschliff") is done, and it was the last
 row in concept 16's own table — there is no step 7.** Animations, landscape
@@ -252,22 +259,62 @@ false and the header hides the icon). `[2,3,5,6] → 102` is one of them —
 solvable as `(2+3×5)×6`, and the player is told it is hopeless before
 touching a chip.
 
-**Two fixes, and they are independent — worth not conflating:**
+**The border half is fixed; the search half is not.** The two were always
+independent, and conflating them would have delayed the cheap one behind
+the expensive one.
 
-1. *The real one:* teach `completions` to propose three-number groups.
-   That closes the gap properly and makes the block the onboarding card
-   teaches supported everywhere. It is a change to the most delicate
-   search code in the repo, and the walled patterns show it would need
-   mixed-operator interiors (`(n+n×n)`), not just repeated ones.
-2. *The cheap one, and correct on its own terms:* **a dead-end border on
-   an empty, untouched field is always a false alarm.** `reachable()`
-   guarantees every generated puzzle is solvable, so on an empty board
-   `hint === null` never means "this puzzle is impossible" — only "the
-   hint can't do this one". `findBlockers` already refuses to mark
-   anything in that situation for exactly this reason ("nothing the player
-   placed is to blame there"); the border should follow the same rule.
-   That removes the "you already lost" first impression immediately,
-   without touching the search.
+*`useHint.ts` no longer derives `deadEnd` from `hint === null`.* The first
+draft of this guard read "a dead-end border on an **empty** field is
+always a false alarm" — true, but too narrow: on these boards `computeHint`
+is null at *every* stage, so a player two chips in was being blamed just
+as wrongly as one who had touched nothing. The rule that shipped withholds
+the verdict for the whole puzzle, and it is `findBlockers`'s own rule,
+which has always had this right — "nothing the player placed is to blame"
+when the empty field could not reach the target either.
+
+*The distinction it turns on is the one the first draft missed: `hint ===
+null` from an empty field has two causes.* Either the search is blind to
+the puzzle (three-number group — solvable, by drag) or the puzzle really
+is unsolvable. `computeHint` cannot tell them apart; `solver.ts`'s
+`reachable()` can, because it is the model that does not care how a
+group's shape gets built. So `useHint` asks it — and only where the hint
+came back null, since the `&&` short-circuits, so 60% of boards pay
+nothing and the rest pay ~23ms against a `computeHint` that already costs
+~30ms. The generator cannot produce the second case at all (`nextPuzzle`
+only returns targets `reachable()` gave it), so it arrives only from a
+hand-built puzzle — and `Hint.test.tsx`'s own `[1,1,1,1] → 1000` test,
+which *should* show a border, still does. That test failing against the
+too-broad first draft is what surfaced the distinction.
+
+*It also dissolved a special case.* `Board.tsx`'s `onboarding` prop no
+longer suppresses the dead-end border — the general rule covers the
+onboarding bracket puzzle on the way past, since it is exactly one of
+these boards. The prop keeps only the hint *offer*. A special case turning
+out to be an instance of a general rule is usually a sign the general rule
+is right.
+
+*Verified the same way the bug was found*: the browser check that reported
+3 of 12 freshly loaded boards with the border lit now reports **0 of 12**,
+on the same selection. The 3 that still show no hint button are the
+remaining gap, correctly reported.
+
+**Still open — the real fix:** teach `completions` to propose three-number
+groups, so the hint reappears on those boards. It closes the gap properly
+and makes the block the onboarding card teaches supported everywhere. It
+is a change to the most delicate search code in the repo; the walled
+patterns show it needs mixed-operator interiors (`(n+n×n)`), not just
+repeated ones; and it needs a new `HintMove` kind, because a three-number
+group is not a tap. See "Next v2 step".
+
+**The obvious third fix is a trap, and is written down here so nobody
+reaches for it later: do not make the generator refuse these puzzles.**
+Two selections are 100% walled, so refusing would empty them, `nextPuzzle`
+would exhaust its attempts and throw, and that unmounts the app — the
+exact crash class the bug-fix round fixed. More fundamentally these
+puzzles are not broken: a player can solve them, the drag gesture exists.
+Deleting hundreds of good puzzles to work around a hint limitation is
+backwards. The fraction-only refusal was different — those puzzles were
+genuinely unsuitable for the audience.
 
 **A second hint round, from three more PO play-test reports, changed the
 search itself and put two guards on the budget.**
@@ -1301,6 +1348,26 @@ actual `--cell` range, not just `entwurf.html`'s one measurement.
   wrong.
 - **Decide layout questions by looking.** Where two options exist, render both
   and compare, rather than arguing them in prose.
+- **CI runs on every push and pull request** (`.github/workflows/ci.yml`):
+  `npm ci`, `npm run build` (which is `tsc && vite build`, so it is the
+  typecheck too) and `npm test`. About a minute in total — the suite is
+  ~25s and the build ~6s — which is why it can afford to run on everything.
+  `deploy.yml` runs the suite before building too, so a red `main` cannot
+  reach the live site even on a direct push.
+  **The exhaustive scripts in `scripts/` deliberately stay out of CI**:
+  `checkHintReachable.ts`'s four-number pool pass alone takes ~17 minutes.
+  What they check belongs in the suite as a *fast sample* instead —
+  `Hint.test.tsx`'s "a freshly drawn puzzle never opens as a dead end"
+  draws real puzzles from four selections and asserts the property on each
+  in about a second. That is the pattern worth copying: the script proves
+  the property exhaustively once, the test keeps it from regressing on
+  every push.
+- **Write the test as the invariant, not as the bug.** The dead-end
+  regression tests assert "a freshly drawn puzzle never opens as a dead
+  end", not "these selections produce walled puzzles" — so they keep
+  passing, unchanged, once `completions` learns three-number groups. A test
+  that encodes the bug has to be deleted by whoever fixes it, which is
+  exactly when you would rather it still ran.
 - The sibling project `funnygerman/flashcards` is the reference for house style:
   one aspect-ratio switch instead of width breakpoints, sizes derived from a
   single variable, `system-ui`, SVG icons rather than emoji, `100dvh` with no

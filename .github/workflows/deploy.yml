@@ -18,7 +18,12 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 20
-      - run: npm install
+      - run: npm ci
+      # The gate that matters: `main` deploys straight to the live site, so
+      # a red suite must stop the deployment rather than ship. CI runs the
+      # same steps on every push, but a direct push to `main` should not be
+      # able to reach production just because nobody looked at the CI tab.
+      - run: npm test
       - run: npm run build
       - uses: actions/upload-pages-artifact@v3
         with:

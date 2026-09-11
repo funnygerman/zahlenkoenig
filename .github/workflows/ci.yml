@@ -1,0 +1,46 @@
+# Typecheck, build and test every push and pull request.
+#
+# Why this is cheap enough to run on everything: the whole suite is ~25s
+# and `npm run build` (tsc + vite) is ~6s, so a run costs about a minute
+# including the install. Nothing here is a long-running measurement — the
+# exhaustive scans in `scripts/` take 5–20 minutes and deliberately stay
+# out (see `scripts/checkHintReachable.ts`'s own header). What they check
+# is sampled fast in the unit tests instead: `Hint.test.tsx`'s "a freshly
+# drawn puzzle never opens as a dead end" draws real puzzles and asserts
+# the property on each, in about a second.
+name: CI
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+# A new push to the same branch makes the previous run pointless — cancel
+# it rather than paying for both. Not applied to the deploy workflow,
+# which sets its own `cancel-in-progress: false` for good reason.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          # Restores ~/.npm between runs; `npm ci` still installs from the
+          # lockfile, so this only saves the download, never the resolution.
+          cache: npm
+      # `npm ci` rather than `npm install`: it installs exactly what
+      # package-lock.json pins and fails if the two have drifted, which is
+      # the behaviour worth having on CI even though deploy.yml has
+      # historically used `npm install`.
+      - run: npm ci
+      # `npm run build` is `tsc && vite build`, so this is the typecheck
+      # and the production build in one step — and it catches the class of
+      # break that only shows up in a real build (a type error vitest's own
+      # esbuild transform would happily skip past).
+      - run: npm run build
+      - run: npm test

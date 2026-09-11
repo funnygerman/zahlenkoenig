@@ -44,27 +44,27 @@ export interface BoardProps {
    */
   onHintState?: (state: { offered: boolean; available: boolean }) => void
   /**
-   * This board is one of the onboarding puzzles (core/onboarding.ts), which
-   * changes two things about the hint layer — both for the same underlying
-   * reason, and both only actually visible on the second onboarding puzzle,
-   * `(1+1+1)×3 = 9`.
+   * This board is one of the onboarding puzzles (core/onboarding.ts): the
+   * header offers no hint on it, whatever the puzzle itself could support.
    *
-   * `core/hints.ts` only ever proposes *two*-number groups, because a hint
-   * move is expressed as a tap and growing a group past its minimum is
-   * drag-only (concept 6.2). So on a board whose only solution needs a
-   * three-number group, `computeHint` returns null — `hints.test.ts` pins
-   * this down for exactly these numbers. Two consequences would otherwise
-   * land on a player in their first minute:
+   * This used to also suppress the dead-end border, because the second
+   * onboarding puzzle (`(1+1+1)×3 = 9`) needs a three-number group and
+   * `computeHint` therefore returns null on it — so the border would have
+   * been lit on the empty field before a first-time player touched
+   * anything. That is no longer a special case: `useHint`'s own
+   * `puzzleHintable` now withholds the verdict on *any* puzzle the hint
+   * could never walk, which is the general form of the same rule and
+   * covers this board on the way past. `scripts/checkHintReachable.ts` is
+   * why — the same thing was happening on 39.8% of ordinary four-number
+   * draws, so it was never an onboarding problem at all.
    *
-   *   - `useHint`'s `deadEnd` is `hint === null`, recomputed every render,
-   *     so the dead-end border would be lit on the *empty* field before
-   *     anything was touched. Suppressed here, along with any blocking
-   *     marks, which come from the same dead-end path.
-   *   - The hint budget is read from that same null continuation and comes
-   *     out 0, so `offered` is already false and the header already hides
-   *     the icon. Reported as false explicitly anyway: a first-time player
-   *     should not meet a help button that cannot help, and that shouldn't
-   *     depend on two unrelated numbers happening to agree.
+   * What stays here is only the hint *offer*. Both onboarding boards
+   * already report `offered: false` on their own (two numbers get no
+   * hints by the PO's rule; the bracket puzzle has a zero budget for the
+   * reason above), so this is belt-and-braces — but it states the
+   * intention rather than leaning on two unrelated facts continuing to
+   * agree, and it keeps holding if a future onboarding puzzle is one the
+   * hint *could* solve.
    */
   onboarding?: boolean
   /**
@@ -257,8 +257,8 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           registerZone={drag.registerZone}
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}
-          deadEnd={!onboarding && hint.deadEnd}
-          blockingIds={onboarding ? null : hint.blockingIds}
+          deadEnd={hint.deadEnd}
+          blockingIds={hint.blockingIds}
           flipRef={flipRef}
           dissolvingGroupId={dissolvingId}
         />
