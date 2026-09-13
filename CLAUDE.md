@@ -197,17 +197,52 @@ everything downstream (`selectionHidden`, `shareHidden`, the nudge line,
 HistoryNav's count) reads `source.kind` instead of re-deriving it. Both
 mutations are caught now.
 
-*Placement was decided by looking, per this file's own rule.* The share
-icon joins the hint at the header's right edge; the alternative — beside
-HistoryNav's arrows — was rendered and compared, and it pushes the centered
-arrows off-centre, groups sharing with *browsing*, and, decisively, that
-strip does not render at all until the first puzzle is solved, so a new
-player would have no share button. The hint keeps the outer edge: it is an
-affordance players have already learnt, and share is the one that can
-afford to move (it does, only on two-number boards, where there is no hint
-icon at all). The "Link copied" pill started *below* the icons and was
-moved above the header after a screenshot showed it covering the target
-chip — the one thing on the board a player must be able to read.
+*Placement took four renders and two PO calls, per this file's own "decide
+layout questions by looking" rule.* It sits in the header's **left** slot —
+concept 12.7's reserved-but-never-built menu spot — so the header reads
+share · selection · hint, symmetric, with the hint untouched at the edge
+players already know. Rejected on the way: *beside HistoryNav's arrows*
+(pushes the centered arrows off-centre, groups sharing with *browsing*,
+and decisively that strip does not render at all until the first puzzle is
+solved, so a new player would have no share button), and *right, beside the
+hint* — built first, and cut by the PO after looking at it: two icons
+crowded into one corner while the opposite one sat empty. A side effect
+worth having: on the left the button never moves at all, where on the right
+it slid outward on two-number boards, which have no hint icon.
+
+**That move measured a bug that predated this round: in German the update
+pill already overlapped the widest settings chip.** At 390px with 4
+numbers, 4 operators and band 251–max the chip starts at 107px, and the
+pill alone ended at 84px in English, 103 in Russian and **121 in German** —
+no share button involved. So the header row could not hold a word-pill plus
+a 34px icon in any language.
+
+**The PO's answer was to move the pill out of the header entirely: it has
+its own centered row above the history arrows now** (`UpdateHint.tsx`,
+`UpdateHint.module.css`, both new). An interim version had the share button
+yield while an update was waiting — honest, but it rationed the problem
+rather than solving it. A row of its own removes the competition for width
+altogether: the pill can be as wide as its longest translation needs, the
+header's left slot belongs to sharing alone, and **the German overlap is
+gone with no shortening, abbreviation or icon-instead-of-word compromise.**
+Measured afterwards in all three languages: centered to 0.0px, above the
+arrows, nothing to collide with.
+
+This is a deliberate, PO-approved departure from concept 19.3's own
+"in der Kopfzeile". What that line actually asks for is a quiet, non-modal
+hint a player can ignore, not a particular row; its own row directly above
+the header is at least as quiet, and it is the only placement that survives
+all three languages at the narrowest width. The pill still renders nothing
+when there is no update, and still stays visible during onboarding — a
+waiting service-worker update is not part of the puzzle. Its five tests
+moved to `UpdateHint.test.tsx` unchanged in substance, since what they pin
+never depended on where it sits; `Header.test.tsx` now covers the two edge
+slots the header kept.
+
+The "Link copied" pill started *below* the icons and was moved above the
+header after a screenshot showed it covering the target chip — the one
+thing on the board a player must be able to read. It is anchored to the
+share button's own edge, so it moved left with it.
 
 **The honest limitation: the preview card cannot show the shared puzzle.**
 `og:image` is a static file, GitHub Pages has no server to render one per
@@ -218,7 +253,8 @@ HistoryNav's own "2/8" reasoning that digits need no i18n. This keeps
 `i18n.ts` free of its first parameterized string.
 
 *Verified in a real browser, not only in jsdom* (Playwright, 390px, plus
-landscape at 780×390): sharing puts a `#p=` link on the clipboard, opening
+landscape at 780×390, and against the widest selectable chip rather than
+the default): sharing puts a `#p=` link on the clipboard, opening
 it reproduces the sender's board exactly, the fragment is cleared without
 touching the path, a first-time player gets onboarding while the link waits
 in the fragment, and finishing onboarding opens the shared puzzle at that

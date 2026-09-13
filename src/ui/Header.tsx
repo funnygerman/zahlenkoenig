@@ -4,8 +4,10 @@
 // 10.3). Concept 12.7 also puts a menu icon on the left, but that belongs
 // to language/rules, and the PO has since closed both halves: the language
 // is detected once with no switcher (settings.ts), and the onboarding round
-// chose a first-run card over a permanent rules button. So the left slot
-// stays unbuilt on purpose, and hosts only concept 19.3's update pill.
+// chose a first-run card over a permanent rules button. The left slot
+// holds the share button now (share round, PO); concept 19.3's update pill
+// used to sit there and has its own row above HistoryNav instead — see
+// UpdateHint.tsx for the measurement that moved it.
 //
 // The chip itself is hidden while an onboarding puzzle is on the board
 // (`selectionHidden`) — see that prop's own note.
@@ -69,15 +71,6 @@ export interface HeaderProps {
    * rendering nothing until there is something to browse.
    */
   hintHidden?: boolean
-  /**
-   * Concept 19.3's update surface — "ein knapper Hinweis in der
-   * Kopfzeile... statt eines Popup-Dialogs". Optional: `Game.tsx` always
-   * passes both (from `useUpdateAvailable`), but nothing here requires a
-   * service worker to exist, which keeps `Game.test.tsx`/`Game.loop.test.tsx`
-   * free of PWA-registration concerns they were never about.
-   */
-  updateAvailable?: boolean
-  onUpdate?: () => void
   /**
    * Hide the selection chip entirely (onboarding round). An onboarding
    * board is fixed — its numbers and its deliberately narrow tray come
@@ -181,7 +174,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate, selectionHidden = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, selectionHidden = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -208,13 +201,17 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
 
   return (
     <div className={styles.header} ref={rootRef}>
-      {updateAvailable && (
-        // Concept 12.7's left slot — reserved for a menu icon no step has
-        // built (Header.tsx's own top comment) — hosts this instead,
-        // conditionally: not a menu, just concept 19.3's "knapper Hinweis"
-        // taking the one empty spot the layout already had.
-        <button type="button" className={styles.updateHint} onClick={onUpdate}>
-          {t(settings.language, 'updateHint')}
+      {/* Concept 12.7's left slot — reserved for a menu icon no step has
+          built (Header.tsx's own top comment) — holds the share button
+          (PO). It is the button's own anchor rather than a cluster: concept
+          19.3's update pill used to share this slot and has moved out to a
+          row of its own above HistoryNav (UpdateHint.tsx), because the two
+          could not both fit beside the widest selection chip in any
+          language. Nothing else appears here, so the share button never
+          moves. */}
+      {!shareHidden && onShare && (
+        <button type="button" className={`${styles.iconButton} ${styles.shareButton}`} onClick={onShare} aria-label={t(settings.language, 'shareLabel')}>
+          <ShareIcon />
         </button>
       )}
 
@@ -237,25 +234,13 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
       </button>
       )}
 
-      {/* The header's right slot (concept 12.7's "rechts ein Symbol"), now
-          holding two icons instead of one. The hint keeps the outer edge it
-          has always had rather than being pushed inward by the newcomer: it
-          is an affordance players have already learnt, and the share button
-          — which is present on every board that has one — is the one that
-          can afford to move, on the two-number puzzles where the hint icon
-          isn't there at all (PO: two numbers get no hints). */}
-      <div className={styles.actions}>
-        {!shareHidden && onShare && (
-          <button type="button" className={styles.iconButton} onClick={onShare} aria-label={t(settings.language, 'shareLabel')}>
-            <ShareIcon />
-          </button>
-        )}
-        {!hintHidden && (
-          <button type="button" className={styles.iconButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
-            <HintIcon />
-          </button>
-        )}
-      </div>
+      {/* The header's right slot (concept 12.7's "rechts ein Symbol: Tipp"),
+          unchanged — the hint is where it has always been. */}
+      {!hintHidden && (
+        <button type="button" className={`${styles.iconButton} ${styles.hintButton}`} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
+          <HintIcon />
+        </button>
+      )}
 
       {/* Only ever seen where there is no share sheet to take over the job
           (useShare.ts): on a desktop the link goes to the clipboard, and

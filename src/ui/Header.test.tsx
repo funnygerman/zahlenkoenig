@@ -4,14 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { Header } from './Header'
 import { DEFAULT_SETTINGS } from '../core/settings'
 
-// Step 6's update hint (concept 19.3: "ein knapper Hinweis... statt eines
-// Popup-Dialogs") — the one part of the PWA round that's actually this
-// app's own code rather than vite-plugin-pwa's (registration, precaching,
-// the actual update cycle are the library's own, already well-tested
-// upstream). What's tested here is narrower: does Header render the hint
-// exactly when told to, in the player's own language, and does tapping it
-// call back — the same class of bug `Game.test.tsx`'s own banner describes
-// for drag/tap wiring, just for this one small prop pair instead.
+// The header's two edge slots (concept 12.7): sharing on the left, the hint
+// on the right. Concept 19.3's update pill used to be tested here too and
+// moved out with the pill itself, to UpdateHint.test.tsx.
+//
+// What's worth pinning at this level is only that each slot renders exactly
+// when it is supposed to and calls back when tapped — where the buttons sit
+// is a layout question, settled by looking at a real browser rather than by
+// asserting geometry jsdom does not have.
 
 const noop = () => {}
 const baseProps = {
@@ -23,32 +23,51 @@ const baseProps = {
   onPressHint: noop,
 }
 
-describe('Header — the update hint (concept 19.3)', () => {
-  it('is absent by default', () => {
+describe('Header — the share button (share round)', () => {
+  it('is absent when the header is given nothing to share with', () => {
     render(<Header {...baseProps} />)
-    expect(screen.queryByText('Update')).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Share this puzzle' })).not.toBeInTheDocument()
   })
 
-  it('shows the hint, in the current language, when an update is available', () => {
-    render(<Header {...baseProps} updateAvailable />)
-    expect(screen.getByRole('button', { name: 'Update' })).toBeInTheDocument()
-  })
-
-  it('shows the German copy for a German player', () => {
-    render(<Header {...baseProps} settings={{ ...DEFAULT_SETTINGS, language: 'de' }} updateAvailable />)
-    expect(screen.getByRole('button', { name: 'Aktualisieren' })).toBeInTheDocument()
-  })
-
-  it('shows the Russian copy for a Russian player', () => {
-    render(<Header {...baseProps} settings={{ ...DEFAULT_SETTINGS, language: 'ru' }} updateAvailable />)
-    expect(screen.getByRole('button', { name: 'Обновить' })).toBeInTheDocument()
-  })
-
-  it('calls onUpdate when tapped, and only then', async () => {
+  it('appears when an onShare handler is given, and calls it when tapped', async () => {
     const user = userEvent.setup()
-    const onUpdate = vi.fn()
-    render(<Header {...baseProps} updateAvailable onUpdate={onUpdate} />)
-    await user.click(screen.getByRole('button', { name: 'Update' }))
-    expect(onUpdate).toHaveBeenCalledTimes(1)
+    const onShare = vi.fn()
+    render(<Header {...baseProps} onShare={onShare} />)
+    await user.click(screen.getByRole('button', { name: 'Share this puzzle' }))
+    expect(onShare).toHaveBeenCalledTimes(1)
+  })
+
+  it('is hidden while an onboarding puzzle is on the board', () => {
+    render(<Header {...baseProps} onShare={noop} shareHidden />)
+    expect(screen.queryByRole('button', { name: 'Share this puzzle' })).not.toBeInTheDocument()
+  })
+
+  it('labels itself in the player’s own language', () => {
+    render(<Header {...baseProps} settings={{ ...DEFAULT_SETTINGS, language: 'de' }} onShare={noop} />)
+    expect(screen.getByRole('button', { name: 'Rätsel teilen' })).toBeInTheDocument()
+  })
+
+  it('shows the clipboard confirmation only once a copy has happened', () => {
+    const { rerender } = render(<Header {...baseProps} onShare={noop} />)
+    expect(screen.queryByRole('status')).not.toBeInTheDocument()
+    rerender(<Header {...baseProps} onShare={noop} shareCopied />)
+    expect(screen.getByRole('status').textContent).toBe('Link copied')
+  })
+})
+
+describe('Header — the hint button (concept 10.3)', () => {
+  it('is present and live by default', () => {
+    render(<Header {...baseProps} />)
+    expect(screen.getByRole('button', { name: 'Hint' })).toBeEnabled()
+  })
+
+  it('is muted rather than absent once a press would do nothing', () => {
+    render(<Header {...baseProps} hintMuted />)
+    expect(screen.getByRole('button', { name: 'Hint' })).toBeDisabled()
+  })
+
+  it('is absent entirely on a puzzle that has no hints to give', () => {
+    render(<Header {...baseProps} hintHidden />)
+    expect(screen.queryByRole('button', { name: 'Hint' })).not.toBeInTheDocument()
   })
 })

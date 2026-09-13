@@ -9,6 +9,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { Header } from './Header'
 import { HistoryNav } from './HistoryNav'
+import { UpdateHint } from './UpdateHint'
 import { Board, type BoardHandle } from './Board'
 import { useSettings } from './useSettings'
 import { useUpdateAvailable } from './useUpdateAvailable'
@@ -315,6 +316,15 @@ export function Game() {
             (Board remounts on any key change, documented behaviour since
             the hint round). They come back with the first generated
             puzzle, which is also the first one worth browsing back to. */}
+        {/* Concept 19.3's update hint, on its own centered row above the
+            arrows (PO). It was in the header until the share round, and
+            moved because the header row cannot hold a word-pill and an icon
+            beside the widest selection chip — UpdateHint.tsx carries the
+            measurement. It stays visible during onboarding, unchanged from
+            when it sat in the header: a waiting service-worker update is
+            not part of the puzzle and shouldn't wait for the introduction
+            to finish. */}
+        <UpdateHint available={updateAvailable} onUpdate={onUpdate} language={settings.language} />
         <HistoryNav
           index={historyIndex}
           total={source.kind === 'onboarding' ? 0 : solved.length}
@@ -332,8 +342,6 @@ export function Game() {
           onPressHint={() => boardRef.current?.pressHint()}
           hintHidden={!hintState.offered}
           hintMuted={!hintState.available}
-          updateAvailable={updateAvailable}
-          onUpdate={onUpdate}
           selectionHidden={source.kind === 'onboarding' || source.kind === 'shared'}
           onShare={share}
           shareCopied={copied}
