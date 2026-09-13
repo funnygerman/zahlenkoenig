@@ -241,6 +241,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           activeZoneId={drag.activeZoneId}
           deadEnd={hint.deadEnd}
           blockingIds={hint.blockingIds}
+          verdict={game.status === 'idle' ? null : game.status}
           flipRef={flipRef}
           dissolvingGroupId={dissolvingId}
         />
@@ -254,7 +255,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           being built, above the tray, rather than below it — real notation
           as the tree grows, "= result" appended only once `=` has been
           pressed on it. */}
-      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong, showNudge && styles.nudge)} role="status">
+      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong, game.status === 'correct' && styles.correct, showNudge && styles.nudge)} role="status">
         {showNudge ? nudge : readout}
       </div>
 
