@@ -10,7 +10,7 @@
   gap: 10px;
 }
 
-/* Mirrors Header.module.css's .hintButton — same circular tap target,
+/* Mirrors Header.module.css's .iconButton — same circular tap target,
  * same muted-until-hovered treatment — so this reads as the same family
  * of icon button rather than a one-off. */
 .arrow {

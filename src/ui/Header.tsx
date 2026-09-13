@@ -93,6 +93,23 @@ export interface HeaderProps {
    * finish.
    */
   selectionHidden?: boolean
+  /**
+   * Hand the board in front of the player to somebody else as a link
+   * (share round, PO). `Game.tsx` owns the action itself (`useShare`) —
+   * this only places the button and reports the clipboard fallback's
+   * confirmation, the same division the hint icon already uses, and for
+   * the same reason: what is being shared is whichever board `Game` is
+   * showing, which Header has no view of.
+   */
+  onShare?: () => void
+  shareCopied?: boolean
+  /**
+   * Left out while an onboarding puzzle is on the board, for the reason
+   * that round gave about the history arrows: the two fixed lessons are
+   * not a player's own puzzle to pass on, and a second control mid-lesson
+   * invites a detour out of the one thing there is to do.
+   */
+  shareHidden?: boolean
 }
 
 /**
@@ -110,6 +127,27 @@ export interface HeaderProps {
  * With this, no `?` remains anywhere in the app, which is the other half of
  * the fix: there is now nothing that promises help and doesn't give it.
  */
+/**
+ * concept 13.2: inline SVG, never emoji.
+ *
+ * Three nodes and two links — the share glyph Android and the web have
+ * settled on — rather than iOS's box-and-arrow, which reads as "upload"
+ * on everything that isn't an iPhone. Drawn on the same 24px grid, the
+ * same 1.8 stroke and the same round caps as HintIcon beside it, so the
+ * two read as one family rather than as two borrowed icons.
+ */
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="17.5" cy="5.5" r="2.6" />
+      <circle cx="6.5" cy="12" r="2.6" />
+      <circle cx="17.5" cy="18.5" r="2.6" />
+      <path d="m8.85 10.7 6.3-3.9" />
+      <path d="m8.85 13.3 6.3 3.9" />
+    </svg>
+  )
+}
+
 function HintIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -143,7 +181,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate, selectionHidden = false }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate, selectionHidden = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -199,10 +237,33 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
       </button>
       )}
 
-      {!hintHidden && (
-        <button type="button" className={styles.hintButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
-          <HintIcon />
-        </button>
+      {/* The header's right slot (concept 12.7's "rechts ein Symbol"), now
+          holding two icons instead of one. The hint keeps the outer edge it
+          has always had rather than being pushed inward by the newcomer: it
+          is an affordance players have already learnt, and the share button
+          — which is present on every board that has one — is the one that
+          can afford to move, on the two-number puzzles where the hint icon
+          isn't there at all (PO: two numbers get no hints). */}
+      <div className={styles.actions}>
+        {!shareHidden && onShare && (
+          <button type="button" className={styles.iconButton} onClick={onShare} aria-label={t(settings.language, 'shareLabel')}>
+            <ShareIcon />
+          </button>
+        )}
+        {!hintHidden && (
+          <button type="button" className={styles.iconButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
+            <HintIcon />
+          </button>
+        )}
+      </div>
+
+      {/* Only ever seen where there is no share sheet to take over the job
+          (useShare.ts): on a desktop the link goes to the clipboard, and
+          without a word saying so the button would look like it did
+          nothing. `role="status"` so a screen reader hears it too — it is
+          the only confirmation either way. */}
+      {shareCopied && (
+        <div className={styles.copied} role="status">{t(settings.language, 'shareCopied')}</div>
       )}
 
       {open && (

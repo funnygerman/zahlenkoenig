@@ -570,3 +570,43 @@ entfällt ersatzlos — es hatte keine andere Aufgabe mehr.
 | **Das Kontingent erledigt es ohne Sonderfall** | Der Plan ist acht Chips, das Kontingent die Hälfte aufgerundet: nach **vier** Drücken steht `3 × (1)` und das Symbol dämpft sich. Der `grow`-Zug ist der siebte und bleibt dem Spieler — also genau das, wonach die Karte fragt. Das ist keine glückliche Fügung, sondern dieselbe Regel, die überall gilt; im Browser nachgeprüft. |
 | **Das Zwei-Zahlen-Brett zeigt weiterhin keinen Tipp** | Auch das ohne Sonderfall: `hintBudget` gibt zwei Zahlen gar keinen Tipp (PO, Tipp-Runde), drei Chips sind das ganze Brett. Es brauchte nie eine eigene Unterdrückung. |
 | **Die Prop verschwindet ganz, statt ungenutzt stehen zu bleiben** | Beide Hälften sind jetzt weg — die Sackgassen-Hälfte durch die allgemeine Regel in `useHint` (Runde davor), die Tipp-Hälfte hier. Ein Einstiegsbrett ist damit ein gewöhnliches Brett, und zwei Sonderfälle weniger sind zwei Stellen weniger, an denen ein späterer Umbau vorbeidenken kann. |
+
+---
+
+## 15. Rätsel teilen (Teilen-Runde, PO)
+
+Vom PO nach Abschluss der Roadmap aus Konzept 16 gewünscht, also kein
+„Schritt": **ein Knopf in der Kopfzeile gibt das Brett, das gerade zu sehen
+ist, als Link weiter.** Geteilt wird die *Aufgabe*, nicht ein Ergebnis —
+ein Wordle-artiger „das habe ich geschafft"-Zettel hätte hier nichts zu
+sagen, weil Schritt 5 Punkte, Level und Serien ersatzlos gestrichen hat.
+
+Der Anlass steht schon in der SEO-Runde: deren eigenes Fazit war, dass sich
+die Suchmaschinen-Hälfte nicht lohnt, die **Vorschaukarte** dagegen schon,
+*weil dieses Spiel weitergereicht wird*. Bis hierher gab es aber nichts in
+der App, das je einen Link erzeugt hätte.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Die Rechenzeichen stehen mit im Link** (PO) | Genau die Begründung, die `solvedHistory.ts` schon für sein `ops` pro Eintrag gibt: die Auswahl des Empfängers ist nicht die des Absenders, und eine Ablage, die nicht zur Lösung des Bretts passt, macht das Rätsel unspielbar. Der Link trägt damit dieselben drei Dinge wie ein Archiveintrag — Zahlen, Ziel, Rechenzeichen. |
+| **Die Nutzlast steht im Fragment (`#p=…`), nicht in einer Query** | Drei Gründe, nach Kosten sortiert: `index.html`s eigene Notiz („eine einzige Seite ohne Query-Strings, nichts zu unterscheiden") ist der Grund, warum die SEO-Kürzung `canonical` als wirkungslos gestrichen hat — jeder geteilte Link als eigene crawlbare URL macht das wieder falsch und holt das Tag zurück. Ein Fragment erreicht außerdem weder den Server noch den Service Worker (Workbox ignoriert von sich aus nur `utm_*`/`fbclid`), was Konzept 19s Offline-Versprechen betrifft. Und es landet in keinem fremden Zugriffsprotokoll. |
+| **Eine Prüfsumme gegen Verstümmelung** (PO: „damit man die URL nicht von Hand verstellt") | Drei Base36-Zeichen, FNV-1a. Wichtig ist, was sie *nicht* leistet: sie hält Tippfehler und beiläufiges Herumprobieren ab, keine absichtliche Manipulation — die Funktion, die sie berechnet, liegt in jedem Browser. Deshalb ist sie nicht die einzige Prüfung. |
+| **Der Löser entscheidet, ob ein Link spielbar ist** | `decodeSharedPuzzle` fragt `solver.ts`s `reachable()` — dasselbe Modell, gegen das der Generator zieht, `wholeSolution` eingeschlossen (Konzept 8). Ein Link, der sauber dekodiert, aber auf ein unlösbares Brett zeigt, würde sonst **mit leuchtendem Sackgassen-Rahmen** aufgehen, bevor der Spieler einen Chip anfasst — genau der Fehler, den die Tipp-Runde beschrieben hat. |
+| **Jeder Fehlschlag ist dasselbe: ein gewöhnliches Rätsel** | Kaputt, gekürzt, von Hand geändert oder unlösbar — `null`, und der Generator übernimmt. Ein Link, der still zu einem normalen Spiel wird, ist ein viel besserer Fehlerfall als eine Fehlermeldung, gegen die niemand etwas tun kann. |
+| **Das Fragment wird gelöscht, sobald das Rätsel *aufgeht*** (PO) | Nicht beim Laden: das Onboarding steht davor, also muss der Link beide Lektionen überleben (der Schritt ist gespeichert, das Fragment ist der einzige Beleg für das Rätsel). `replaceState` statt `location.hash` — kein Neuladen, kein Eintrag, auf dem der Zurück-Knopf landet. Danach zieht ein Neuladen ein gewöhnliches Rätsel, und genau das heißt Wegblättern hier ohnehin schon. |
+| **Erst das Onboarding, dann der geteilte Link** (PO) | Wer über den Link eines Freundes zum ersten Mal hier landet, ist genau der Mensch, für den die zwei festen Lektionen da sind: das Brett nennt die eine echte Regel nirgends. Sofort auf ein Vier-Zahlen-Rätsel gesetzt zu werden wäre der schwierigste erste Bildschirm des Spiels. Wer schon gespielt hat, ist am Onboarding vorbei und sieht den Link sofort. |
+| **Der Auswahl-Chip verschwindet, solange ein geteiltes Brett steht** (PO) | Dieselbe Begründung wie im Onboarding: der Chip ist „zugleich Anzeige und Bedienelement" (12.7), und über einem fremden Brett ist er keins von beidem — er zeigte die eigene Auswahl über einem Brett, das ihr nicht folgt. |
+| **Der Knopf steht rechts in der Kopfzeile, neben dem Tipp** (PO) | Die Alternative — neben die Verlaufspfeile — wurde gebaut und angesehen (Hausregel: „Layoutfragen durch Hinsehen entscheiden"). Sie schiebt die mittig gesetzten Pfeile aus der Mitte und stellt das Teilen neben das *Blättern*, das eine andere Sache ist. Entscheidend ist aber etwas Funktionales: die Pfeilzeile erscheint überhaupt erst, wenn das erste Rätsel gelöst ist — ein neuer Spieler hätte gar keinen Teilen-Knopf. |
+| **Der Tipp behält die äußere Kante** | Ein Symbol, das die Spieler schon gelernt haben, wird nicht vom Neuling nach innen geschoben. Der Teilen-Knopf ist auf jedem Brett da und kann sich verschieben; das tut er nur bei zwei Zahlen, wo es gar kein Tipp-Symbol gibt (PO, Tipp-Runde). |
+| **Kein Teilen-Knopf während des Onboardings** | Was die Onboarding-Runde über die Verlaufspfeile sagt, gilt hier genauso: die beiden festen Lektionen sind nicht das eigene Rätsel eines Spielers, und ein zweites Bedienelement mitten in der Lektion lädt zum Abweg ein. |
+
+**Was ehrlich dazugehört: die Vorschaukarte kann das geteilte Rätsel nicht
+zeigen.** `og:image` ist eine feste Datei, und GitHub Pages hat keinen
+Server, der pro Rätsel ein Bild rendern könnte; Scraper führen kein
+JavaScript aus. Jeder geteilte Link zeigt also dieselbe
+`(6+2)×(9−3)=48`-Karte aus der SEO-Runde. Deshalb trägt der
+**Nachrichtentext** die Zahlen (`6 2 9 3 → 48`) — er ist die einzige
+Stelle, an der das tatsächlich geteilte Rätsel genannt wird. Nur der
+Zuruf darin ist übersetzt; die Ziffern bleiben Ziffern, nach derselben
+Überlegung, mit der die Positionsanzeige der Verlaufszeile („2/8") ohne
+Übersetzung auskommt.

@@ -29,8 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The block-anchor round below is
-the most recent piece of PO-asked scope; before it, the three-number-group
+**Nothing is open that has been scoped.** The share round below is the
+most recent piece of PO-asked scope; before it, the block-anchor round;
+before that, the three-number-group
 round
 closed the last measured gap (see "Where v2 stands"): the hint's search
 now reaches everything `solver.ts`'s `reachable()` does at two, three and
@@ -139,6 +140,94 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**A share round gave the game a way to hand one puzzle to somebody else.**
+PO-asked scope after concept 16's roadmap was finished, not a step. What is
+shared is the *puzzle*, not a result: the Wordle-shaped "look what I
+solved" has nothing to say here, because step 5 deleted points, levels and
+streaks outright. The reason it was worth building is written in the SEO
+round's own conclusion — the search-engine half does not pay, **the sharing
+card does, because this game spreads by being passed around** — and until
+now nothing in the app ever produced a link to pass.
+
+*The payload already existed as a type.* A link carries numbers, target and
+`ops` — the same three things `solvedHistory.ts` stores per archived entry,
+for the same stated reason: the receiver's own selection is not the
+sender's, and a tray that does not match the board's solution makes the
+puzzle unplayable. `core/shareLink.ts` (new) encodes them as
+`#p=6293.48.f.x7q`.
+
+*It rides the fragment, not a query string,* and the reason is this file's
+own history: `index.html` says "a single page with no query strings,
+nothing to disambiguate", which is why the SEO trim deleted `canonical` as
+a no-op. Every shared link being a distinct crawlable URL would make that
+false again. A fragment also never reaches the service worker's URL
+matching — workbox ignores only `utm_*`/`fbclid` by default — so concept
+19's offline promise is untouched.
+
+*The checksum and the solver do different jobs, and saying so is the point.*
+Three base36 characters of FNV-1a stop a link mangled in transit or edited
+by hand; they stop nothing deliberate, since the function that computes
+them ships to every browser. So it is not the only guard: `decodeSharedPuzzle`
+asks `solver.ts`'s `reachable()` whether the decoded board is actually
+solvable, `wholeSolution` included — the same standard `puzzles.ts` holds a
+generated puzzle to. Without it a hand-edited link would open **with the
+dead-end border already lit**, the exact failure the hint round wrote up.
+Every failure returns `null` and the generator takes over, because a link
+that quietly becomes an ordinary game beats an error nobody can act on.
+
+*Two PO decisions shape when it appears.* **Onboarding comes first, then
+the link**: a newcomer arriving on a friend's link is precisely who the two
+fixed lessons exist for, since the board never states the one real rule. And
+**the fragment is cleared when the puzzle opens, not when the page loads** —
+with onboarding ahead of it the link has to survive both lessons, and the
+onboarding step is persisted while the fragment is the only record of the
+puzzle. `replaceState`, so there is no reload and no history entry for Back
+to land on.
+
+*The round's one real code finding was a second source of truth in
+`Game.tsx`, and a mutation test is what exposed it.* Adding a fourth board
+source left the precedence written out three times — the remount key, the
+`??` chain for what to display, and the operator list. Deliberately breaking
+the onboarding-before-shared rule failed only *one* of three tests, because
+the other two expressions still said something different: the board showed
+the onboarding puzzle with the **shared** puzzle's tray and remount key.
+There is now one `source` conditional that decides all of it, and
+everything downstream (`selectionHidden`, `shareHidden`, the nudge line,
+HistoryNav's count) reads `source.kind` instead of re-deriving it. Both
+mutations are caught now.
+
+*Placement was decided by looking, per this file's own rule.* The share
+icon joins the hint at the header's right edge; the alternative — beside
+HistoryNav's arrows — was rendered and compared, and it pushes the centered
+arrows off-centre, groups sharing with *browsing*, and, decisively, that
+strip does not render at all until the first puzzle is solved, so a new
+player would have no share button. The hint keeps the outer edge: it is an
+affordance players have already learnt, and share is the one that can
+afford to move (it does, only on two-number boards, where there is no hint
+icon at all). The "Link copied" pill started *below* the icons and was
+moved above the header after a screenshot showed it covering the target
+chip — the one thing on the board a player must be able to read.
+
+**The honest limitation: the preview card cannot show the shared puzzle.**
+`og:image` is a static file, GitHub Pages has no server to render one per
+puzzle, and scrapers run no JavaScript — so every shared link renders the
+same `(6+2)×(9−3)=48` card. The share *text* therefore carries the digits
+(`6 2 9 3 → 48`); only the one-line prompt beside them is translated, on
+HistoryNav's own "2/8" reasoning that digits need no i18n. This keeps
+`i18n.ts` free of its first parameterized string.
+
+*Verified in a real browser, not only in jsdom* (Playwright, 390px, plus
+landscape at 780×390): sharing puts a `#p=` link on the clipboard, opening
+it reproduces the sender's board exactly, the fragment is cleared without
+touching the path, a first-time player gets onboarding while the link waits
+in the fragment, and finishing onboarding opens the shared puzzle at that
+moment. A hand-edited link lands on an ordinary puzzle. No page errors.
+**One trap worth recording for the next browser check: `page.goto()` to a
+URL that differs only in the fragment is a same-document navigation** — the
+app never remounts, so the first version of this check was asserting
+against a stale board and reported two false failures. It needs a
+`reload()`.
 
 **A block-anchor round changed where a bracket lands — the single rule is
 now "the bracket encloses three board positions, starting at the number you

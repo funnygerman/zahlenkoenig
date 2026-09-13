@@ -16,6 +16,8 @@ import { nextPuzzle, type Puzzle } from '../core/puzzles'
 import { loadRecent, loadRecentShapes, saveRecent, saveRecentShapes, withPuzzle, withShape } from '../core/history'
 import { loadSolved, saveSolved, withSolved, type SolvedPuzzle } from '../core/solvedHistory'
 import { loadOnboardingStep, onboardingPuzzleAt, saveOnboardingStep } from '../core/onboarding'
+import { readSharedPuzzle, type SharedPuzzle } from '../core/shareLink'
+import { useShare } from './useShare'
 import { Intro } from './Intro'
 import { t } from '../core/i18n'
 import './tokens.css'
@@ -96,6 +98,22 @@ export function Game() {
   const [introDismissedAt, setIntroDismissedAt] = useState<number | null>(null)
   const showIntro = onboardingPuzzle !== null && introDismissedAt !== onboardingStep
 
+  // A puzzle somebody sent as a link (share round, core/shareLink.ts).
+  // Read once, from the fragment this page was opened with — `null` for
+  // every ordinary visit, and equally for a link that is damaged,
+  // hand-edited or decodes to a board that cannot actually be solved, all
+  // of which decodeSharedPuzzle refuses so that the failure is simply "an
+  // ordinary game" rather than an error a player can do nothing about.
+  //
+  // It waits for onboarding rather than pre-empting it (PO). A first-time
+  // player arriving on a friend's link is precisely the person the two
+  // fixed lessons exist for: the board never states the one real rule, so
+  // dropping them straight onto a four-number puzzle would hand them the
+  // hardest first screen in the game. Somebody who has played before is
+  // already past onboarding and sees the shared puzzle immediately.
+  const [sharedPuzzle, setSharedPuzzle] = useState<SharedPuzzle | null>(() => readSharedPuzzle(window.location.hash))
+
+
   const handleHistoryBack = useCallback(() => {
     setHistoryIndex(i => (i === null ? solved.length - 1 : Math.max(0, i - 1)))
   }, [solved.length])
@@ -171,13 +189,27 @@ export function Game() {
       saveOnboardingStep(next)
       return
     }
+    // A shared puzzle is archived like any other solved one — it genuinely
+    // was one, and browsing back to it later should work — and, like an
+    // onboarding puzzle, it draws no replacement: clearing it reveals the
+    // live puzzle drawn at mount, which has been waiting behind it and was
+    // never shown.
+    if (sharedPuzzle) {
+      setSolved(prev => {
+        const next = withSolved(prev, sharedPuzzle)
+        saveSolved(next)
+        return next
+      })
+      setSharedPuzzle(null)
+      return
+    }
     setSolved(prev => {
       const next = withSolved(prev, { numbers: puzzle.numbers, target: puzzle.target, ops: settings.ops })
       saveSolved(next)
       return next
     })
     draw()
-  }, [historyEntry, handleHistoryForward, onboardingPuzzle, onboardingStep, puzzle, settings.ops, draw])
+  }, [historyEntry, handleHistoryForward, onboardingPuzzle, onboardingStep, sharedPuzzle, puzzle, settings.ops, draw])
 
   // A fresh key whenever *what's displayed* changes identity — a new live
   // puzzle (puzzleKey, as before) or a different point in the archive —
@@ -199,13 +231,54 @@ export function Game() {
   // Board remounts onto whichever it is showing — including on the step
   // from one onboarding puzzle to the next, which is a different puzzle
   // even though neither `puzzleKey` nor `historyIndex` moved.
-  const boardKey = historyIndex !== null
-    ? `hist-${historyIndex}`
+  // Which of the four possible boards is on screen, decided **once**.
+  //
+  // There are now four sources — an archived entry being browsed, an
+  // onboarding lesson, a puzzle that arrived on a link, and the live draw —
+  // and everything downstream keys off the same answer: the remount key,
+  // the board's own props, which operators the tray offers, whether the
+  // selection chip can tell the truth, and whether the fragment may be
+  // cleared. This used to be three separate expressions that each
+  // re-stated the precedence, and they could disagree: a mutation test of
+  // the onboarding-before-shared rule changed one of them and produced a
+  // board showing the onboarding puzzle with the *shared* puzzle's tray
+  // and remount key. One conditional, so that state cannot be expressed.
+  //
+  // `onboardingPuzzle` is already null while browsing, so the order below
+  // is the whole of the precedence rule.
+  const source = historyEntry
+    ? { kind: 'history' as const, key: `hist-${historyIndex}`, puzzle: historyEntry, ops: historyEntry.ops }
     : onboardingPuzzle
-      ? `onb-${onboardingStep}`
-      : `live-${puzzleKey}`
-  const displayed = historyEntry ?? onboardingPuzzle ?? puzzle
-  const displayedOps = historyEntry ? historyEntry.ops : onboardingPuzzle ? onboardingPuzzle.ops : settings.ops
+      ? { kind: 'onboarding' as const, key: `onb-${onboardingStep}`, puzzle: onboardingPuzzle, ops: onboardingPuzzle.ops }
+      : sharedPuzzle
+        ? { kind: 'shared' as const, key: 'shared', puzzle: sharedPuzzle, ops: sharedPuzzle.ops }
+        : { kind: 'live' as const, key: `live-${puzzleKey}`, puzzle, ops: settings.ops }
+
+  const boardKey = source.key
+  const displayed = source.puzzle
+  const displayedOps = source.ops
+
+  // Clear the fragment once the shared puzzle is actually *on screen*
+  // (PO), not when the page loads — with onboarding ahead of it the link
+  // has to survive both lessons, and a reload mid-onboarding has to find
+  // it still there (the step is persisted, the fragment is the only record
+  // of the puzzle). `replaceState` rather than assigning `location.hash`:
+  // no reload, and no history entry for a Back button to land on.
+  // Afterwards a reload draws an ordinary puzzle, which is the same thing
+  // browsing away from a board already means here.
+  const showingShared = source.kind === 'shared'
+  useEffect(() => {
+    if (!showingShared || !window.location.hash) return
+    window.history.replaceState(null, '', window.location.pathname + window.location.search)
+  }, [showingShared])
+
+  // What the share button sends is whatever is on the board — a live
+  // puzzle, an archived one being browsed, or a puzzle that arrived on a
+  // link and is being passed along. `displayedOps` rather than
+  // `settings.ops` for the same reason solvedHistory.ts stores ops per
+  // entry: the receiver's tray has to match the solution the shared board
+  // actually has, which is not necessarily the sender's current selection.
+  const { share, copied } = useShare({ numbers: displayed.numbers, target: displayed.target, ops: displayedOps }, settings.language)
 
   return (
     <div className={styles.page}>
@@ -244,7 +317,7 @@ export function Game() {
             puzzle, which is also the first one worth browsing back to. */}
         <HistoryNav
           index={historyIndex}
-          total={onboardingPuzzle ? 0 : solved.length}
+          total={source.kind === 'onboarding' ? 0 : solved.length}
           onBack={handleHistoryBack}
           onForward={handleHistoryForward}
           backLabel={t(settings.language, 'historyBackLabel')}
@@ -261,7 +334,10 @@ export function Game() {
           hintMuted={!hintState.available}
           updateAvailable={updateAvailable}
           onUpdate={onUpdate}
-          selectionHidden={onboardingPuzzle !== null}
+          selectionHidden={source.kind === 'onboarding' || source.kind === 'shared'}
+          onShare={share}
+          shareCopied={copied}
+          shareHidden={source.kind === 'onboarding'}
         />
         <Board
           ref={boardRef}
@@ -272,7 +348,7 @@ export function Game() {
           language={settings.language}
           onSolved={handleSolved}
           onHintState={setHintState}
-          nudge={onboardingPuzzle !== null ? t(settings.language, 'nudgeTapNumber') : undefined}
+          nudge={source.kind === 'onboarding' ? t(settings.language, 'nudgeTapNumber') : undefined}
         />
       </div>
 

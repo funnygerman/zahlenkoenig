@@ -28,13 +28,24 @@
 }
 
 /* concept 12.7: "rechts ein Symbol: Tipp" — the chip stays centered
- * (.header's own `justify-content: center`), so the hint icon sits at the
- * header's own right edge instead of taking a flex slot next to it. */
-.hintButton {
+ * (.header's own `justify-content: center`), so the right-hand icons sit at
+ * the header's own right edge instead of taking a flex slot next to it.
+ *
+ * The share round made this a cluster rather than the single absolutely
+ * positioned hint button it used to be. The absolute anchoring moved up to
+ * the wrapper so the chip's centering is unaffected either way; the buttons
+ * themselves are now ordinary flex items. */
+.actions {
   position: absolute;
   right: 0;
   top: 50%;
   transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.iconButton {
   display: grid;
   place-items: center;
   width: 34px;
@@ -46,19 +57,39 @@
   border-radius: 50%;
 }
 
-.hintButton:hover:not(:disabled) {
+.iconButton:hover:not(:disabled) {
   color: var(--zk-accent);
   background: hsl(var(--hue) 62% 42% / 0.08);
 }
 
 /* The hint round: a press that would do nothing (this puzzle's two hints
  * spent, or nothing left to hint about) shows as spent rather than live. */
-.hintButton:disabled {
+.iconButton:disabled {
   opacity: .3;
   cursor: default;
 }
 
-/* Concept 19.3's update hint — mirrors .hintButton's own left/right
+/* The clipboard fallback's confirmation (share round). Above the header
+ * rather than beside or below the icons: the header's own width is spoken
+ * for by the centered chip, so a pill growing leftward out of the right
+ * slot collides with it on the narrowest phone — and below, it lands on
+ * the target chip, which is the one thing on the board a player must be
+ * able to read. Above, the only thing at the header's right edge is empty
+ * space (HistoryNav's arrows are centered). Checked by looking, at 390px. */
+.copied {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  color: var(--zk-bg);
+  background: var(--zk-accent);
+  pointer-events: none;
+}
+
+/* Concept 19.3's update hint — mirrors .actions' own left/right
  * anchoring, in the header's left slot (12.7's reserved-but-unbuilt menu
  * spot), a pill rather than an icon since it carries a word, not a symbol. */
 .updateHint {

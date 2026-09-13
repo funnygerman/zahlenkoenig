@@ -83,6 +83,20 @@ interface Strings {
   nudgeTapNumber: string
   /** The page footer's second line — the label of a link to the PO's ko-fi page (footer/history round; the URL itself lives in Game.tsx, not here). */
   footerCoffee: string
+  /**
+   * Sharing the board in front of the player as a link (share round).
+   *
+   * `sharePrompt` is the only translated part of the shared message: the
+   * puzzle itself travels as bare digits (`6 2 9 3 → 48`), the same
+   * reasoning HistoryNav's own "2/8" position indicator already follows —
+   * digits read the same to a first-grader as to an adult and need no
+   * i18n. That is also what keeps this file free of its first
+   * parameterized string.
+   */
+  shareLabel: string
+  sharePrompt: string
+  /** Shown briefly where the platform has no share sheet and the link went to the clipboard instead. */
+  shareCopied: string
 }
 
 const de: Strings = {
@@ -101,6 +115,9 @@ const de: Strings = {
   historyForwardLabel: 'Nächstes Rätsel',
   footerMade: 'Mit ❤️ und Claude gemacht',
   footerCoffee: 'Auf einen Kaffee einladen ☕',
+  shareLabel: 'Rätsel teilen',
+  sharePrompt: 'Schaffst du das?',
+  shareCopied: 'Link kopiert',
   introGoal: 'Erreiche die Zahl im blauen Feld.',
   introRule: 'Benutze jede Zahl genau einmal.',
   introHow: 'Tippe auf eine Zahl, dann auf ein Rechenzeichen.',
@@ -127,6 +144,9 @@ const en: Strings = {
   historyForwardLabel: 'Next puzzle',
   footerMade: 'Made with ❤️ and Claude',
   footerCoffee: 'Buy me a coffee ☕',
+  shareLabel: 'Share this puzzle',
+  sharePrompt: 'Can you solve it?',
+  shareCopied: 'Link copied',
   introGoal: 'Reach the number in the blue field.',
   introRule: 'Use every number exactly once.',
   introHow: 'Tap a number, then an operator.',
@@ -153,6 +173,9 @@ const ru: Strings = {
   historyForwardLabel: 'Следующая задача',
   footerMade: 'Сделано с ❤️ и Claude',
   footerCoffee: 'Угостить кофе ☕',
+  shareLabel: 'Поделиться задачей',
+  sharePrompt: 'А ты сможешь?',
+  shareCopied: 'Ссылка скопирована',
   introGoal: 'Получи число в синем поле.',
   introRule: 'Используй каждое число ровно один раз.',
   introHow: 'Нажми на число, потом на знак.',
