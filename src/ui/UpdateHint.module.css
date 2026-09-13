@@ -1,0 +1,28 @@
+/* Its own row above HistoryNav, centered. `.gameArea` (Game.module.css)
+ * already centers its children, so this needs no positioning of its own —
+ * it is a plain flex item, which is exactly what makes it immune to the
+ * width competition that drove it out of the header. */
+.row {
+  display: flex;
+  justify-content: center;
+  width: 100%;
+}
+
+/* A pill rather than an icon, unchanged from when this sat in the header:
+ * it carries a word, not a symbol, and concept 19.3 wants it readable
+ * rather than guessable. Out here it can be as wide as its longest
+ * translation needs. */
+.pill {
+  border: 1px solid var(--zk-accent);
+  background: hsl(var(--hue) 62% 42% / 0.08);
+  color: var(--zk-accent);
+  border-radius: 999px;
+  padding: 5px 12px;
+  font: inherit;
+  font-size: 0.8rem;
+  cursor: pointer;
+}
+
+.pill:hover {
+  background: hsl(var(--hue) 62% 42% / 0.16);
+}

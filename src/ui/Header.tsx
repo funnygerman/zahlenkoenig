@@ -4,8 +4,10 @@
 // 10.3). Concept 12.7 also puts a menu icon on the left, but that belongs
 // to language/rules, and the PO has since closed both halves: the language
 // is detected once with no switcher (settings.ts), and the onboarding round
-// chose a first-run card over a permanent rules button. So the left slot
-// stays unbuilt on purpose, and hosts only concept 19.3's update pill.
+// chose a first-run card over a permanent rules button. The left slot
+// holds the share button now (share round, PO); concept 19.3's update pill
+// used to sit there and has its own row above HistoryNav instead — see
+// UpdateHint.tsx for the measurement that moved it.
 //
 // The chip itself is hidden while an onboarding puzzle is on the board
 // (`selectionHidden`) — see that prop's own note.
@@ -70,15 +72,6 @@ export interface HeaderProps {
    */
   hintHidden?: boolean
   /**
-   * Concept 19.3's update surface — "ein knapper Hinweis in der
-   * Kopfzeile... statt eines Popup-Dialogs". Optional: `Game.tsx` always
-   * passes both (from `useUpdateAvailable`), but nothing here requires a
-   * service worker to exist, which keeps `Game.test.tsx`/`Game.loop.test.tsx`
-   * free of PWA-registration concerns they were never about.
-   */
-  updateAvailable?: boolean
-  onUpdate?: () => void
-  /**
    * Hide the selection chip entirely (onboarding round). An onboarding
    * board is fixed — its numbers and its deliberately narrow tray come
    * from core/onboarding.ts, not from `settings` — so the chip would be
@@ -93,6 +86,23 @@ export interface HeaderProps {
    * finish.
    */
   selectionHidden?: boolean
+  /**
+   * Hand the board in front of the player to somebody else as a link
+   * (share round, PO). `Game.tsx` owns the action itself (`useShare`) —
+   * this only places the button and reports the clipboard fallback's
+   * confirmation, the same division the hint icon already uses, and for
+   * the same reason: what is being shared is whichever board `Game` is
+   * showing, which Header has no view of.
+   */
+  onShare?: () => void
+  shareCopied?: boolean
+  /**
+   * Left out while an onboarding puzzle is on the board, for the reason
+   * that round gave about the history arrows: the two fixed lessons are
+   * not a player's own puzzle to pass on, and a second control mid-lesson
+   * invites a detour out of the one thing there is to do.
+   */
+  shareHidden?: boolean
 }
 
 /**
@@ -110,6 +120,27 @@ export interface HeaderProps {
  * With this, no `?` remains anywhere in the app, which is the other half of
  * the fix: there is now nothing that promises help and doesn't give it.
  */
+/**
+ * concept 13.2: inline SVG, never emoji.
+ *
+ * Three nodes and two links — the share glyph Android and the web have
+ * settled on — rather than iOS's box-and-arrow, which reads as "upload"
+ * on everything that isn't an iPhone. Drawn on the same 24px grid, the
+ * same 1.8 stroke and the same round caps as HintIcon beside it, so the
+ * two read as one family rather than as two borrowed icons.
+ */
+function ShareIcon() {
+  return (
+    <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+      <circle cx="17.5" cy="5.5" r="2.6" />
+      <circle cx="6.5" cy="12" r="2.6" />
+      <circle cx="17.5" cy="18.5" r="2.6" />
+      <path d="m8.85 10.7 6.3-3.9" />
+      <path d="m8.85 13.3 6.3 3.9" />
+    </svg>
+  )
+}
+
 function HintIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
@@ -143,7 +174,7 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, updateAvailable = false, onUpdate, selectionHidden = false }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, selectionHidden = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
   const [open, setOpen] = useState(false)
   const rootRef = useRef<HTMLDivElement>(null)
 
@@ -170,13 +201,17 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
 
   return (
     <div className={styles.header} ref={rootRef}>
-      {updateAvailable && (
-        // Concept 12.7's left slot — reserved for a menu icon no step has
-        // built (Header.tsx's own top comment) — hosts this instead,
-        // conditionally: not a menu, just concept 19.3's "knapper Hinweis"
-        // taking the one empty spot the layout already had.
-        <button type="button" className={styles.updateHint} onClick={onUpdate}>
-          {t(settings.language, 'updateHint')}
+      {/* Concept 12.7's left slot — reserved for a menu icon no step has
+          built (Header.tsx's own top comment) — holds the share button
+          (PO). It is the button's own anchor rather than a cluster: concept
+          19.3's update pill used to share this slot and has moved out to a
+          row of its own above HistoryNav (UpdateHint.tsx), because the two
+          could not both fit beside the widest selection chip in any
+          language. Nothing else appears here, so the share button never
+          moves. */}
+      {!shareHidden && onShare && (
+        <button type="button" className={`${styles.iconButton} ${styles.shareButton}`} onClick={onShare} aria-label={t(settings.language, 'shareLabel')}>
+          <ShareIcon />
         </button>
       )}
 
@@ -199,10 +234,21 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
       </button>
       )}
 
+      {/* The header's right slot (concept 12.7's "rechts ein Symbol: Tipp"),
+          unchanged — the hint is where it has always been. */}
       {!hintHidden && (
-        <button type="button" className={styles.hintButton} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
+        <button type="button" className={`${styles.iconButton} ${styles.hintButton}`} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
           <HintIcon />
         </button>
+      )}
+
+      {/* Only ever seen where there is no share sheet to take over the job
+          (useShare.ts): on a desktop the link goes to the clipboard, and
+          without a word saying so the button would look like it did
+          nothing. `role="status"` so a screen reader hears it too — it is
+          the only confirmation either way. */}
+      {shareCopied && (
+        <div className={styles.copied} role="status">{t(settings.language, 'shareCopied')}</div>
       )}
 
       {open && (
