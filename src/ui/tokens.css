@@ -60,6 +60,11 @@ html, body {
    * than the block's own tint (--zk-group-bg) sitting right behind it. */
   --zk-accent-soft: hsl(var(--hue) 62% 42% / .28);
   --zk-amber: hsl(38 78% 46%);
+  /* correct/wrong verdict (result-on-submit round): the readout text and
+   * the field border both key off these, so a hue tweak only happens
+   * here. */
+  --zk-green: hsl(142 55% 36%);
+  --zk-red: hsl(2 62% 48%);
   --zk-group-bg: hsl(var(--hue) 48% 42% / .17);
   --zk-group-chip: hsl(var(--hue) 30% 100%);
 

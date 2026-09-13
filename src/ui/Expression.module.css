@@ -19,6 +19,14 @@
   border-color: var(--zk-amber);
 }
 
+.field.correct {
+  border-color: var(--zk-green);
+}
+
+.field.wrong {
+  border-color: var(--zk-red);
+}
+
 /* concept 12.4: the group recedes (tinted background), its content comes
  * forward (Chip's own `inGroup` prop handles the chip side of that). */
 .group {

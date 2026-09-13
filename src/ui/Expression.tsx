@@ -109,6 +109,14 @@ export interface ExpressionProps {
    * component just renders whichever group id it's told is fading.
    */
   dissolvingGroupId?: string | null
+  /**
+   * The submitted attempt's verdict (`useGame`'s own `GameStatus`, minus
+   * `'idle'` — there's nothing to color the border for before a press),
+   * so the field border turns green on a correct answer and red on a
+   * wrong one. `null` while unjudged or once the tree has been edited
+   * since (`useGame` resets `status` to `'idle'` on any edit).
+   */
+  verdict?: 'correct' | 'wrong' | null
 }
 
 function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; active?: boolean }) {
@@ -289,7 +297,7 @@ function GroupView({
 }
 
 export function Expression({
-  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false, flipRef, dissolvingGroupId = null, blockingIds = null,
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false, flipRef, dissolvingGroupId = null, blockingIds = null, verdict = null,
 }: ExpressionProps) {
   const { children } = expr.root
   const zones = dropZones(children)
@@ -370,7 +378,7 @@ export function Expression({
   }
 
   return (
-    <div className={cx(styles.field, deadEnd && styles.deadEnd)}>
+    <div className={cx(styles.field, deadEnd && styles.deadEnd, verdict === 'correct' && styles.correct, verdict === 'wrong' && styles.wrong)}>
       {rendered}
       {scaffold}
     </div>

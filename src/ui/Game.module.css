@@ -97,7 +97,11 @@
 }
 
 .wrong {
-  color: hsl(2 62% 48%);
+  color: var(--zk-red);
+}
+
+.correct {
+  color: var(--zk-green);
 }
 
 /* concept 5.1's ghost. Sized by the chip inside it, not by this box —
