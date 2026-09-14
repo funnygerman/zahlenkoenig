@@ -5,10 +5,13 @@
   flex-direction: column;
   align-items: center; /* the header and board are their own fixed width now, not stretched to fill this container — center them, rather than leaving them flush against the left edge */
   padding: var(--gap);
-  /* See tokens.css's html/body rule and useAppViewportHeight.ts for why
-   * this isn't a bare `100dvh`: a real-device report found `dvh` stale in
-   * landscape, oversizing the board and clipping .footer below with no
-   * scroll to reach it. */
+  /* See tokens.css's html/body rule and useAppViewportHeight.ts: `--app-vh`
+   * is the actually-measured viewport height, a general robustness fallback
+   * for `dvh`. It turned out not to be what a real-device report (footer
+   * clipped in landscape) traced back to — a same-size headless check with
+   * this fix in place still fit cleanly, which pointed at font metrics
+   * instead (see .footer's own comment below) — but it costs nothing to
+   * keep as the more-defensive value. */
   min-height: var(--app-vh, 100dvh);
   background: var(--zk-bg);
   font-family: var(--font-board);
@@ -78,6 +81,23 @@
   font-size: 0.72rem;
   color: var(--zk-muted);
   text-align: center;
+}
+
+/* Bug fix (device report): the two lines stacked vertically cost a whole
+ * line of height for no reason in landscape, which has width to spare and
+ * very little height to spend — a real phone's report (footer cut off, the
+ * "Buy me a coffee" line missing) traced to exactly that, on real hardware
+ * whose font metrics render taller than this repo's own headless-Chromium
+ * checks ever reproduce (a sandboxed test font vs. the device's real
+ * system-ui). Laid out side by side instead, mirroring tokens.css's own
+ * `@media (min-aspect-ratio: 1/1)` switch (concept 12.6: one switch, on
+ * aspect ratio, not a width breakpoint). */
+@media (min-aspect-ratio: 1 / 1) {
+  .footer {
+    flex-direction: row;
+    gap: 8px;
+    padding-top: var(--gap);
+  }
 }
 
 .footerCoffee {
