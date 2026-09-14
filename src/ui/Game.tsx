@@ -342,7 +342,8 @@ export function Game() {
           onPressHint={() => boardRef.current?.pressHint()}
           hintHidden={!hintState.offered}
           hintMuted={!hintState.available}
-          selectionHidden={source.kind === 'onboarding' || source.kind === 'shared'}
+          selectionHidden={source.kind === 'onboarding'}
+          selectionLocked={source.kind === 'shared' || source.kind === 'history'}
           onShare={share}
           shareCopied={copied}
           shareHidden={source.kind === 'onboarding'}

@@ -45,6 +45,8 @@ function bandLabels(language: Settings['language']): Record<number, string[]> {
   return { 1: [t(language, 'anyBand')] }
 }
 const NUMBER_OPTIONS: Settings['numbers'][] = [2, 3, 4]
+/** How long the muted chip's explanation stays up — matched to useShare.ts's own confirmation. */
+const LOCKED_NOTE_MS = 1800
 
 export interface HeaderProps {
   settings: Settings
@@ -86,6 +88,19 @@ export interface HeaderProps {
    * finish.
    */
   selectionHidden?: boolean
+  /**
+   * Show the selection chip, but muted and inert (share round, PO). The board
+   * on screen is a shared link or a replay from the archive: both carry their
+   * own numbers and operators, so a selection change cannot reach them — it
+   * would apply to the next live puzzle instead, which is what tapping the
+   * muted chip says.
+   *
+   * Muted rather than `disabled`, for the reason the tray's spent operator
+   * chips are: a disabled button receives no pointer events at all, so on a
+   * phone it could never explain itself — and `title` is a hover tooltip,
+   * which touch does not have. This chip stays tappable and answers.
+   */
+  selectionLocked?: boolean
   /**
    * Hand the board in front of the player to somebody else as a link
    * (share round, PO). `Game.tsx` owns the action itself (`useShare`) —
@@ -174,9 +189,16 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, selectionHidden = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, selectionHidden = false, selectionLocked = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
   const [open, setOpen] = useState(false)
+  // Why the chip is muted, shown on tapping it and withdrawn on its own —
+  // the same shape as the share button's "link copied" confirmation, since
+  // both are a one-line answer to a tap rather than a state to dismiss.
+  const [showLockedNote, setShowLockedNote] = useState(false)
+  const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current) }, [])
 
   // Concept 15.6: "Geschlossen wird durch Tippen daneben oder Esc" — never
   // by a change inside it, which is why this isn't just onBlur on the panel.
@@ -218,10 +240,19 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
       {!selectionHidden && (
       <button
         type="button"
-        className={styles.chip}
-        aria-expanded={open}
-        aria-controls="zk-selection-panel"
-        onClick={() => setOpen(o => !o)}
+        className={selectionLocked ? `${styles.chip} ${styles.chipLocked}` : styles.chip}
+        aria-expanded={selectionLocked ? undefined : open}
+        aria-controls={selectionLocked ? undefined : 'zk-selection-panel'}
+        aria-disabled={selectionLocked || undefined}
+        onClick={() => {
+          if (selectionLocked) {
+            setShowLockedNote(true)
+            if (noteTimer.current) clearTimeout(noteTimer.current)
+            noteTimer.current = setTimeout(() => setShowLockedNote(false), LOCKED_NOTE_MS)
+            return
+          }
+          setOpen(o => !o)
+        }}
       >
         <span className={styles.mini}>
           {Array.from({ length: settings.numbers }, (_, i) => <i key={i} className={styles.square} />)}
@@ -251,7 +282,16 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
         <div className={styles.copied} role="status">{t(settings.language, 'shareCopied')}</div>
       )}
 
-      {open && (
+      {/* Below the header rather than above it, decided by looking: above is
+          where HistoryNav's arrows sit, dead centre, and this note is centred
+          on the chip it belongs to. Below, it lies over the top of the
+          expression field for a moment — empty scaffold at the one time a
+          player can see this, since they just tapped the header. */}
+      {showLockedNote && (
+        <div className={styles.lockedNote} role="status">{t(settings.language, 'selectionLocked')}</div>
+      )}
+
+      {open && !selectionLocked && (
         <div className={styles.backdrop} onClick={() => setOpen(false)}>
           <div
             id="zk-selection-panel"
