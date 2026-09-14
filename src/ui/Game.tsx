@@ -13,6 +13,7 @@ import { UpdateHint } from './UpdateHint'
 import { Board, type BoardHandle } from './Board'
 import { useSettings } from './useSettings'
 import { useUpdateAvailable } from './useUpdateAvailable'
+import { useAppViewportHeight } from './useAppViewportHeight'
 import { nextPuzzle, type Puzzle } from '../core/puzzles'
 import { loadRecent, loadRecentShapes, saveRecent, saveRecentShapes, withPuzzle, withShape } from '../core/history'
 import { loadSolved, saveSolved, withSolved, type SolvedPuzzle } from '../core/solvedHistory'
@@ -27,6 +28,7 @@ import styles from './Game.module.css'
 export function Game() {
   const { settings, setNumbers, toggleOp, setBand, setUniqueOnly } = useSettings()
   const { available: updateAvailable, update: onUpdate } = useUpdateAvailable()
+  useAppViewportHeight()
 
   // `<html lang>` matters to a screen reader (it picks pronunciation from
   // it) independent of anything this app itself renders, and there's no
