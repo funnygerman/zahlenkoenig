@@ -42,6 +42,11 @@ export function useShare(puzzle: SharedPuzzle, language: Settings['language']): 
     // shared puzzle opens — but a share button that depends on that
     // having happened would be one ordering change away from broken.)
     const url = sharedPuzzleUrl(puzzle, `${window.location.origin}${window.location.pathname}`)
+    // `null` only for a board outside what the link format can carry, which
+    // no puzzle this app can show ever is (2–4 numbers of 1–9, a target under
+    // the solver's own 999 cap). Handled rather than asserted: a share button
+    // that does nothing beats one that puts a broken link in somebody's chat.
+    if (!url) return
     const text = `${puzzle.numbers.join(' ')} → ${puzzle.target}\n${t(language, 'sharePrompt')}`
 
     const copy = () => {

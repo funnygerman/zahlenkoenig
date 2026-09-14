@@ -55,6 +55,45 @@ describe('Header — the share button (share round)', () => {
   })
 })
 
+describe('Header — the selection chip when the board is not the player’s own (share round)', () => {
+  const chip = () => document.querySelector('[class*="_chip_"]') as HTMLElement
+
+  it('opens the panel normally when the board is the live puzzle', async () => {
+    const user = userEvent.setup()
+    render(<Header {...baseProps} />)
+    await user.click(chip())
+    expect(screen.getByText('How many numbers')).toBeInTheDocument()
+  })
+
+  it('is still shown when locked — the player’s own selection is worth seeing', () => {
+    render(<Header {...baseProps} selectionLocked />)
+    expect(chip()).toBeInTheDocument()
+    expect(chip().getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('does not open the panel, and says why instead', async () => {
+    const user = userEvent.setup()
+    render(<Header {...baseProps} selectionLocked />)
+    await user.click(chip())
+    expect(screen.queryByText('How many numbers')).not.toBeInTheDocument()
+    expect(screen.getByRole('status').textContent).toBe('Settings apply to new puzzles only')
+  })
+
+  it('says it in the player’s own language', async () => {
+    const user = userEvent.setup()
+    render(<Header {...baseProps} settings={{ ...DEFAULT_SETTINGS, language: 'ru' }} selectionLocked />)
+    await user.click(chip())
+    expect(screen.getByRole('status').textContent).toBe('Настройки действуют только для новых задач')
+  })
+
+  it('is gone entirely during onboarding, rather than muted', () => {
+    // A different case with a different answer: an onboarding board would
+    // have the chip describing a selection that is not on screen at all.
+    render(<Header {...baseProps} selectionHidden />)
+    expect(document.querySelector('[class*="_chip_"]')).not.toBeInTheDocument()
+  })
+})
+
 describe('Header — the hint button (concept 10.3)', () => {
   it('is present and live by default', () => {
     render(<Header {...baseProps} />)

@@ -92,6 +92,40 @@ describe('Game — solving a puzzle archives it (footer/history round)', () => {
     expect(screen.getByRole('button', { name: 'Vorheriges gelöstes Rätsel' })).toBeInTheDocument()
   })
 
+  it('locks the selection chip while an archived puzzle is being replayed (share round)', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<Game />)
+
+    const chip = () => document.querySelector('[class*="_chip_"]') as HTMLElement
+    expect(chip().getAttribute('aria-disabled')).toBeNull() // live: ordinary
+
+    await solveCurrentPuzzle(user)
+    await act(async () => { vi.advanceTimersByTime(1200) })
+    await user.click(screen.getByRole('button', { name: 'Vorheriges gelöstes Rätsel' }))
+
+    // An archived entry carries its own operators (solvedHistory.ts stores
+    // them per entry), so a selection change cannot reach it — same as a
+    // shared link, and the same answer.
+    expect(chip().getAttribute('aria-disabled')).toBe('true')
+    await user.click(chip())
+    expect(screen.getByText('Die Auswahl gilt nur für neue Rätsel')).toBeInTheDocument()
+    expect(document.querySelector('[class*="_panel_"]')).not.toBeInTheDocument()
+  })
+
+  it('unlocks it again on the way back to the live puzzle', async () => {
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
+    render(<Game />)
+    await solveCurrentPuzzle(user)
+    await act(async () => { vi.advanceTimersByTime(1200) })
+    await user.click(screen.getByRole('button', { name: 'Vorheriges gelöstes Rätsel' }))
+    await user.click(screen.getByRole('button', { name: 'Nächstes Rätsel' }))
+
+    const chip = document.querySelector('[class*="_chip_"]') as HTMLElement
+    expect(chip.getAttribute('aria-disabled')).toBeNull()
+    await user.click(chip)
+    expect(screen.getByText('Wie viele Zahlen')).toBeInTheDocument()
+  })
+
   it('browsing back shows the archived puzzle with a fresh, unsolved board', async () => {
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime })
     render(<Game />)

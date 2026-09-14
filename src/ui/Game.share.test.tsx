@@ -21,7 +21,14 @@ function skipOnboarding() {
 const SHARED: SharedPuzzle = { numbers: [4, 5], target: 9, ops: ['+'] }
 
 function openWith(puzzle: SharedPuzzle | string) {
-  window.location.hash = `#p=${typeof puzzle === 'string' ? puzzle : encodeSharedPuzzle(puzzle)}`
+  window.location.hash = `#p=${typeof puzzle === 'string' ? puzzle : encodeSharedPuzzle(puzzle)!}`
+}
+
+/** The token for a puzzle, insisting it is one the format can carry. */
+const tokenFor = (p: SharedPuzzle): string => {
+  const token = encodeSharedPuzzle(p)
+  expect(token).not.toBeNull()
+  return token!
 }
 
 vi.mock('../core/puzzles', async importOriginal => {
@@ -85,16 +92,29 @@ describe('opening a shared link', () => {
     expect(targetValue()).toBe('9')
   })
 
-  it('hides the selection chip, which would otherwise describe a board that is not on screen', () => {
+  it('shows the selection chip muted, and says why when it is tapped', async () => {
+    const user = userEvent.setup()
     openWith(SHARED)
     render(<Game />)
-    expect(screen.queryByRole('button', { expanded: false })).not.toBeInTheDocument()
+
+    // Present — the player's own selection is still worth seeing — but inert:
+    // a shared board carries its own numbers and operators.
+    const chip = document.querySelector('[class*="_chip_"][aria-disabled="true"]')
+    expect(chip).toBeInTheDocument()
+
+    await user.click(chip as HTMLElement)
+    expect(screen.getByText('Die Auswahl gilt nur für neue Rätsel')).toBeInTheDocument()
+    // …and the panel it would normally open stays shut.
+    expect(screen.queryByRole('button', { name: 'Wie viele Zahlen' })).not.toBeInTheDocument()
+    expect(document.querySelector('[class*="_panel_"]')).not.toBeInTheDocument()
   })
 
   it('falls back to an ordinary puzzle when the link is damaged', () => {
-    // A hand-edited target: shareLink.ts refuses it, and the player gets a
-    // game rather than an error they can do nothing about.
-    openWith(encodeSharedPuzzle(SHARED).replace('.9.', '.11.'))
+    // One character changed, the way a mangled paste would: shareLink.ts
+    // refuses it, and the player gets a game rather than an error they can do
+    // nothing about.
+    const token = tokenFor(SHARED)
+    openWith(token.slice(0, -1) + (token[token.length - 1] === 'a' ? 'b' : 'a'))
     render(<Game />)
     expect(targetValue()).toBe('3')
   })
@@ -173,7 +193,7 @@ describe('the share button', () => {
     expect(share).toHaveBeenCalledTimes(1)
     const { url, text } = share.mock.calls[0][0] as { url: string; text: string }
     // The live draw is 1 + 2 = 3 (mocked above).
-    expect(url).toContain(`#p=${encodeSharedPuzzle({ numbers: [1, 2], target: 3, ops: ['+', '-', '*', '/'] })}`)
+    expect(url).toContain(`#p=${tokenFor({ numbers: [1, 2], target: 3, ops: ['+', '-', '*', '/'] })}`)
     expect(text).toContain('1 2 → 3')
     Reflect.deleteProperty(navigator, 'share')
   })

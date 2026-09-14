@@ -97,6 +97,17 @@ interface Strings {
   sharePrompt: string
   /** Shown briefly where the platform has no share sheet and the link went to the clipboard instead. */
   shareCopied: string
+  /**
+   * Why the selection chip is muted (share round, PO). Shown on tapping it
+   * while the board is not the player's own live puzzle — a shared link or a
+   * replay out of the archive, both of which carry their own numbers and
+   * operators and cannot follow a selection change.
+   *
+   * Phrased as what the selection *does* rather than as what the player may
+   * not do: it is true of both cases without naming either, and it says where
+   * a change would land instead of just refusing one.
+   */
+  selectionLocked: string
 }
 
 const de: Strings = {
@@ -118,6 +129,7 @@ const de: Strings = {
   shareLabel: 'Rätsel teilen',
   sharePrompt: 'Schaffst du das?',
   shareCopied: 'Link kopiert',
+  selectionLocked: 'Die Auswahl gilt nur für neue Rätsel',
   introGoal: 'Erreiche die Zahl im blauen Feld.',
   introRule: 'Benutze jede Zahl genau einmal.',
   introHow: 'Tippe auf eine Zahl, dann auf ein Rechenzeichen.',
@@ -147,6 +159,7 @@ const en: Strings = {
   shareLabel: 'Share this puzzle',
   sharePrompt: 'Can you solve it?',
   shareCopied: 'Link copied',
+  selectionLocked: 'Settings apply to new puzzles only',
   introGoal: 'Reach the number in the blue field.',
   introRule: 'Use every number exactly once.',
   introHow: 'Tap a number, then an operator.',
@@ -176,6 +189,7 @@ const ru: Strings = {
   shareLabel: 'Поделиться задачей',
   sharePrompt: 'А ты сможешь?',
   shareCopied: 'Ссылка скопирована',
+  selectionLocked: 'Настройки действуют только для новых задач',
   introGoal: 'Получи число в синем поле.',
   introRule: 'Используй каждое число ровно один раз.',
   introHow: 'Нажми на число, потом на знак.',

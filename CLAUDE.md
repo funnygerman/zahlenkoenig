@@ -154,8 +154,32 @@ now nothing in the app ever produced a link to pass.
 `ops` — the same three things `solvedHistory.ts` stores per archived entry,
 for the same stated reason: the receiver's own selection is not the
 sender's, and a tray that does not match the board's solution makes the
-puzzle unplayable. `core/shareLink.ts` (new) encodes them as
-`#p=6293.48.f.x7q`.
+puzzle unplayable. `core/shareLink.ts` (new) carries them.
+
+**The token is one opaque word** (`#p=frticwjx2c`) — PO, after seeing the
+first version, which read `#p=6293.48.f.x7q` with the numbers, target and
+operator mask in plain sight. The distinction worth keeping straight is
+that this is an **encoding, not a hash**: a hash is one-way and a link has
+to decode back into a board, so what makes it unreadable is packing plus a
+mixing step, not secrecy. The fields go into 36 bits (2 for the number
+count, 16 for four 4-bit numbers, 4 for the operator mask, 14 for the
+target), the checksum is folded in underneath, and the whole value is
+multiplied by an odd constant modulo 2^52 before being written in base36.
+That multiplication is a bijection — invertible, so nothing is lost — and
+it spreads a one-digit change across the whole result, which is what stops
+two puzzles a chip apart from producing two similar-looking links. Its
+inverse is **derived by Hensel lifting rather than written down as a
+constant**: a hand-copied inverse would be a silent, untestable way to
+break every link ever shared.
+
+*The target field is deliberately wider than it needs to be.* `solver.ts`
+caps every target at 999 (concept 15.5 — three digits fit the target chip),
+so 10 bits would do and would save a character; 14 costs one character and
+means raising that cap later cannot quietly start truncating targets into
+*different puzzles*, which is a failure a shared link carries to somebody
+else's phone before anyone notices. Writing that test is what found the
+cap in the first place: a fixture assuming `9×9×9×9 = 6561` was a legal
+puzzle, which this game cannot produce.
 
 *It rides the fragment, not a query string,* and the reason is this file's
 own history: `index.html` says "a single page with no query strings,
@@ -175,6 +199,43 @@ generated puzzle to. Without it a hand-edited link would open **with the
 dead-end border already lit**, the exact failure the hint round wrote up.
 Every failure returns `null` and the generator takes over, because a link
 that quietly becomes an ordinary game beats an error nobody can act on.
+
+**The selection chip is shown muted on a board that is not the player's
+own, rather than hidden** (PO, after play-testing the first version, which
+hid it on a shared board). It covers **archived replays too** — the PO's
+own observation, and correct for the same reason: `solvedHistory.ts` stores
+`ops` per entry precisely because an archived puzzle carries its own tray,
+so a selection change cannot reach either kind of board. Tapping the muted
+chip says so, in one line: *"Settings apply to new puzzles only"* — phrased
+as what the selection does rather than as what the player may not do, which
+is true of both cases without having to name either.
+
+*Muted, not `disabled`, and the reason is the same one the tray's spent
+operator chips already record:* a `disabled` button receives no pointer
+events at all, so on a phone it could never explain itself, and `title` is
+a hover tooltip, which touch does not have. The chip stays tappable and
+answers. It carries `aria-disabled` so assistive technology hears the same
+thing — **which cost a surprise worth recording: Playwright refuses to
+click an `aria-disabled` element**, because its actionability check treats
+it as not enabled. A real browser dispatches the click regardless (proven
+with a forced pointer press at the element's own position), and
+`user-event` in jsdom never objected — so a browser check that did not know
+this would report a working control as broken.
+
+*The note goes below the header, decided by looking.* Above is where
+HistoryNav's arrows sit, dead centre, and browsing the archive is one of
+the two cases this note exists for — so above would land on the arrows
+exactly when it is needed. Below, it drops 20px rather than the 6 it
+started with: at 6 it straddled the expression field's top border and read
+as a clipping artifact; at 20 it hangs inside the field's own empty
+scaffold, which is all that can be under it at the moment a player taps
+the header. Clear of the target chip at 390px in all three languages
+(German is widest, 81–309 of 390).
+
+**Onboarding still hides the chip entirely**, which is a different case with
+a different answer: there the chip would describe a selection that is not
+on screen at all, over a board whose numbers and operators the player never
+chose.
 
 *Two PO decisions shape when it appears.* **Onboarding comes first, then
 the link**: a newcomer arriving on a friend's link is precisely who the two
@@ -254,7 +315,7 @@ HistoryNav's own "2/8" reasoning that digits need no i18n. This keeps
 
 *Verified in a real browser, not only in jsdom* (Playwright, 390px, plus
 landscape at 780×390, and against the widest selectable chip rather than
-the default): sharing puts a `#p=` link on the clipboard, opening
+the default): sharing puts an opaque `#p=` link on the clipboard, opening
 it reproduces the sender's board exactly, the fragment is cleared without
 touching the path, a first-time player gets onboarding while the link waits
 in the fragment, and finishing onboarding opens the shared puzzle at that

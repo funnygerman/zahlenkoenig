@@ -22,6 +22,20 @@
   color: var(--zk-ink);
 }
 
+/* The locked chip (share round): the board on screen is a shared link or an
+ * archived replay, which carry their own numbers and operators. Muted the same
+ * way every other spent-but-live control in this app is — reduced, not greyed
+ * out of existence — and still tappable, because tapping is how it explains
+ * itself on a phone. The chevron goes: there is no panel to open. */
+.chipLocked {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.chipLocked .chevron {
+  visibility: hidden;
+}
+
 .chip[aria-expanded='true'] {
   background: var(--zk-surface);
   border-color: var(--zk-accent);
@@ -82,6 +96,36 @@
  * only thing at the header's edges is empty space (HistoryNav's arrows are
  * centered). Anchored left, under the share button it is confirming.
  * Checked by looking, at 390px. */
+/* The muted chip's explanation. Centred under the header, on the chip it
+ * belongs to, rather than above it — above is where HistoryNav's arrows sit,
+ * dead centre, and browsing the archive is one of the two cases this note
+ * exists for, so it would land on them exactly when it is needed. Shares
+ * .copied's pill treatment; both are one line answering one tap.
+ *
+ * The 20px drop is measured rather than chosen: at the 6px it started with
+ * the pill straddled the expression field's top border and read as a
+ * clipping artifact. This clears the border and hangs inside the field's own
+ * empty scaffold, which is all that can be under it at the moment a player
+ * taps the header. It stays clear of the target chip on the right at 390px
+ * in all three languages (German is the widest, 81–309 of 390). */
+.lockedNote {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: calc(100% + 20px);
+  padding: 4px 10px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--zk-bg);
+  background: var(--zk-accent);
+  pointer-events: none;
+  z-index: 2;
+}
+
 .copied {
   position: absolute;
   left: 0;
