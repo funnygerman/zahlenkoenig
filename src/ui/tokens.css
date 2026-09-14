@@ -39,12 +39,15 @@
 html, body {
   /* `--app-vh` (useAppViewportHeight.ts) is the actually-measured viewport
    * height in px, kept live on resize/orientationchange; `100dvh` is only
-   * the fallback for the brief moment before that effect's first run. A
-   * real Android phone report (landscape, address bar shown) found `dvh`
-   * itself unreliable here — the footer sat cut off with no way to scroll
-   * to it, because `overflow: hidden` above removes the one gesture that
-   * would otherwise force the browser to repaint it. See
-   * useAppViewportHeight.ts's own note for the account in full. */
+   * the fallback for the brief moment before that effect's first run. First
+   * tried against a real Android phone report (footer cut off in landscape,
+   * no way to scroll to it — `overflow: hidden` below removes the one
+   * gesture that would otherwise force a browser to repaint `dvh`), on the
+   * theory that `dvh` itself was stale there. A same-size headless check
+   * with this in place still fit cleanly, which ruled that out — the actual
+   * cause turned out to be font metrics (Game.module.css's `.footer` has
+   * the account). Kept anyway: it's a strictly more-defensive value than a
+   * bare `dvh`, and costs nothing. */
   height: var(--app-vh, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
