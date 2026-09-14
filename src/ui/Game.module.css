@@ -5,7 +5,11 @@
   flex-direction: column;
   align-items: center; /* the header and board are their own fixed width now, not stretched to fill this container — center them, rather than leaving them flush against the left edge */
   padding: var(--gap);
-  min-height: 100dvh;
+  /* See tokens.css's html/body rule and useAppViewportHeight.ts for why
+   * this isn't a bare `100dvh`: a real-device report found `dvh` stale in
+   * landscape, oversizing the board and clipping .footer below with no
+   * scroll to reach it. */
+  min-height: var(--app-vh, 100dvh);
   background: var(--zk-bg);
   font-family: var(--font-board);
 }

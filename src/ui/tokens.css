@@ -37,7 +37,15 @@
  * spec section asks for regardless, the same way v1's `index.css` already
  * has it for its own page. */
 html, body {
-  height: 100%;
+  /* `--app-vh` (useAppViewportHeight.ts) is the actually-measured viewport
+   * height in px, kept live on resize/orientationchange; `100dvh` is only
+   * the fallback for the brief moment before that effect's first run. A
+   * real Android phone report (landscape, address bar shown) found `dvh`
+   * itself unreliable here — the footer sat cut off with no way to scroll
+   * to it, because `overflow: hidden` above removes the one gesture that
+   * would otherwise force the browser to repaint it. See
+   * useAppViewportHeight.ts's own note for the account in full. */
+  height: var(--app-vh, 100dvh);
   overflow: hidden;
   overscroll-behavior: none;
 }
@@ -74,7 +82,11 @@ html, body {
    * two blocks) — CLAUDE.md's "Next v2 step" has the screenshots' own
    * account. entwurf.html fixes --cell at a flat 64px instead, since it's
    * a static side-by-side comparison tool, not the responsive app. */
-  --cell: min(16vw, 13dvh, 88px);
+  /* `13dvh` written as `13% of --app-vh` (falling back to `100dvh` before
+   * useAppViewportHeight.ts's first run) for the same reason as html/body's
+   * own height just above — this is the term the real-device report traced
+   * the clipped footer to, since it drives the board's actual size. */
+  --cell: min(16vw, calc(var(--app-vh, 100dvh) * 0.13), 88px);
   /* Was a flat 10px — which never actually matched concept 12.5's own
    * formula ("Die Formel") either, which derives the page-fit width from
    * `gap = 0.14 * cell`. That mismatch predates this file; nobody had
@@ -120,6 +132,6 @@ html, body {
 @media (min-aspect-ratio: 1 / 1) {
   /* concept 12.6: one switch, on aspect ratio, not a width breakpoint */
   :root {
-    --cell: min(16vw, 15dvh, 104px);
+    --cell: min(16vw, calc(var(--app-vh, 100dvh) * 0.15), 104px);
   }
 }
