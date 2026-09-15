@@ -519,6 +519,11 @@ Ziehgeste** lösbar – `1`, `+`, `1` tippen, Blockchip tippen, die dritte
 wörtliche Weg der Karte (erst den Block öffnen, auf leerem Feld) trägt:
 `()` entsteht und füllt sich durch Tippen zu `(1 + 1)`.
 
+> **Seit Abschnitt 16 hat die Einführung drei Bretter.** Zwischen die
+> beiden hier beschriebenen ist `(1+2) × 3 = 9` getreten: die Klammer in
+> ihrer Mindestform, vollständig durch Tippen zu bauen. Wo dieser
+> Abschnitt „das zweite Rätsel" sagt, ist damit das dritte gemeint.
+
 ---
 
 ## 13. Dreiergruppen im Tipp (Runde „Dreiergruppe")
@@ -617,3 +622,72 @@ Stelle, an der das tatsächlich geteilte Rätsel genannt wird. Nur der
 Zuruf darin ist übersetzt; die Ziffern bleiben Ziffern, nach derselben
 Überlegung, mit der die Positionsanzeige der Verlaufszeile („2/8") ohne
 Übersetzung auskommt.
+
+
+---
+
+## 16. Ein Brett für die Klammer selbst (Runde „Klammer in zwei Lektionen")
+
+Auslöser war eine weitere Spielerrückmeldung, vom PO weitergegeben:
+*„entweder ist das zweite Einstiegsrätsel wegen der Dreiergruppe nicht
+besonders eingängig, und/oder es fehlt das Erweitern des Blocks.
+Vielleicht brauchen wir noch ein Rätsel dazwischen, mit einer Klammer aus
+zwei Zahlen."*
+
+Der Befund dahinter ist mit Abschnitt 12s eigenem Kartenaufbau schon
+sichtbar: die Karte des zweiten Bretts trug **zwei neue Dinge auf einmal**
+— einen Chip, den noch nie jemand gesehen hat, und die einzige Geste des
+Spiels, die kein Antippen ist. Wer den Blockchip nicht findet, kommt gar
+nicht erst an die Stelle, an der die Ziehgeste etwas bedeuten könnte.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Ein drittes Brett, eingefügt in der Mitte: `(1+2) × 3 = 9`** (PO-Vorschlag) | Die Klammer in ihrer Mindestform — zwei Zahlen darin. Ein neuer Chip, **keine neue Geste**: alles daran ist ein Antippen, also genau die Sprache, die das erste Brett gerade beigebracht hat. |
+| **Die Klammer ist erzwungen, nicht bloß erlaubt** | Dieselbe Prüfung, an der `(1+2+3) × 1 = 6` in Abschnitt 12 gescheitert ist, hier vor dem Bauen gemessen: `reachable([1,2,3], {+,×})` meldet für 9 das Muster `(n+n)×n` und **genau eine** Lösung. Flach ist 9 aus 1, 2, 3 nicht erreichbar (1+2+3 = 6, 1×2×3 = 6, 3×2+1 = 7). Wer hier gewinnt, hat eine Klammer gebaut. |
+| **Es ist vollständig tippbar, und das ist der eigentliche Prüfstein** | `computeHint` liefert auf dem leeren Feld einen Plan aus sechs Chips mit einem `block`-Zug und **keinem `grow`-Zug** — die maschinenlesbare Fassung von „hier wird nicht gezogen". Im echten Browser nachgespielt (Playwright, 390px): Blockchip, `1`, `+`, `2`, `×`, `3`, `=` ergibt `(1 + 2) × 3 = 9`. `onboarding.test.ts` hält beides fest. |
+| **Gleiches Ziel und gleiches `× 3` wie das dritte Brett** | Absichtlich: zwischen Brett 2 und Brett 3 ändert sich damit **nur die Zahl der Zahlen in der Klammer** — und genau das ist die Lektion des dritten Bretts. Ein anderes Ziel hätte den Vergleich verdeckt, den der Spieler hier gratis bekommt. |
+| **Das dritte Brett bleibt, wie es war** | Die Rückmeldung ließe sich auch als „lasst die Dreiergruppe weg" lesen. Das wäre falsch: über das Minimum hinaus zu wachsen geht nur durch Ziehen (6.2), der Tipp schlägt es zwar vor, erreicht es aber nie im Kontingent, und durch Ausprobieren findet es niemand. Ungeskriptet bliebe die Geste dauerhaft unentdeckt. Sie bekommt jetzt ein eigenes Brett statt eines halben. |
+| **Die Karte des mittleren Bretts endet mit `Dann tippe die Zahlen hinein.`** | Der Satz, der vorher an dieser Stelle stand, ist die Ziehgeste — er wandert vollständig auf die dritte Karte. Zwei neue Schlüssel in `i18n.ts` (`introBracketFill`, `introGrowLead`), in allen drei Sprachen. |
+| **Die mittlere Zeile (`Tippe hierauf, um eine zu öffnen.`) steht auf beiden Klammerkarten, mitsamt echtem Blockchip** | Es ist auf beiden Brettern derselbe erste Griff, und wer den Chip zweimal suchen muss, darf ihn zweimal gezeigt bekommen. Die dritte Karte beginnt dafür mit dem, was an ihrem Brett *neu* ist (`Diesmal gehören drei Zahlen in die Klammer.`), nicht mit dem, was gleich geblieben ist. |
+| **Der Speicherschlüssel ist auf `onboarding-v2` gezogen worden, mit Übersetzung des alten Werts** | Der gespeicherte Schritt ist ein **Index in die Rätselliste**, also ändert das Einfügen in der Mitte die Bedeutung jedes gespeicherten Werts. Unter v1 hieß `2` „fertig", unter v2 ist `2` das dritte Brett: ohne Übersetzung hätte jeder Spieler, der die Einführung bereits hinter sich hat, beim nächsten Besuch ausgerechnet ihr schwerstes Brett noch einmal bekommen, Karte und alles. `0` und `1` bleiben, wie sie waren — `1` zeigt jetzt auf das neu eingefügte Brett, was genau richtig ist. Der alte Schlüssel wird nur gelesen, nie zurückgeschrieben: ein Ladevorgang mit Nebenwirkung kann im privaten Modus fehlschlagen, und das Ableiten kostet ein `getItem` pro Besuch. |
+| **Der Tipp ist auf dem mittleren Brett nicht gesperrt** | Nach derselben Regel wie überall (Abschnitt 14): sechs Chips, Kontingent die Hälfte aufgerundet, also **drei Drücke**. Der dritte setzt die Klammer — wer den Blockchip nicht findet, bekommt ihn also vorgeführt, und die letzten drei Chips bleiben trotzdem beim Spieler. |
+
+Alle drei Bretter wurden am Stück im echten Browser durchgespielt
+(Playwright, echte Zeigerereignisse, 390px): Karte 1 → `1 + 2 = 3` durch
+Tippen → Karte 2 → `(1 + 2) × 3` durch Tippen → Karte 3 → `(1+1+1) × 3`
+mit der einen Ziehgeste → danach ein gezogenes Rätsel, keine Karte, kein
+Sackgassen-Rahmen auf einem der drei Bretter, keine Fehler in der Konsole.
+
+
+---
+
+## 17. Schritt-für-Schritt-Führung in der Einführung (Runde „Führung")
+
+Auslöser war die Anschlussfrage des PO zur vorigen Runde: *„können wir
+auch Hinweise geben, welche Knöpfe der Spieler als Nächstes drücken soll?"*
+— mit dem Zusatz, ob sich damit nicht das erste Einstiegsrätsel ganz
+einsparen ließe.
+
+Gebaut ist die Führung, das erste Brett bleibt. Beides mit Begründung
+unten.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Der nächste Chip wird markiert, und eine Zeile benennt die Geste** | Eine Markierung allein sagt *welcher*, aber nicht *was damit zu tun ist* — und auf dem dritten Brett ist das der Unterschied zwischen Tippen und Ziehen, also genau die Lektion. Fünf Zeilen, eine je Zugart (`guideNumber`, `guideOperator`, `guideBlock`, `guideBlockDrag`, `guideGrow`, `guideSubmit`), in allen drei Sprachen. |
+| **Die Führung liest denselben Zug, den der Tipp-Knopf ausführen würde** | `computeHint`s eigenes `moves[0]`, das für den Sackgassen-Rahmen ohnehin bei jedem Render berechnet wird. Das ist die Lehre aus dem gelöschten Pulsieren (Tipp-Runde): jenes wurde aus einer *anderen* Quelle abgeleitet als der Druck und benannte in 30,3 % der Fälle den falschen Chip. Ein Ausdruck, eine Antwort. |
+| **Sie kostet keinen Tipp** | Das Kontingent wird ausschließlich von `onPressHint` belastet; ein geführtes Brett läuft über die eigenen Finger des Spielers. |
+| **Nur in der Einführung** | Auf einem gezogenen Rätsel wäre das die Lösung, und dafür gibt es den Tipp-Knopf mitsamt Kontingent. `Board`s `guided`-Eigenschaft ist die einzige Stelle, an der das entschieden wird. |
+| **Eine eigene Zeile unter der Ablage, nicht der Platz der Notationszeile** | Der frühere einmalige „Tippe auf eine Zahl"-Hinweis saß dort, konnte das aber, weil er nur auf einem unberührten Brett erschien — er stand nie mit der Notation im Wettbewerb. Diese Zeile spricht über den ganzen Lösungsweg und würde `(1 + 2) × 3` genau dann verdecken, während der Spieler es baut. Unter der Ablage ist ohnehin nur leere Seite, und der markierte Chip steht direkt darüber. Gemessen in allen drei Sprachen, Hoch- und Querformat: höchstens zwei Zeilen (41px), nichts wird abgeschnitten, die Fußzeile bleibt im Bild. |
+| **Der eigentliche Fund der Runde: „tippe hierauf" war auf halbem Brett ein falscher Rat** | Ein *getippter* Block landet am Anker des Spielers (Block-Anker-Runde, 6.1), ein gehinteter an dem Index, den der Zug nennt. Auf `3 ×` will der Plan die Klammer an Position 2; das Tippen legt sie um die `3`. Wer der Führung wörtlich folgte, landete in einer Sackgasse — im Browser gemessen, bevor irgendetwas davon als fertig galt. |
+| **Daraus folgt: die Klammer kommt zuerst, und das Angebot wird simuliert** | `ui/guidance.ts` bietet eine Klammer an, sobald der Plan eine braucht — vor jedem Chip, der um sie herum steht, weil der Anker auf einem unberührten Brett am Anfang steht. Und es prüft sein eigenes Angebot: der Baum, den das Tippen ergäbe, läuft noch einmal durch dieselbe Suche, und nur wenn er lösbar bleibt, wird getippt. Sonst heißt die Anweisung *ziehen*, mit markierter Zielposition — ehrlich für den Fall, dass jemand von selbst schon um die Stelle herum gebaut hat. |
+| **Der zweite Fund war eine zweite Wahrheit im eigenen Code** | Die Vorschau des Tippens wurde aus `applyBlockDrop` gebaut, während jede echte Änderung durch `withRootChildren` geht — das `trimTrailingGaps` anwendet. Der Unterschied ist genau der, auf den es ankommt: `[Gruppe, null, null, null, null]` verlangt in jeder dieser Wurzelpositionen einen Chip, also erklärte die Suche ein völlig lösbares Brett für unlösbar. Sichtbar wurde das als *„zieh die Klammer"* auf dem leeren dritten Brett. Jetzt liefert eine einzige Funktion (`blockTapResult`) sowohl die Ausführung als auch die Vorschau. |
+| **Die Prüfung ist „der Führung blind folgen löst das Brett"** | `guidance.test.tsx` spielt jedes der drei Einstiegsbretter Zug um Zug durch — Tippen über die Tipp-Handler, das eine Ziehen über `onDrop`, nie über `applyHintMove`, das ein Brett anders behandeln kann als ein Finger. Gegen den ungefixten Stand geprüft: beide Fehler fallen dort durch, und zwar mit dem gemeldeten Symptom (`(3 ×)`). |
+| **Bei einer Sackgasse schweigt die Führung** | Ein vollständig gebautes, aber falsches Brett sieht von hier aus wie „kein Zug übrig". *„Drück ="* wäre dort der einzige Rat, den die Führung niemals geben darf; der Sackgassen-Rahmen und die markierten Chips sind die ehrliche Antwort. |
+| **Das erste Einstiegsrätsel bleibt** (Empfehlung, PO entscheidet) | Die Führung macht es billig — vier Tipps, wenige Sekunden — aber nicht überflüssig. Ohne es ist der allererste Bildschirm eines neuen Spielers ein Drei-Zahlen-Brett mit Klammer, und der erste Satz, den er liest, handelt von der Klammer statt vom Spiel. `1 + 2 = 3` ist das einzige Brett, auf dem nichts schiefgehen kann, und die Karte mit der einen echten Regel („benutze jede Zahl genau einmal") bekommt einen Bildschirm für sich allein. Fiele es weg, müsste diese Zeile auf die Klammerkarte wandern — die dann vier Zeilen trüge, bei einer Hausregel von dreien. |
+
+Alle drei Bretter wurden im echten Browser **blind nach der Führung
+gespielt** (Playwright, echte Zeigerereignisse, 390px): jeder Schritt war
+das, was die Zeile sagte, das Ziehen eingeschlossen, und alle drei enden
+gelöst — `1 + 2 = 3`, `(1 + 2) × 3 = 9`, `(1 + 1 + 1) × 3 = 9` — ohne
+Fehler in der Konsole. Auf dem anschließenden gezogenen Rätsel ist weder
+Zeile noch Markierung vorhanden.

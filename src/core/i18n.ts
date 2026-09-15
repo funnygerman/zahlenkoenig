@@ -67,20 +67,45 @@ interface Strings {
   footerMade: string
   /**
    * The first-run introduction (onboarding round, core/onboarding.ts).
-   * Two cards, one per onboarding puzzle: the first names the goal, the
-   * rule and the gesture; the second teaches the block, because a
-   * three-number group is drag-only and nothing else on screen says so.
+   * Three cards, one per onboarding puzzle: the first names the goal, the
+   * rule and the gesture; the second opens a bracket at its two-number
+   * minimum, all of it by tapping; the third grows one to three numbers,
+   * which is drag-only and which nothing else on screen says at all.
+   *
+   * The second card exists because a player report said the block lesson
+   * arrived all at once — see core/onboarding.ts's own note on the puzzle
+   * it introduces.
    */
   introGoal: string
   introRule: string
   introHow: string
   introStart: string
   introBracketLead: string
-  /** Rendered beside a real block chip, so the sentence never has to name the symbol in words. */
+  /** Rendered beside a real block chip, so the sentence never has to name the symbol in words — on both bracket cards, since both start with that tap. */
   introBracketOpen: string
+  /** The second card's last line: a two-number bracket needs no drag at all. */
+  introBracketFill: string
+  /** The third card's first line — what has changed since the second card, which is the only thing it teaches. */
+  introGrowLead: string
   introBracketGrow: string
-  /** Board.tsx's nudge in the otherwise-empty notation line, while onboarding and the field is untouched. */
-  nudgeTapNumber: string
+  /**
+   * The first-run introduction's step-by-step guidance (Board's `guided`
+   * prop): one line per kind of move, naming the gesture while the chip
+   * itself is marked on screen.
+   *
+   * Split by kind rather than written as one generic "do the next thing"
+   * because the kinds are not the same gesture — three of them are a tap
+   * and one is a drag, which is the whole difficulty the third onboarding
+   * board exists for. `guideBlock` names what the chip *does*, since it is
+   * the one chip whose symbol a beginner cannot read.
+   */
+  guideNumber: string
+  guideOperator: string
+  guideBlock: string
+  /** The same chip, dragged: where the player has already built around the spot the bracket has to go, a tap would land it somewhere else (ui/guidance.ts's own account). */
+  guideBlockDrag: string
+  guideGrow: string
+  guideSubmit: string
   /** The page footer's second line — the label of a link to the PO's ko-fi page (footer/history round; the URL itself lives in Game.tsx, not here). */
   footerCoffee: string
   /**
@@ -152,8 +177,15 @@ const de: Strings = {
   introStart: 'Los geht’s',
   introBracketLead: 'Dieses Rätsel braucht eine Klammer.',
   introBracketOpen: 'Tippe hierauf, um eine zu öffnen.',
+  introBracketFill: 'Dann tippe die Zahlen hinein.',
+  introGrowLead: 'Diesmal gehören drei Zahlen in die Klammer.',
   introBracketGrow: 'Zieh eine Zahl auf den Klammerrand, damit sie hineinkommt.',
-  nudgeTapNumber: 'Tippe auf eine Zahl',
+  guideNumber: 'Tippe auf die leuchtende Zahl.',
+  guideOperator: 'Tippe auf das leuchtende Rechenzeichen.',
+  guideBlock: 'Tippe auf den leuchtenden Chip — er öffnet eine Klammer.',
+  guideBlockDrag: 'Zieh den leuchtenden Chip auf die markierte Stelle — er öffnet dort eine Klammer.',
+  guideGrow: 'Zieh die leuchtende Zahl auf den leuchtenden Klammerrand.',
+  guideSubmit: 'Tippe auf das leuchtende =.',
 }
 
 const en: Strings = {
@@ -184,8 +216,15 @@ const en: Strings = {
   introStart: 'Let’s go',
   introBracketLead: 'This puzzle needs a bracket.',
   introBracketOpen: 'Tap this to open one.',
+  introBracketFill: 'Then tap the numbers into it.',
+  introGrowLead: 'This time three numbers go inside the bracket.',
   introBracketGrow: 'Drag a number onto the bracket edge to put it inside.',
-  nudgeTapNumber: 'Tap a number',
+  guideNumber: 'Tap the glowing number.',
+  guideOperator: 'Tap the glowing operator.',
+  guideBlock: 'Tap the glowing chip — it opens a bracket.',
+  guideBlockDrag: 'Drag the glowing chip onto the marked spot — it opens a bracket there.',
+  guideGrow: 'Drag the glowing number onto the glowing bracket edge.',
+  guideSubmit: 'Tap the glowing =.',
 }
 
 const ru: Strings = {
@@ -216,8 +255,15 @@ const ru: Strings = {
   introStart: 'Поехали',
   introBracketLead: 'Здесь нужны скобки.',
   introBracketOpen: 'Нажми сюда, чтобы открыть их.',
+  introBracketFill: 'Потом заполни их, нажимая на числа.',
+  introGrowLead: 'В этот раз в скобках будут три числа.',
   introBracketGrow: 'Перетащи число на край скобки, чтобы оно оказалось внутри.',
-  nudgeTapNumber: 'Нажми на число',
+  guideNumber: 'Нажми на светящееся число.',
+  guideOperator: 'Нажми на светящийся знак.',
+  guideBlock: 'Нажми на светящийся чип — он открывает скобки.',
+  guideBlockDrag: 'Перетащи светящийся чип на отмеченное место — там откроются скобки.',
+  guideGrow: 'Перетащи светящееся число на светящийся край скобки.',
+  guideSubmit: 'Нажми на светящееся =.',
 }
 
 // `Record<Language, Strings>` is what gives every language compile-time key

@@ -49,6 +49,14 @@ export interface ChipProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>,
   /** highlighted for the hint's first press (concept 10.3). */
   blocking?: boolean
   /**
+   * Marked as the chip to use next, during the first-run introduction
+   * (Board's `guided` prop). Accent-coloured rather than amber: `blocking`
+   * says "this one is in the way", this says "this one is the move", and a
+   * board never shows both — guidance runs only where there *is* a next
+   * move, a blocker mark only where there is none.
+   */
+  guide?: boolean
+  /**
    * Dimmed like a disabled chip, but still a live button: a tap does
    * nothing (there is nowhere for it to go) while a drag from it is still
    * a real gesture. `disabled` can't express that — a disabled button
@@ -63,7 +71,7 @@ function cx(...parts: Array<string | false | undefined>): string {
 }
 
 export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
-  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, blocking = false, muted = false, className, children, disabled, ...rest },
+  { variant, value, operator, scale = 'tray', inGroup = false, placeholder = false, ghost = false, blocking = false, guide = false, muted = false, className, children, disabled, ...rest },
   ref
 ) {
   // Only the operator chip is round; the block is a normal square chip
@@ -80,6 +88,7 @@ export const Chip = forwardRef<HTMLButtonElement, ChipProps>(function Chip(
     placeholder && styles.placeholder,
     ghost && styles.ghostSlot,
     blocking && styles.blocking,
+    guide && styles.guide,
     muted && styles.muted,
     className
   )

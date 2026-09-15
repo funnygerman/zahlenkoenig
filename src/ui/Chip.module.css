@@ -156,6 +156,33 @@
   box-shadow: 0 0 0 2px var(--zk-amber);
 }
 
+/* -------------------------------------------------------------------- guide
+ * The first-run introduction marks the chip to use next (Board's `guided`
+ * prop). Accent blue, so it reads as "here" rather than as the amber
+ * "this is in the way" above — and a board can never show both at once.
+ *
+ * It breathes, unlike `.blocking`, and the difference is the job: a mark
+ * on a dead-end chip is a statement about the board that can be read
+ * whenever the player looks, while this one is asking to be looked at
+ * right now, by a player who may not know yet that chips can be tapped.
+ * `prefers-reduced-motion` gets the ring without the movement — the ring
+ * is what carries the meaning, the animation only draws the eye. */
+
+.guide {
+  border-color: var(--zk-accent);
+  box-shadow: 0 0 0 3px var(--zk-accent-soft);
+  animation: zk-guide 1.6s ease-in-out infinite;
+}
+
+@keyframes zk-guide {
+  0%, 100% { box-shadow: 0 0 0 3px var(--zk-accent-soft); }
+  50% { box-shadow: 0 0 0 7px var(--zk-accent-soft); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .guide { animation: none; }
+}
+
 /* -------------------------------------------------------------- target label */
 
 .targetInner {

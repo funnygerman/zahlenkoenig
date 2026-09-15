@@ -183,14 +183,25 @@
   }
 }
 
-/* Onboarding round: the "tap a number" line, shown in the notation line's
- * own slot while an onboarding board is still untouched (Board.tsx's
- * `showNudge`). It reads as an instruction rather than as notation —
- * accent-coloured instead of muted, and not tabular-nums, since it is
- * words and not a row of digits. */
-.nudge {
+/* The first-run introduction's step-by-step line (Board.tsx's `guided`).
+ * Its own row below the tray rather than the notation line's slot, where
+ * the onboarding round's earlier one-shot "tap a number" nudge used to
+ * sit: that one only ever appeared on an untouched board, so it never
+ * competed with notation, while this one speaks for the whole solve and
+ * would otherwise hide `(1 + 2) × 3` exactly while the player is building
+ * it. Below the tray there is nothing but empty page, and the marked chip
+ * it describes is directly above it.
+ *
+ * Accent-coloured, so it reads as an instruction rather than as the muted
+ * notation above; the height is reserved by the line itself only when it
+ * is there, since it exists on no board but these. */
+.guideLine {
+  margin-top: var(--gap);
+  text-align: center;
+  font-size: 0.95rem;
+  line-height: 1.35;
   color: var(--zk-accent);
-  font-variant-numeric: normal;
+  max-width: calc(5 * var(--cell) + 4 * var(--gap));
 }
 
 /* The page's own heading and one-sentence description, for a screen reader

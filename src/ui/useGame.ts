@@ -310,6 +310,30 @@ function surfaceAnchor(children: readonly Slot[], surface: Surface): Anchor {
   return { index: groupIndex === -1 ? surface.index : groupIndex }
 }
 
+/**
+ * Where a *tapped* block lands and what the tree looks like afterwards —
+ * shared by `placeBlock` (which performs it) and `blockTap` (which shows
+ * it), so the two can never drift. Concept 6.1's anchor rule lives inside
+ * `tapBlockTarget`; this only carries it through to a tree.
+ *
+ * `trimTrailingGaps` is part of the result, not of the caller, and that is
+ * this function's whole reason for existing: every edit in this file goes
+ * through `withRootChildren`, which trims, so a preview built from
+ * `applyBlockDrop` alone is a tree the game never actually holds. It
+ * differs in exactly the way that matters — `[group, null, null, null,
+ * null]` demands a chip in every one of those root positions, so the
+ * search declares a board unsolvable that is nothing of the kind. Measured
+ * the hard way: the guidance told a player to *drag* the bracket onto the
+ * empty field of the third onboarding board, because tapping it "was not
+ * safe".
+ */
+function blockTapResult(children: readonly Slot[], anchor: Anchor | null, numbersCount: number): { index: number; children: Slot[] } | null {
+  const width = rootWidth(children, numbersCount)
+  const start = tapBlockTarget(children, anchorIndex(children, anchor), width)
+  if (start === null) return null
+  return { index: start, children: trimTrailingGaps(applyBlockDrop(children, start, width)) }
+}
+
 export function useGame({ numbers, target, ops }: UseGameOptions) {
   const tray = useMemo(() => createTray(numbers), [numbers])
   const blockBudget = Math.floor(numbers.length / 2)
@@ -426,12 +450,29 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
   // taken by a bracket simply passes the turn to the next one.
   const placeBlock = useCallback(() => {
     setExpr(e => {
-      const width = rootWidth(e.root.children, numbers.length)
-      const start = tapBlockTarget(e.root.children, anchorIndex(e.root.children, anchor), width)
-      if (start === null) return e
-      return withRootChildren(e, applyBlockDrop(e.root.children, start, width))
+      const tapped = blockTapResult(e.root.children, anchor, numbers.length)
+      return tapped === null ? e : withRootChildren(e, tapped.children)
     })
   }, [anchor, numbers.length, setExpr])
+
+  /**
+   * What tapping the tray's block chip would do right now: where the
+   * bracket would land and the tree it would produce — `null` when no
+   * bracket fits at all.
+   *
+   * For a caller that needs to *show* the gesture rather than perform it
+   * (the first-run introduction's guidance, `ui/guidance.ts`). It runs the
+   * very function `placeBlock` above runs, rather than re-deriving the tap
+   * target beside it: a tapped block lands where the **player** last
+   * worked, while a hinted one names its own index, and guidance that got
+   * that difference wrong would tell a beginner to tap a chip that lands
+   * somewhere else — which is exactly the bug a browser check found the
+   * first time this was wired up.
+   */
+  const blockTap = useMemo(
+    () => blockTapResult(expr.root.children, anchor, numbers.length),
+    [expr, anchor, numbers.length]
+  )
 
   /**
    * The same placement at a *named* root position — what a block dragged
@@ -778,5 +819,6 @@ export function useGame({ numbers, target, ops }: UseGameOptions) {
     onSubmit,
     onDrop,
     applyHintMove,
+    blockTap,
   }
 }

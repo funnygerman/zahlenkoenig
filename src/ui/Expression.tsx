@@ -83,6 +83,14 @@ export interface ExpressionProps {
   dragHandlers?: (item: { id: string; kind: 'operand' | 'operator'; data: { role: 'number' | 'operator' | 'block'; operator?: Operator; value?: number; origin: 'tray' | 'field' } }) => DragHandlers
   /** the zone currently under the pointer during a drag (concept 3.1's "gestrichelte Fläche in Akzentfarbe"). */
   activeZoneId?: string | null
+  /**
+   * A drop zone to mark as the destination of the next move, during the
+   * first-run introduction (Board's `guided` prop). Only ever a bracket
+   * edge today: it is the `grow` drag — the one move in the game that
+   * needs a *destination* named, since every other one is a tap on a chip
+   * the tray already highlights.
+   */
+  guideZoneId?: string | null
   /** concept 10.3's free, permanent dead-end indicator: the target is no longer reachable from here (core/hints.ts's Restlöser). */
   deadEnd?: boolean
   /**
@@ -119,12 +127,19 @@ export interface ExpressionProps {
   verdict?: 'correct' | 'wrong' | null
 }
 
-function GhostSlot({ kind, active = false }: { kind: 'operand' | 'operator'; active?: boolean }) {
-  return <Chip variant={kind === 'operand' ? 'number' : 'operator'} scale="field" ghost className={active ? styles.activeZone : undefined} />
+function GhostSlot({ kind, active = false, guide = false }: { kind: 'operand' | 'operator'; active?: boolean; guide?: boolean }) {
+  return (
+    <Chip
+      variant={kind === 'operand' ? 'number' : 'operator'}
+      scale="field"
+      ghost
+      className={cx(active && styles.activeZone, guide && styles.guideZone) || undefined}
+    />
+  )
 }
 
 function LeafChip({
-  leaf, inGroup, zoneId, active, blocking = false, onTapLeaf, registerZone, dragHandlers, flipRef,
+  leaf, inGroup, zoneId, active, blocking = false, guide = false, onTapLeaf, registerZone, dragHandlers, flipRef,
 }: {
   leaf: Leaf
   inGroup: boolean
@@ -132,6 +147,8 @@ function LeafChip({
   active: boolean
   /** marked by a hint press on a dead-end board as standing in the way of the target (core/hints.ts's `findBlockers`). */
   blocking?: boolean
+  /** marked as where the next move lands, during the first-run introduction — a bracket dragged onto a chip encloses it. */
+  guide?: boolean
   onTapLeaf: (id: string) => void
   registerZone?: ExpressionProps['registerZone']
   dragHandlers?: ExpressionProps['dragHandlers']
@@ -155,6 +172,7 @@ function LeafChip({
       scale="field"
       inGroup={inGroup}
       blocking={blocking}
+      guide={guide}
       className={active ? styles.activeZone : undefined}
       onClick={dragHandlers ? undefined : () => onTapLeaf(leaf.id)}
       // Keyboard operation isn't supported (open product question, CLAUDE.md) —
@@ -179,11 +197,13 @@ function LeafChip({
 }
 
 function EmptySlot({
-  kind, zoneId, active, registerZone,
+  kind, zoneId, active, guide = false, registerZone,
 }: {
   kind: 'operand' | 'operator'
   zoneId: string
   active: boolean
+  /** marked as where the next move lands, during the first-run introduction (Board's `guided` prop). */
+  guide?: boolean
   registerZone?: ExpressionProps['registerZone']
 }) {
   // An open gap is both a rendered ghost AND a live drop zone — concept
@@ -196,13 +216,13 @@ function EmptySlot({
   // where a thumb aiming at the slot actually lands.
   return (
     <div ref={el => registerZone?.(zoneId, kind, false, el)} className={styles.slot}>
-      <GhostSlot kind={kind} active={active} />
+      <GhostSlot kind={kind} active={active} guide={guide} />
     </div>
   )
 }
 
 function GroupView({
-  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId, flipRef, dissolving = false, blockingIds,
+  group, onTapLeaf, onDissolveGroup, dissolveLabel, registerZone, dragHandlers, activeZoneId, guideZoneId, flipRef, dissolving = false, blockingIds,
 }: {
   group: Group
   onTapLeaf: (id: string) => void
@@ -211,6 +231,7 @@ function GroupView({
   registerZone?: ExpressionProps['registerZone']
   dragHandlers?: ExpressionProps['dragHandlers']
   activeZoneId?: string | null
+  guideZoneId?: string | null
   flipRef?: ExpressionProps['flipRef']
   /** Concept 6.7: the bracket's own chrome fades over ~150ms rather than vanishing instantly — the chips inside don't move at all. */
   dissolving?: boolean
@@ -254,7 +275,7 @@ function GroupView({
       <button
         type="button"
         ref={el => registerZone?.(beforeZone, 'both', true, el)}
-        className={cx(styles.bracketEdge, styles.bracketLeft, activeZoneId === beforeZone && styles.activeEdge, dissolving && styles.dissolving)}
+        className={cx(styles.bracketEdge, styles.bracketLeft, activeZoneId === beforeZone && styles.activeEdge, guideZoneId === beforeZone && styles.guideEdge, dissolving && styles.dissolving)}
         onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
         aria-label={dissolveLabel}
         {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
@@ -287,7 +308,7 @@ function GroupView({
       <button
         type="button"
         ref={el => registerZone?.(afterZone, 'both', true, el)}
-        className={cx(styles.bracketEdge, styles.bracketRight, activeZoneId === afterZone && styles.activeEdge, dissolving && styles.dissolving)}
+        className={cx(styles.bracketEdge, styles.bracketRight, activeZoneId === afterZone && styles.activeEdge, guideZoneId === afterZone && styles.guideEdge, dissolving && styles.dissolving)}
         onClick={dragHandlers ? undefined : () => onDissolveGroup(group.id)}
         aria-label={dissolveLabel}
         {...(dragHandlers ? dragHandlers({ id: group.id, kind: 'operand', data: { role: 'block', origin: 'field' } }) : undefined)}
@@ -297,7 +318,7 @@ function GroupView({
 }
 
 export function Expression({
-  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, deadEnd = false, flipRef, dissolvingGroupId = null, blockingIds = null, verdict = null,
+  expr, scaffoldOperands = 0, scaffoldOperators = 0, onTapLeaf, onDissolveGroup, dissolveLabel = 'Klammer auflösen', registerZone, dragHandlers, activeZoneId, guideZoneId = null, deadEnd = false, flipRef, dissolvingGroupId = null, blockingIds = null, verdict = null,
 }: ExpressionProps) {
   const { children } = expr.root
   const zones = dropZones(children)
@@ -307,7 +328,7 @@ export function Expression({
     const zoneId = rootZoneId(i)
     const active = activeZoneId === zoneId
     if (slot === null) {
-      return <EmptySlot key={i} kind={zones[i].kind} zoneId={zoneId} active={active} registerZone={registerZone} />
+      return <EmptySlot key={i} kind={zones[i].kind} zoneId={zoneId} active={active} guide={guideZoneId === zoneId} registerZone={registerZone} />
     }
     if (slot.kind === 'group') {
       return (
@@ -320,6 +341,7 @@ export function Expression({
           registerZone={registerZone}
           dragHandlers={dragHandlers}
           activeZoneId={activeZoneId}
+          guideZoneId={guideZoneId}
           flipRef={flipRef}
           dissolving={dissolvingGroupId === slot.id}
           blockingIds={blocking ?? undefined}
@@ -334,6 +356,7 @@ export function Expression({
         zoneId={zoneId}
         active={active}
         blocking={blocking?.has(slot.id)}
+        guide={guideZoneId === zoneId}
         onTapLeaf={onTapLeaf}
         registerZone={registerZone}
         dragHandlers={dragHandlers}
@@ -372,6 +395,7 @@ export function Expression({
         kind={index % 2 === 0 ? 'operand' : 'operator'}
         zoneId={zoneId}
         active={activeZoneId === zoneId}
+        guide={guideZoneId === zoneId}
         registerZone={registerZone}
       />
     )

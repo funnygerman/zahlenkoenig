@@ -111,3 +111,20 @@ describe('Chip — pass-through props (drag/tap wiring is the caller\'s job, con
     expect(onPointerDown).toHaveBeenCalled()
   })
 })
+
+describe('Chip — the introduction\'s guide mark (guidance round)', () => {
+  it('marks the chip without disabling it, and keeps the mark separate from the dead-end one', () => {
+    // Two different statements about a chip — "use this one next" (accent)
+    // and "this one is in the way" (amber, `blocking`) — and a guided board
+    // never shows both, since guidance only speaks where there *is* a next
+    // move and a blocker mark only where there is none.
+    const { rerender } = render(<Chip variant="number" value={3} guide />)
+    const chip = screen.getByRole('button')
+    expect(chip.className).toMatch(/guide/)
+    expect(chip.className).not.toMatch(/blocking/)
+    expect(chip).toBeEnabled()
+
+    rerender(<Chip variant="number" value={3} blocking />)
+    expect(screen.getByRole('button').className).not.toMatch(/guide/)
+  })
+})
