@@ -1,0 +1,64 @@
+import { describe, it, expect, vi } from 'vitest'
+import { render, screen, waitFor } from '@testing-library/react'
+import { ErrorBoundary } from './ErrorBoundary'
+
+function Bomb(): never {
+  throw new Error('kaboom')
+}
+
+// React logs the caught error to the console by default; these tests
+// trigger it on purpose, so the noise is silenced rather than left to
+// clutter a passing run.
+function silenceConsoleError() {
+  return vi.spyOn(console, 'error').mockImplementation(() => {})
+}
+
+describe('ErrorBoundary', () => {
+  it('renders its children when nothing throws', () => {
+    render(
+      <ErrorBoundary>
+        <p>all fine</p>
+      </ErrorBoundary>,
+    )
+    expect(screen.getByText('all fine')).toBeInTheDocument()
+  })
+
+  it('shows a crash report instead of unmounting the whole app when a child throws', async () => {
+    const spy = silenceConsoleError()
+    try {
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      expect(screen.getByRole('alert')).toBeInTheDocument()
+      expect(screen.getByText('Something went wrong.')).toBeInTheDocument()
+
+      // componentDidCatch kicks the diagnostic collection off asynchronously.
+      await waitFor(() => {
+        expect((screen.getByLabelText('Crash report') as HTMLTextAreaElement).value).toContain('Error: kaboom')
+      })
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('offers a reset action that does not throw even with no service worker/caches support', async () => {
+    const spy = silenceConsoleError()
+    try {
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      const user = (await import('@testing-library/user-event')).default.setup()
+      // Neither button should throw when pressed, even in an environment
+      // (jsdom) with no Clipboard API and no service worker — the same
+      // "answer, never crash" posture the rest of the app's fallbacks take.
+      await user.click(screen.getByRole('button', { name: 'Copy report' }))
+      await user.click(screen.getByRole('button', { name: 'Reset & reload' }))
+    } finally {
+      spy.mockRestore()
+    }
+  })
+})
