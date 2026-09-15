@@ -87,10 +87,87 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
   })
 })
 
-describe('onboarding — the second board is not marked as a dead end', () => {
+describe('onboarding — the second board teaches the bracket with nothing but taps', () => {
+  // The board this round inserted, after a report that the block lesson
+  // arrived all at once. What it has to be is a bracket a player can build
+  // with the vocabulary the first board taught — so the test that matters
+  // is that the whole of it can be tapped.
   beforeEach(() => {
     localStorage.clear()
     saveOnboardingStep(1)
+    vi.useFakeTimers({ shouldAdvanceTime: true })
+  })
+  afterEach(() => vi.useRealTimers())
+
+  it('its card names the bracket and asks for taps, not a drag', () => {
+    render(<Game />)
+    expect(screen.getByText('Dieses Rätsel braucht eine Klammer.')).toBeInTheDocument()
+    expect(screen.getByText('Dann tippe die Zahlen hinein.')).toBeInTheDocument()
+    expect(screen.queryByText(/Zieh eine Zahl auf den Klammerrand/)).not.toBeInTheDocument()
+  })
+
+  it('can be solved by tapping alone, and solving it opens the drag lesson', async () => {
+    // The whole reason this board exists between the other two: one new
+    // chip (the block), no new gesture. If any step here needed a drag,
+    // the board would be teaching the same two things at once that the
+    // third board already does.
+    const user = userEvent.setup()
+    render(<Game />)
+    await dismissIntro(user)
+
+    // The card's own order, tap for tap: open the bracket, fill it, then
+    // finish the row. `trayNumbers()` is re-read every time because a
+    // placed chip leaves the tray, so [0] is always the leftmost number
+    // still to place — 1, then 2, then 3.
+    const blockChip = screen.getAllByRole('button').find(b => b.querySelector('[class*="blockIcon"]'))!
+    await user.click(blockChip)
+    await user.click(trayNumbers()[0])
+    await user.click(screen.getByRole('button', { name: '+' }))
+    await user.click(trayNumbers()[0])
+    await user.click(screen.getByRole('button', { name: '×' }))
+    await user.click(trayNumbers()[0])
+    expect(document.querySelector('[role="status"]')!.textContent).toBe('(1 + 2) × 3')
+    await user.click(screen.getByText('=', { selector: 'button' }))
+
+    // concept 12.8's 1200ms pause before the board is replaced.
+    await vi.advanceTimersByTimeAsync(1300)
+
+    expect(loadOnboardingStep()).toBe(2)
+    expect(screen.getByText('Diesmal gehören drei Zahlen in die Klammer.')).toBeInTheDocument()
+    expect(screen.getByText(/Zieh eine Zahl auf den Klammerrand/)).toBeInTheDocument()
+  })
+
+  it('shows no dead-end border on the empty field', () => {
+    render(<Game />)
+    expect(field().className).not.toMatch(/_deadEnd_/)
+  })
+
+  it('offers a hint, and its budget stops it before the puzzle is finished', async () => {
+    // Six chips (a block, three numbers, two operators), budget is half
+    // rounded up — so three presses, and three chips left for the player.
+    // Pinned because the hint is the beginner's other way through this
+    // board: the card says "tap this to open one", and a player who does
+    // not find the chip is shown it instead of being left on an empty
+    // field.
+    const user = userEvent.setup()
+    render(<Game />)
+    await dismissIntro(user)
+
+    const hint = screen.getByRole('button', { name: 'Tipp' })
+    let presses = 0
+    while (hint.getAttribute('aria-disabled') !== 'true' && presses < 10) {
+      await user.click(hint)
+      presses++
+    }
+    expect(presses).toBe(3)
+    expect(document.querySelector('[role="status"]')!.textContent).toContain('(')
+  })
+})
+
+describe('onboarding — the third board is not marked as a dead end', () => {
+  beforeEach(() => {
+    localStorage.clear()
+    saveOnboardingStep(2)
   })
 
   it('shows no dead-end border on the empty field', async () => {
@@ -107,7 +184,7 @@ describe('onboarding — the second board is not marked as a dead end', () => {
     render(<Game />)
     await dismissIntro(user)
 
-    expect(targetValue()).toBe(String(ONBOARDING_PUZZLES[1].target))
+    expect(targetValue()).toBe(String(ONBOARDING_PUZZLES[2].target))
     expect(field().className).not.toMatch(/_deadEnd_/)
   })
 
@@ -145,9 +222,9 @@ describe('onboarding — the second board is not marked as a dead end', () => {
     expect(readout).not.toMatch(/\(.*[+×].*[+×].*\)/) // only one operator inside the bracket so far
   })
 
-  it('its card teaches the bracket, since nothing else in the game can', async () => {
+  it('its card teaches growing a bracket, since nothing else in the game can', () => {
     render(<Game />)
-    expect(screen.getByText('Dieses Rätsel braucht eine Klammer.')).toBeInTheDocument()
+    expect(screen.getByText('Diesmal gehören drei Zahlen in die Klammer.')).toBeInTheDocument()
     expect(screen.getByText(/Zieh eine Zahl auf den Klammerrand/)).toBeInTheDocument()
   })
 })
@@ -186,7 +263,7 @@ describe('onboarding — solving one advances to the next, and then hands over t
     ])
   })
 
-  it('once both are behind the player, the board is a generated puzzle again and no card appears', () => {
+  it('once all three are behind the player, the board is a generated puzzle again and no card appears', () => {
     saveOnboardingStep(ONBOARDING_PUZZLES.length)
     render(<Game />)
 

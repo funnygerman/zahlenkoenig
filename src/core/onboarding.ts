@@ -1,6 +1,6 @@
 // The first-run introduction (onboarding round, after a report that a
 // player who has never seen the idea can't tell what to do on the first
-// screen). Two fixed puzzles, played before the generator is ever asked
+// screen). Three fixed puzzles, played before the generator is ever asked
 // for one, plus the single number that says how far through them a player
 // is.
 //
@@ -14,7 +14,21 @@
 
 import type { Operator } from './expression'
 
-const STORAGE_KEY = 'zahlenkoenig:onboarding-v1'
+// The stored step is an *index into `ONBOARDING_PUZZLES`*, so inserting a
+// puzzle changes what every stored value means. The key is versioned for
+// exactly that reason, and the old one is still read: under v1 there were
+// two puzzles and `2` meant "finished", while under v2 `2` is the third
+// board — so a player who had already been through the whole introduction
+// would have been handed its hardest board again, card and all, on their
+// next visit. `LEGACY_DONE` is that one value's translation.
+//
+// Nothing else needs translating: the new puzzle was inserted at index 1,
+// so a v1 step of 0 or 1 already points at the board it always pointed at
+// (0 — the two-number board, and 1 — which is now the new bracket board,
+// which is the whole point of adding it there).
+const STORAGE_KEY = 'zahlenkoenig:onboarding-v2'
+const LEGACY_KEY = 'zahlenkoenig:onboarding-v1'
+const LEGACY_DONE = 2
 
 export interface OnboardingPuzzle {
   numbers: number[]
@@ -31,7 +45,7 @@ export interface OnboardingPuzzle {
 }
 
 /**
- * The two boards a first-time player meets, in order.
+ * The three boards a first-time player meets, in order.
  *
  * **1. `⬚ + ⬚` at two numbers.** Not teaching arithmetic — teaching "I
  * touched a thing and it worked". Concept 6.4's own promise ("A1 erklärt
@@ -40,15 +54,30 @@ export interface OnboardingPuzzle {
  * instruction. The app's real default (3 numbers, all four operators)
  * never delivered that on a cold open.
  *
- * **2. `(1+1+1) × 3 = 9`.** The PO's own choice, and the only shape that
- * teaches the block: a three-number group, which is the one thing in the
- * game that tapping structurally cannot build (concept 6.2 — growing a
+ * **2. `(1+2) × 3 = 9`.** The bracket, at its two-number minimum — the
+ * whole of it built by tapping, which is the vocabulary the first board
+ * just taught. It was added after a player report that the block lesson
+ * arrived all at once: the board below asks a beginner to open a bracket
+ * *and* grow it past its minimum with the game's one drag-only gesture, in
+ * the same puzzle, having never seen a bracket at all. This board splits
+ * that in two. Its solution is unique and needs the bracket (`(n+n)×n`,
+ * pinned in onboarding.test.ts) — a bracket that is merely permitted
+ * teaches nothing, which is the same test the PO's own rejected candidate
+ * for board 3 failed.
+ *
+ * **3. `(1+1+1) × 3 = 9`.** The PO's own choice, and the only shape that
+ * teaches growing a block: a three-number group, which is the one thing in
+ * the game that tapping structurally cannot build (concept 6.2 — growing a
  * group past its two-number minimum is drag-only, because the tap after a
  * complete group is ambiguous between "grow this" and "start the next
  * one"). Left to discovery it is never found; scripted, with the intro
  * card naming the gesture, it is the lesson.
  *
- * That second puzzle used to need two supports in Board.tsx, and needs
+ * It keeps board 2's target and its outer `× 3` deliberately: the only
+ * thing that changes between the two boards is how many numbers go inside
+ * the bracket, which is exactly the thing this board exists to teach.
+ *
+ * That third puzzle used to need two supports in Board.tsx, and needs
  * neither now — worth recording, because both were removed by rounds that
  * were not about onboarding at all.
  *
@@ -67,6 +96,7 @@ export interface OnboardingPuzzle {
  */
 export const ONBOARDING_PUZZLES: readonly OnboardingPuzzle[] = [
   { numbers: [1, 2], target: 3, ops: ['+'] },
+  { numbers: [1, 2, 3], target: 9, ops: ['+', '*'] },
   { numbers: [1, 1, 1, 3], target: 9, ops: ['+', '*'] },
 ]
 
@@ -79,17 +109,29 @@ export const ONBOARDING_PUZZLES: readonly OnboardingPuzzle[] = [
  * history.ts's loaders: a missing key, a disabled localStorage (private
  * mode throws on read, not just on write) or a hand-edited value all come
  * back as "start at the beginning" rather than throwing.
+ *
+ * Falls back to the v1 key when the v2 one is absent (see its comment
+ * above), and deliberately does not write the translated value back: a
+ * load with a side effect is a load that can fail in private mode for no
+ * gain, and re-deriving it costs one `getItem` per visit.
  */
 export function loadOnboardingStep(): number {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
-    if (!raw) return 0
-    const parsed: unknown = JSON.parse(raw)
-    if (typeof parsed !== 'number' || !Number.isInteger(parsed) || parsed < 0) return 0
-    return Math.min(parsed, ONBOARDING_PUZZLES.length)
+    if (raw) return readStep(raw)
+    const legacy = localStorage.getItem(LEGACY_KEY)
+    if (!legacy) return 0
+    const step = readStep(legacy)
+    return step >= LEGACY_DONE ? ONBOARDING_PUZZLES.length : step
   } catch {
     return 0
   }
+}
+
+function readStep(raw: string): number {
+  const parsed: unknown = JSON.parse(raw)
+  if (typeof parsed !== 'number' || !Number.isInteger(parsed) || parsed < 0) return 0
+  return Math.min(parsed, ONBOARDING_PUZZLES.length)
 }
 
 export function saveOnboardingStep(step: number): void {

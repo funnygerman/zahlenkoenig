@@ -67,17 +67,26 @@ interface Strings {
   footerMade: string
   /**
    * The first-run introduction (onboarding round, core/onboarding.ts).
-   * Two cards, one per onboarding puzzle: the first names the goal, the
-   * rule and the gesture; the second teaches the block, because a
-   * three-number group is drag-only and nothing else on screen says so.
+   * Three cards, one per onboarding puzzle: the first names the goal, the
+   * rule and the gesture; the second opens a bracket at its two-number
+   * minimum, all of it by tapping; the third grows one to three numbers,
+   * which is drag-only and which nothing else on screen says at all.
+   *
+   * The second card exists because a player report said the block lesson
+   * arrived all at once — see core/onboarding.ts's own note on the puzzle
+   * it introduces.
    */
   introGoal: string
   introRule: string
   introHow: string
   introStart: string
   introBracketLead: string
-  /** Rendered beside a real block chip, so the sentence never has to name the symbol in words. */
+  /** Rendered beside a real block chip, so the sentence never has to name the symbol in words — on both bracket cards, since both start with that tap. */
   introBracketOpen: string
+  /** The second card's last line: a two-number bracket needs no drag at all. */
+  introBracketFill: string
+  /** The third card's first line — what has changed since the second card, which is the only thing it teaches. */
+  introGrowLead: string
   introBracketGrow: string
   /** Board.tsx's nudge in the otherwise-empty notation line, while onboarding and the field is untouched. */
   nudgeTapNumber: string
@@ -152,6 +161,8 @@ const de: Strings = {
   introStart: 'Los geht’s',
   introBracketLead: 'Dieses Rätsel braucht eine Klammer.',
   introBracketOpen: 'Tippe hierauf, um eine zu öffnen.',
+  introBracketFill: 'Dann tippe die Zahlen hinein.',
+  introGrowLead: 'Diesmal gehören drei Zahlen in die Klammer.',
   introBracketGrow: 'Zieh eine Zahl auf den Klammerrand, damit sie hineinkommt.',
   nudgeTapNumber: 'Tippe auf eine Zahl',
 }
@@ -184,6 +195,8 @@ const en: Strings = {
   introStart: 'Let’s go',
   introBracketLead: 'This puzzle needs a bracket.',
   introBracketOpen: 'Tap this to open one.',
+  introBracketFill: 'Then tap the numbers into it.',
+  introGrowLead: 'This time three numbers go inside the bracket.',
   introBracketGrow: 'Drag a number onto the bracket edge to put it inside.',
   nudgeTapNumber: 'Tap a number',
 }
@@ -216,6 +229,8 @@ const ru: Strings = {
   introStart: 'Поехали',
   introBracketLead: 'Здесь нужны скобки.',
   introBracketOpen: 'Нажми сюда, чтобы открыть их.',
+  introBracketFill: 'Потом заполни их, нажимая на числа.',
+  introGrowLead: 'В этот раз в скобках будут три числа.',
   introBracketGrow: 'Перетащи число на край скобки, чтобы оно оказалось внутри.',
   nudgeTapNumber: 'Нажми на число',
 }

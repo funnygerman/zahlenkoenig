@@ -29,9 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The share round below is the
-most recent piece of PO-asked scope; before it, the block-anchor round;
-before that, the three-number-group
+**Nothing is open that has been scoped.** The onboarding-bracket round
+below is the most recent piece of PO-asked scope; before it, the share
+round, then the block-anchor round; before those, the three-number-group
 round
 closed the last measured gap (see "Where v2 stands"): the hint's search
 now reaches everything `solver.ts`'s `reachable()` does at two, three and
@@ -40,16 +40,18 @@ pool clean at every number count. Concept 16's roadmap was already
 finished before that.
 
 **The one product question that round raised is answered: the onboarding
-bracket puzzle shows its hint** (PO). `Board.tsx`'s `onboarding` prop is
+bracket puzzles show their hint** (PO). `Board.tsx`'s `onboarding` prop is
 gone entirely — it had no other job — so an onboarding board is treated
 exactly like any other. The argument for hiding it was that a hint can
 walk the whole bracket, which is the lesson the card asks for; the
 argument that won is that withholding it left a beginner meeting the
 game's hardest gesture with no help at all. The budget settles it without
-a special case: the plan is eight chips, the budget is half rounded up, so
-four presses land the setup and the icon mutes — the `grow` drag is the
-seventh move and stays the player's. Verified in a browser: four presses
-give `3 × (1)`, then muted.
+a special case: on the three-number-group board the plan is eight chips,
+the budget is half rounded up, so four presses land the setup and the icon
+mutes — the `grow` drag is the seventh move and stays the player's.
+Verified in a browser: four presses give `3 × (1)`, then muted. (The
+two-number bracket board added later is the same rule at six chips: three
+presses, the third of which opens the bracket.)
 
 Anything else past this point (dark mode, the "Zwischenschritt beim
 Auflösen" notation-line question, either open item in concept section 17's
@@ -140,6 +142,69 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**An onboarding-bracket round split the block lesson across two boards:
+the introduction has three puzzles now, and the new middle one is
+`(1+2) × 3 = 9`.** PO-asked scope after concept 16's roadmap was finished,
+not a step. The report, relayed from a player: *the second onboarding
+puzzle is not very intuitive because of the three-number block, and/or we
+also need the block expanding — maybe another puzzle in between with a
+two-number block.*
+
+*The diagnosis is visible in the old card's own three lines.* It asked for
+two new things at once: a chip nobody has seen, and the one gesture in the
+game that is not a tap. A player who never finds the block chip never
+reaches the point where the drag could mean anything — so the drag lesson
+was riding on the bracket lesson landing first, in the same puzzle, with
+no board of its own.
+
+*The new board is the bracket at its minimum, and the point is that
+nothing on it is new except the chip.* Every step is a tap, which is the
+whole vocabulary the first board teaches. It was measured before it was
+built, against the same two questions `(1+2+3) × 1 = 6` failed on:
+`reachable([1,2,3], {+,×})` gives 9 the pattern `(n+n)×n` with exactly one
+solution — flat, 1, 2 and 3 reach 6, 6 and 7, never 9 — so the bracket is
+**required**, and `computeHint` from an empty field returns a six-chip
+plan with a `block` move and **no `grow`** move, which is the machine-
+readable form of "no drag here".
+
+*It keeps the third board's target and its outer `× 3` deliberately.* The
+only thing that changes from board 2 to board 3 is how many numbers go
+inside the bracket — which is exactly board 3's lesson, handed to the
+player as a comparison rather than as a sentence.
+
+**The third board stays exactly as it was**, and the other reading of the
+report — drop the three-number group — is the one to refuse: growing past
+the minimum is drag-only (concept 6.2), the hint proposes it but never has
+the budget to reach it, and trying things never finds it. It now gets a
+board of its own instead of half of one.
+
+*The stored step is an index into the puzzle list, so inserting in the
+middle changed what every stored value means* — and that is the one thing
+here a player could have been hurt by. Under the old key `2` meant
+"finished"; under the new list `2` is the third board, so everyone who had
+already been through the whole introduction would have met its hardest
+board again, card and all. The key is `zahlenkoenig:onboarding-v2` now and
+the old one is still read, with `2` translated to "done" (`0` and `1` mean
+what they always did — `1` now points at the new board, which is where
+such a player should pick up). Read-only: a load with a side effect is a
+load that can fail in private mode for nothing.
+
+*The card copy moved rather than grew.* The drag sentence
+(`introBracketGrow`) left the middle card entirely for the third one; two
+new keys carry the rest (`introBracketFill`, `introGrowLead`) in all three
+languages. The "tap this to open one" line and its real block chip stay on
+**both** bracket cards — it is the same first move on both boards — while
+the third card opens with what is new about it rather than with what has
+not changed.
+
+*Verified in a real browser, not only in jsdom* (Playwright, real pointer
+events, 390px), as one continuous first run: card 1 → `1 + 2 = 3` by
+tapping → card 2 → `(1 + 2) × 3` by tapping → card 3 → `(1+1+1) × 3` with
+the single drag → a generated puzzle, no card. No dead-end border on any
+of the three boards and no page errors. `Onboarding.test.tsx` plays the
+middle board the same way, tap for tap, because "no drag needed" is the
+whole claim the board makes.
 
 **A share round gave the game a way to hand one puzzle to somebody else.**
 PO-asked scope after concept 16's roadmap was finished, not a step. What is
@@ -615,9 +680,9 @@ there is no `LICENSE` file, and that call is the PO's to make, not one to
 invent in a README.
 
 **An onboarding round gave the game a first-run introduction — two fixed
-puzzles and a card each — after feedback from players who had never seen
-the idea: "if a user opens the game for the first time, it's not clear
-what to do there."** Like the footer/history round, this is scope the PO
+puzzles and a card each (three since the onboarding-bracket round above)
+— after feedback from players who had never seen the idea: "if a user
+opens the game for the first time, it's not clear what to do there."** Like the footer/history round, this is scope the PO
 asked for after concept 16's roadmap was already finished, not a step.
 
 *The round started by looking at the actual first screen rather than
@@ -636,12 +701,13 @@ their board, a hint poorer. It is a **lightbulb** now (inline SVG per
 concept 13.2, not v1's 💡). No `?` remains anywhere in the app, verified
 against a real render: nothing now promises help without giving it.
 
-**Two fixed puzzles, not a GIF and not a coach-mark tutorial** (both were
+**Fixed puzzles, not a GIF and not a coach-mark tutorial** (both were
 offered; the PO chose neither). A GIF is three files across three
 languages, goes stale on every UI change, and teaches the *rule* — the one
 invisible thing — not at all. A guided-overlay tutorial would have to hook
 into `useDrag`'s hit-testing, which is where this repo's worst bugs have
-lived. `core/onboarding.ts` (new) holds the two boards instead:
+lived. `core/onboarding.ts` (new) holds the boards instead — two in this
+round, with `(1+2) × 3` inserted between them later:
 
 - **`1 + 2 = 3`.** Not teaching arithmetic — teaching "I touched a thing
   and it worked". Concept 6.4's promise ("für Erstklässler die ganze
@@ -654,7 +720,7 @@ lived. `core/onboarding.ts` (new) holds the two boards instead:
   two-number groups). Scripted, with a card naming the gesture, it's the
   lesson.
 
-**The PO's first candidate for that second puzzle, `(1+2+3) × 1 = 6`, was
+**The PO's first candidate for that last puzzle, `(1+2+3) × 1 = 6`, was
 measured and rejected before anything was built.** `reachable()` reports
 its representative solution as `n+n+n×n` — flat, no bracket — and
 `computeHint` on the empty board returns seven plain tap moves. A player
@@ -706,8 +772,8 @@ already laid out and blank at 22.8px on an untouched board, and removes
 itself with the first chip — which is also when it stops being true.
 
 **Both puzzles were played through in a real browser** (Playwright, real
-pointer events), not just jsdom. The second is solvable with **exactly one
-drag**: tap `1`, `+`, `1`, tap the block chip, drag the third `1` onto the
+pointer events), not just jsdom. The bracket one is solvable with
+**exactly one drag**: tap `1`, `+`, `1`, tap the block chip, drag the third `1` onto the
 right bracket edge, then `+`, `×`, `3`, `=`. The card's literal order
 works too — tapping the block chip on an empty field yields `()`, which
 then fills by tapping.

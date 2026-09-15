@@ -12,17 +12,25 @@
 // That sentence is what this card exists to deliver; everything else on it
 // is there to get it read.
 //
-// Two cards rather than one, because they teach different things at
+// Three cards rather than one, because they teach different things at
 // different moments:
 //
 //   step 0 — goal, rule, gesture. Over a two-number board where tapping is
 //            the whole vocabulary.
-//   step 1 — the block. A three-number group is drag-only (concept 6.2),
+//   step 1 — the bracket, at its two-number minimum. One new chip and no
+//            new gesture: everything on this card is still a tap.
+//   step 2 — growing one. A three-number group is drag-only (concept 6.2),
 //            which makes it the one capability in the game that cannot be
 //            discovered by trying things: tap can't produce it, and the
-//            hint can't either (core/hints.ts only proposes two-number
-//            groups). Scripted instruction is the only honest way to teach
+//            hint proposes it only as a drag it never has the budget to
+//            reach. Scripted instruction is the only honest way to teach
 //            it, which is exactly what this card is.
+//
+// Steps 1 and 2 used to be one card over one board, and a player report is
+// why they aren't: the block arrived as two lessons at once — a chip
+// nobody had seen, and the game's only drag-only gesture — in the same
+// puzzle. Splitting them costs one board and leaves each card with one new
+// thing on it.
 
 import { useEffect, useRef } from 'react'
 import { Chip } from './Chip'
@@ -69,7 +77,13 @@ export function Intro({ step, language, onDismiss }: IntroProps) {
             </>
           ) : (
             <>
-              <li className={styles.line}>{t(language, 'introBracketLead')}</li>
+              {/* Both bracket cards open with what is new about their own
+                  board, then point at the chip, then name the one gesture
+                  that gets the numbers in. The middle line is shared
+                  deliberately: it is the same tap on both boards, and a
+                  player who has to find that chip twice should be told
+                  where it is twice. */}
+              <li className={styles.line}>{t(language, step === 1 ? 'introBracketLead' : 'introGrowLead')}</li>
               <li className={styles.line}>
                 {/* A real block chip, not a description of one: the player
                     has to recognise this exact shape in the tray a second
@@ -80,7 +94,7 @@ export function Intro({ step, language, onDismiss }: IntroProps) {
                 <Chip variant="block" scale="tray" className={styles.icon} tabIndex={-1} aria-hidden="true" />
                 {t(language, 'introBracketOpen')}
               </li>
-              <li className={styles.line}>{t(language, 'introBracketGrow')}</li>
+              <li className={styles.line}>{t(language, step === 1 ? 'introBracketFill' : 'introBracketGrow')}</li>
             </>
           )}
         </ul>
