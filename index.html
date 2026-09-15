@@ -160,7 +160,15 @@
          same copyable report and a manual "reset" button (dynamically
          "Finish pending update" when a worker is still found waiting, the
          full wipe — unregister every service worker, empty every Cache
-         Storage bucket, clear localStorage — otherwise) either way. -->
+         Storage bucket, clear localStorage — otherwise) either way.
+
+         That screen also offers to send the report to a Google Form the
+         PO set up for exactly this, since a player has no other reliable
+         way to reach us — manual by default (mirrors ui/reportCrash.ts,
+         duplicated here for the same reason as everything else in this
+         script), with a checkbox that opts this device into sending
+         future reports without asking again. -->
+
     <script>
       (function () {
         var root = document.getElementById('root')
@@ -200,6 +208,39 @@
               setTimeout(finish, 3000)
             })
           }).catch(function () { return false })
+        }
+
+        // Mirrors ui/reportCrash.ts — see its own comment for why this is
+        // duplicated in plain JS rather than imported, why `no-cors` is
+        // the only way to submit a cross-origin Google Form, and why a
+        // sessionStorage flag caps this at one send per tab so pressing
+        // "Send report" twice (or auto-send on a crash loop) can't spam
+        // the sheet.
+        var AUTO_SEND_PREF_KEY = 'zahlenkoenig:auto-send-crash-reports'
+        function getAutoSendPreference() {
+          try { return localStorage.getItem(AUTO_SEND_PREF_KEY) === '1' } catch (e) { return false }
+        }
+        function setAutoSendPreference(enabled) {
+          try {
+            if (enabled) localStorage.setItem(AUTO_SEND_PREF_KEY, '1')
+            else localStorage.removeItem(AUTO_SEND_PREF_KEY)
+          } catch (e) {}
+        }
+        function sendCrashReport(text) {
+          var SESSION_KEY = 'zahlenkoenig:crash-report-sent'
+          try {
+            if (sessionStorage.getItem(SESSION_KEY) === '1') return false
+            sessionStorage.setItem(SESSION_KEY, '1')
+          } catch (e) {}
+          try {
+            fetch('https://docs.google.com/forms/d/e/1FAIpQLSdnnobn9AuedkMb3xfHOGrOQF4sYehl-IKy2O5ixu0pfCXdoA/formResponse', {
+              method: 'POST',
+              mode: 'no-cors',
+              headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+              body: 'entry.1500158176=' + encodeURIComponent(text),
+            }).catch(function () {})
+          } catch (e) {}
+          return true
         }
 
         setTimeout(function () {
@@ -257,10 +298,22 @@
             title.textContent = 'This page did not load.'
 
             var stillWaiting = swInfo.indexOf('waiting: true') !== -1
+            var reportSent = false
 
             var hint = document.createElement('p')
             hint.style.cssText = 'margin:0 0 1rem;font-size:.9rem;color:#666'
-            hint.textContent = 'Try the button below. If that doesn’t help, copy the report and send it to us.'
+
+            function refreshHint() {
+              hint.textContent = reportSent
+                ? 'Thanks — a report was sent. Try the button below to get back into the game.'
+                : 'Send a report to help us fix this, or copy it and send it yourself. Then try the button below to get back into the game.'
+            }
+            refreshHint()
+
+            if (getAutoSendPreference()) {
+              reportSent = sendCrashReport(text)
+              refreshHint()
+            }
 
             var ta = document.createElement('textarea')
             ta.readOnly = true
@@ -290,6 +343,17 @@
               }
             })
 
+            var sendBtn = document.createElement('button')
+            sendBtn.type = 'button'
+            sendBtn.textContent = 'Send report'
+            sendBtn.style.cssText = 'padding:.6rem 1rem;font-size:.9rem;border:none;border-radius:.5rem;background:#2962ae;color:#fff'
+            sendBtn.addEventListener('click', function () {
+              reportSent = sendCrashReport(text) || reportSent
+              refreshHint()
+              sendBtn.style.display = reportSent ? 'none' : ''
+            })
+            sendBtn.style.display = reportSent ? 'none' : ''
+
             var resetBtn = document.createElement('button')
             resetBtn.type = 'button'
             resetBtn.textContent = stillWaiting ? 'Finish pending update' : 'Reset & reload'
@@ -313,12 +377,30 @@
               })
             })
 
+            var autoSendLabel = document.createElement('label')
+            autoSendLabel.style.cssText = 'display:flex;align-items:center;justify-content:center;gap:.4rem;margin-top:1rem;font-size:.8rem;color:#666'
+            var autoSendCheckbox = document.createElement('input')
+            autoSendCheckbox.type = 'checkbox'
+            autoSendCheckbox.checked = getAutoSendPreference()
+            autoSendCheckbox.addEventListener('change', function () {
+              setAutoSendPreference(autoSendCheckbox.checked)
+              if (autoSendCheckbox.checked && !reportSent) {
+                reportSent = sendCrashReport(text) || reportSent
+                refreshHint()
+                sendBtn.style.display = reportSent ? 'none' : ''
+              }
+            })
+            autoSendLabel.appendChild(autoSendCheckbox)
+            autoSendLabel.appendChild(document.createTextNode('Automatically send future crash reports'))
+
             actions.appendChild(copyBtn)
+            actions.appendChild(sendBtn)
             actions.appendChild(resetBtn)
             wrap.appendChild(title)
             wrap.appendChild(hint)
             wrap.appendChild(ta)
             wrap.appendChild(actions)
+            wrap.appendChild(autoSendLabel)
             document.body.appendChild(wrap)
           })
         }
