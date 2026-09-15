@@ -61,4 +61,31 @@ describe('ErrorBoundary', () => {
       spy.mockRestore()
     }
   })
+
+  it('offers to finish a pending update instead, when one is stuck waiting', async () => {
+    const spy = silenceConsoleError()
+    try {
+      vi.stubGlobal('navigator', {
+        ...navigator,
+        serviceWorker: {
+          getRegistrations: () => Promise.resolve([{ scope: '/zahlenkoenig/', active: {}, waiting: {}, installing: null }]),
+          addEventListener: vi.fn(),
+        },
+      })
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      // Same fact reset.ts's recoverAppState acts on, read back out of the
+      // report rather than the mock directly — this is pinning what the
+      // player sees, not the diagnostics module's own internals.
+      await waitFor(() => {
+        expect(screen.getByRole('button', { name: 'Finish pending update' })).toBeInTheDocument()
+      })
+    } finally {
+      spy.mockRestore()
+      vi.unstubAllGlobals()
+    }
+  })
 })
