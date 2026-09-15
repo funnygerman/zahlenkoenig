@@ -36,6 +36,19 @@ export interface TrayNumberSlot {
   used: boolean
 }
 
+/**
+ * Which tray chip the first-run introduction is pointing at right now
+ * (Board's `guided` prop). A number names its own slot id — the three `1`s
+ * of the last onboarding board are three different chips and only one of
+ * them is the move — while an operator names its glyph and the block and
+ * the `=` name nothing, there being exactly one of each.
+ */
+export type TrayGuide =
+  | { kind: 'number'; id: string }
+  | { kind: 'operator'; op: Operator }
+  | { kind: 'block' }
+  | { kind: 'submit' }
+
 export interface TrayProps {
   /** right-aligned; length matches the puzzle's number count (2-4, concept 15.4). */
   numberSlots: TrayNumberSlot[]
@@ -73,9 +86,11 @@ export interface TrayProps {
    * `NumberCell`'s own guard.
    */
   flipRef?: (id: string, el: HTMLElement | null) => void
+  /** The chip to mark as the next move, during the first-run introduction only (`null` the rest of the time, which is every generated puzzle). */
+  guide?: TrayGuide | null
 }
 
-function NumberCell({ slot, onTap, drag, flipRef }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers']; flipRef?: TrayProps['flipRef'] }) {
+function NumberCell({ slot, onTap, drag, flipRef, guide = false }: { slot: TrayNumberSlot; onTap: (id: string) => void; drag?: TrayProps['dragHandlers']; flipRef?: TrayProps['flipRef']; guide?: boolean }) {
   // When drag is wired up, useDrag's own tap-vs-drag detection (below the
   // 6px threshold, concept 5.1) is the only tap path — a plain onClick
   // alongside it would double-fire, since both a native click and
@@ -95,6 +110,7 @@ function NumberCell({ slot, onTap, drag, flipRef }: { slot: TrayNumberSlot; onTa
       variant="number"
       value={slot.value}
       placeholder={slot.used}
+      guide={guide}
       onClick={hasDrag ? undefined : () => onTap(slot.id)}
       // Keyboard operation isn't supported (open product question, CLAUDE.md) —
       // once drag is wired up the onClick above is gone, so Enter/Space would
@@ -122,6 +138,7 @@ export function Tray({
   onSubmit,
   dragHandlers,
   flipRef,
+  guide = null,
 }: TrayProps) {
   const emptyCount = Math.max(0, numberColumns - numberSlots.length)
   const emptyOperatorCount = Math.max(0, operatorColumns - operators.length)
@@ -133,9 +150,16 @@ export function Tray({
           <div key={`empty-${i}`} className={styles.emptyCell} aria-hidden="true" />
         ))}
         {numberSlots.map(slot => (
-          <NumberCell key={slot.id} slot={slot} onTap={onTapNumber} drag={dragHandlers} flipRef={flipRef} />
+          <NumberCell
+            key={slot.id}
+            slot={slot}
+            onTap={onTapNumber}
+            drag={dragHandlers}
+            flipRef={flipRef}
+            guide={guide?.kind === 'number' && guide.id === slot.id}
+          />
         ))}
-        <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} />
+        <Chip variant="submit" disabled={!submitEnabled} onClick={onSubmit} guide={guide?.kind === 'submit'} />
       </div>
       <div className={styles.row}>
         {Array.from({ length: emptyOperatorCount }, (_, i) => (
@@ -149,6 +173,7 @@ export function Tray({
               variant="operator"
               operator={op}
               muted={operatorsMuted}
+              guide={guide?.kind === 'operator' && guide.op === op}
               onClick={dragHandlers ? undefined : () => onTapOperator(op)}
               // See NumberCell's own note: no keyboard path once drag is wired up.
               tabIndex={dragHandlers ? -1 : undefined}
@@ -158,6 +183,7 @@ export function Tray({
         <Chip
           variant="block"
           disabled={blockDisabled}
+          guide={guide?.kind === 'block'}
           onClick={dragHandlers ? undefined : onTapBlock}
           // See NumberCell's own note: no keyboard path once drag is wired up.
           tabIndex={dragHandlers ? -1 : undefined}

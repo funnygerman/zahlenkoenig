@@ -295,5 +295,22 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
     onApplyMove(hint.moves[0])
   }, [budget, canPlace, hint, expr, tray, target, opsAllowed, numbersCount, board, onApplyMove])
 
-  return { deadEnd, blockingIds, hintsLeft, offered, available, hintReason, onPressHint }
+  /**
+   * The current plan itself, for a caller that wants to *show* what comes
+   * next rather than perform it — the first-run introduction's guidance
+   * (`ui/guidance.ts`, via Board's `guided` prop). Deliberately the same
+   * `hint.moves` that `onPressHint` applies from, not a second derivation
+   * of "what comes next": the pulse this codebase deleted was wrong about
+   * *when* precisely because it was computed from a different source than
+   * the press (measured at 30.3% of the states it appeared in, and 100% of
+   * plans containing a bracket).
+   *
+   * `null` and empty mean different things and both matter downstream:
+   * null is a dead end, empty is a board that is built and right and only
+   * needs `=`. Reading it costs nothing — `hint` is already computed above
+   * on every board change, for the dead-end border.
+   */
+  const plan = hint?.moves ?? null
+
+  return { deadEnd, blockingIds, hintsLeft, offered, available, hintReason, onPressHint, plan }
 }

@@ -130,6 +130,48 @@
   background: var(--zk-accent-soft);
 }
 
+/* The first-run introduction's destination mark (Board's `guided` prop).
+ * Only ever the right bracket edge, and only for the one move that needs a
+ * destination named at all — the `grow` drag. It breathes like the tray
+ * chip it is paired with (Chip.module.css's `.guide`), so the two read as
+ * one gesture with two ends; `prefers-reduced-motion` keeps the tint and
+ * drops the movement. */
+/* The same mark on an empty scaffold slot: where a dragged bracket would
+ * land. Dashed like `.activeZone`, which is the field's own vocabulary for
+ * "a chip goes here", but accent-solid and breathing, since this one is
+ * asking to be looked at rather than answering a drag already in flight. */
+.guideZone {
+  outline: 2px dashed var(--zk-accent);
+  outline-offset: 2px;
+  border-radius: calc(var(--cell) * .16);
+  animation: zk-guide-edge 1.6s ease-in-out infinite;
+}
+
+.guideEdge {
+  background: var(--zk-accent-soft);
+  animation: zk-guide-edge 1.6s ease-in-out infinite;
+}
+
+@keyframes zk-guide-edge {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .45; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  /* The same mark on an empty scaffold slot: where a dragged bracket would
+ * land. Dashed like `.activeZone`, which is the field's own vocabulary for
+ * "a chip goes here", but accent-solid and breathing, since this one is
+ * asking to be looked at rather than answering a drag already in flight. */
+.guideZone {
+  outline: 2px dashed var(--zk-accent);
+  outline-offset: 2px;
+  border-radius: calc(var(--cell) * .16);
+  animation: zk-guide-edge 1.6s ease-in-out infinite;
+}
+
+.guideEdge { animation: none; }
+}
+
 /* concept 3.1: "gestrichelte Fläche in Akzentfarbe", only visible during a drag. */
 .activeZone {
   outline: 1.5px dashed var(--zk-accent);

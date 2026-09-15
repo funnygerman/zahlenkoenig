@@ -29,8 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The onboarding-bracket round
-below is the most recent piece of PO-asked scope; before it, the share
+**Nothing is open that has been scoped.** The guidance round below is the
+most recent piece of PO-asked scope; before it the onboarding-bracket
+round; before it, the share
 round, then the block-anchor round; before those, the three-number-group
 round
 closed the last measured gap (see "Where v2 stands"): the hint's search
@@ -142,6 +143,86 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**A guidance round gave the introduction's boards step-by-step help: the
+chip to use next is marked and a line names the gesture.** PO-asked scope
+after concept 16's roadmap was finished, not a step. The ask: *"can we
+also provide hint messages for the buttons the user should press next in
+the onboarding puzzles?"*
+
+*It reads the very move the hint button would perform* — `computeHint`'s
+own `moves[0]`, already computed every render for the dead-end border —
+and shows it instead of doing it. That is the lesson of the pulse this
+codebase deleted: that one was derived from a different source than the
+press applied and named the wrong chip in 30.3% of the states it appeared
+in. One expression, one answer. **It costs no hint**: the budget is only
+ever charged by `onPressHint`, and a guided board is walked by the player.
+`Board`'s `guided` prop is the only place it is switched on, so no
+generated puzzle ever gets it — that is what the hint button and its
+budget are for.
+
+**The round's real finding is that "tap this" was wrong advice on a
+half-built board, and only playing it move by move showed it.** A *tapped*
+block lands at the player's own anchor (concept 6.1); a *hinted* one lands
+at the index its move names. On `3 ×` the plan wants the bracket at
+position 2, and tapping puts it around the `3` — so a beginner following
+the instruction exactly reached a dead end. Two rules came out of it, and
+they are `ui/guidance.ts`'s whole content:
+
+- **A bracket goes down first**, before any chip that would sit around it,
+  because the anchor on an untouched board is the start. That is also the
+  order both bracket cards describe, which is not a coincidence: it is the
+  only order tapping can build.
+- **The offer is checked by simulating it.** The tree the tap would produce
+  goes through the same search, and the tap is only offered if the board is
+  still solvable afterwards. Where it isn't, the honest instruction is the
+  drag that names its own position, with the destination marked — which a
+  player only ever meets by going off the guided path.
+
+*The second bug was a second source of truth inside this round's own code.*
+The tap preview was built from `applyBlockDrop`, while every real edit goes
+through `withRootChildren`, which applies `trimTrailingGaps`. The
+difference is exactly the one that matters: `[group, null, null, null,
+null]` demands a chip in every one of those root positions, so the search
+declared a perfectly solvable board dead. It surfaced as *"drag the
+bracket"* on the third board's **empty** field. One function
+(`useGame`'s `blockTapResult`) now serves both the tap and its preview.
+
+*The test that holds all of this is "following the guidance blindly solves
+the board"* — `guidance.test.tsx` plays each of the three introduction
+boards step by step, taps through the tap handlers and the one drag through
+`onDrop`, never through `applyHintMove` (which is the hint button's path
+and can place a block where a finger cannot). Checked against the unfixed
+code first: both bugs fail it, with the reported symptom (`(3 ×)`).
+
+*On a dead end the guidance says nothing.* A complete-but-wrong board looks
+like "no move left" from here, and "press =" is the one piece of advice it
+must never give; the dead-end border and the blocker marks already answer.
+
+*The line has its own row below the tray*, not the notation line's slot
+where the onboarding round's one-shot "tap a number" nudge used to sit.
+That nudge only ever spoke on an untouched board, so it never competed with
+notation; this one speaks for the whole solve and would hide `(1 + 2) × 3`
+exactly while the player builds it. Measured in all three languages,
+portrait and landscape: two lines at most (41px), nothing clipped, the
+footer still on screen.
+
+**The first onboarding board stays, and the reasoning is worth keeping.**
+The same question asked whether guidance makes `1 + 2 = 3` redundant. It
+makes it cheap — four taps — but not redundant: without it a newcomer's
+very first screen is a three-number board with a bracket chip, and the
+first sentence they read is about brackets rather than about the game.
+`1 + 2 = 3` is the one board where nothing can go wrong, and the card
+carrying the game's only real rule ("use every number exactly once") gets a
+screen to itself. Dropping it would move that line onto the bracket card,
+which would then carry four lines against this file's own "three lines get
+read, six don't".
+
+*Verified in a real browser* (Playwright, real pointer events, 390px) by
+**following the guidance blindly**: every step was whatever the line said,
+the drag included, and all three boards end solved — `1 + 2 = 3`,
+`(1 + 2) × 3 = 9`, `(1 + 1 + 1) × 3 = 9` — with no page errors, and neither
+line nor mark on the generated puzzle that follows.
 
 **An onboarding-bracket round split the block lesson across two boards:
 the introduction has three puzzles now, and the new middle one is
@@ -319,8 +400,8 @@ the onboarding-before-shared rule failed only *one* of three tests, because
 the other two expressions still said something different: the board showed
 the onboarding puzzle with the **shared** puzzle's tray and remount key.
 There is now one `source` conditional that decides all of it, and
-everything downstream (`selectionHidden`, `shareHidden`, the nudge line,
-HistoryNav's count) reads `source.kind` instead of re-deriving it. Both
+everything downstream (`selectionHidden`, `shareHidden`, the guided-board
+flag, HistoryNav's count) reads `source.kind` instead of re-deriving it. Both
 mutations are caught now.
 
 *Placement took four renders and two PO calls, per this file's own "decide
@@ -765,11 +846,11 @@ module rather than a sixth `Settings` field or a count off
 restart onboarding the day that archive is cleared or its cap lowered.
 
 **Drag is deliberately not mentioned on the first card, and is the whole
-of the second.** On a two-number `+` board drag can't do anything, so
+of the last one.** On a two-number `+` board drag can't do anything, so
 naming it there teaches a gesture with no use yet and costs a line nobody
-reads. The nudge line ("Tap a number") borrows the notation line, which is
-already laid out and blank at 22.8px on an untouched board, and removes
-itself with the first chip — which is also when it stops being true.
+reads. This round also added a one-shot nudge ("Tap a number") in the
+notation line's own slot, which the guidance round above replaced with a
+line that follows the player through the whole board.
 
 **Both puzzles were played through in a real browser** (Playwright, real
 pointer events), not just jsdom. The bracket one is solvable with

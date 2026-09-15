@@ -53,16 +53,45 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
     expect(screen.getAllByRole('button', { name: /^[+−×÷]$/ })).toHaveLength(1)
   })
 
-  it('shows the tap nudge in the notation line while the field is untouched, and drops it on the first chip', async () => {
+  it('marks the chip to tap next and names the gesture, following the player move by move', async () => {
+    // The guidance round (PO): the earlier one-shot "tap a number" nudge
+    // only ever spoke on an untouched board and went quiet exactly when a
+    // beginner started wondering what comes next. `guidance.ts` decides
+    // what it says; here it is the wiring that is under test — that the
+    // line appears, that the marked chip is the one the line means, and
+    // that both follow the board rather than standing still.
     const user = userEvent.setup()
     render(<Game />)
     await dismissIntro(user)
 
-    const readout = document.querySelector('[role="status"]')!
-    expect(readout.textContent).toBe('Tippe auf eine Zahl')
+    const line = () => document.querySelector('[class*="_guideLine_"]')!.textContent
+    const marked = () => [...document.querySelectorAll('[class*="_tray_"] [class*="_guide_"]')].map(el => el.textContent?.trim())
+
+    expect(line()).toBe('Tippe auf die leuchtende Zahl.')
+    expect(marked()).toEqual(['1'])
 
     await user.click(trayNumbers()[0])
-    expect(readout.textContent).not.toBe('Tippe auf eine Zahl')
+    expect(line()).toBe('Tippe auf das leuchtende Rechenzeichen.')
+    expect(marked()).toEqual(['+'])
+
+    await user.click(screen.getByRole('button', { name: '+' }))
+    expect(line()).toBe('Tippe auf die leuchtende Zahl.')
+    expect(marked()).toEqual(['2'])
+
+    await user.click(trayNumbers()[0])
+    expect(line()).toBe('Tippe auf das leuchtende =.')
+
+    // And the notation line above is untouched by any of it — the guidance
+    // has its own row precisely so the player can still read what they
+    // have built (this is why it is not the old nudge's slot).
+    expect(document.querySelector('[role="status"]')!.textContent).toBe('1 + 2')
+  })
+
+  it('says nothing on a generated puzzle — this is the introduction only', async () => {
+    saveOnboardingStep(ONBOARDING_PUZZLES.length)
+    render(<Game />)
+    expect(document.querySelector('[class*="_guideLine_"]')).toBeNull()
+    expect(document.querySelector('[class*="_tray_"] [class*="_guide_"]')).toBeNull()
   })
 
   it('hides the selection chip, which would otherwise describe a board that isn’t there', async () => {
@@ -98,6 +127,20 @@ describe('onboarding — the second board teaches the bracket with nothing but t
     vi.useFakeTimers({ shouldAdvanceTime: true })
   })
   afterEach(() => vi.useRealTimers())
+
+  it('points at the block chip first, before any chip that sits around the bracket', async () => {
+    // The order a tap can actually build (guidance.ts's own header): a
+    // tapped block lands at the player's anchor, so the bracket has to
+    // exist before the chips around it do. It is also the order the card
+    // describes, which is not a coincidence.
+    const user = userEvent.setup()
+    render(<Game />)
+    await dismissIntro(user)
+    expect(document.querySelector('[class*="_guideLine_"]')!.textContent)
+      .toBe('Tippe auf den leuchtenden Chip — er öffnet eine Klammer.')
+    const marked = document.querySelector('[class*="_tray_"] [class*="_guide_"]')!
+    expect(marked.querySelector('[class*="blockIcon"]')).not.toBeNull()
+  })
 
   it('its card names the bracket and asks for taps, not a drag', () => {
     render(<Game />)

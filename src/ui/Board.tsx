@@ -14,6 +14,7 @@ import { useFlip } from './useFlip'
 import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import { Tray } from './Tray'
 import { Expression } from './Expression'
+import { nextGuidance } from './guidance'
 import { Chip } from './Chip'
 import { formatResult, notate } from '../core/notation'
 import type { Operator } from '../core/expression'
@@ -46,13 +47,16 @@ export interface BoardProps {
    */
   onHintState?: (state: { offered: boolean; available: boolean; reason: 'complete' | 'spent' | null }) => void
   /**
-   * A short instruction to show in the notation line while the field is
-   * still empty (onboarding round). The line is already laid out and
-   * blank on an untouched board, so this costs no layout and removes
-   * itself the moment the first chip lands — which is also exactly when
-   * it stops being true.
+   * Walk the player through this board one move at a time: the chip to use
+   * next is marked in the tray and a line names the gesture (PO, after the
+   * report that the introduction's boards still leave a newcomer guessing
+   * which button to press).
+   *
+   * Only ever true for the first-run introduction. On a generated puzzle
+   * this would hand over the solution, which is what the hint button and
+   * its budget are for.
    */
-  nudge?: string
+  guided?: boolean
 }
 
 /** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
@@ -115,7 +119,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, nudge }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, guided = false }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -213,6 +217,30 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // currently renders it (useFlip.ts's own note on why).
   const flipRef = useFlip()
 
+  // ------------------------------------------------------- guidance (guided)
+  // The first-run introduction's step-by-step help: the chip to use next is
+  // marked in the tray, a line names the gesture, and the two moves that
+  // have a destination (a dragged block, a number grown into a bracket)
+  // mark that too. `ui/guidance.ts` makes the choice and carries the whole
+  // account of why it is not simply "the hint's next move"; everything here
+  // is wiring.
+  //
+  // Withheld while a verdict is on screen (`status !== 'idle'`): a board
+  // that has just been judged is not waiting for a next move, and the
+  // readout above is what the player is reading in that moment.
+  const guidance = guided && game.status === 'idle'
+    ? nextGuidance({
+        plan: hint.plan,
+        children: game.expr.root.children,
+        tray: game.tray,
+        target,
+        opsAllowed: ops,
+        numbersCount: numbers.length,
+        blockTap: game.blockTap,
+        submitEnabled: game.submitEnabled,
+      })
+    : null
+
   const notation = notate(game.expr)
   // Concept 9.2's notation line, revised (PO): the result only ever meant
   // anything to a player who had already committed to the expression, so
@@ -223,12 +251,6 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // `game.result` can be negative now (result-on-submit round): a wrong
   // attempt shows its own "= −3" rather than hiding behind bare notation.
   const readout = game.status !== 'idle' && game.result !== null ? `${notation} = ${formatResult(game.result)}` : notation
-  // The nudge borrows the notation line rather than adding a row: the line
-  // is empty exactly while the field is, so the two never compete for it,
-  // and an untouched board is precisely when "tap a number" is worth
-  // saying. `notation` (not `readout`) is the right test — `readout` only
-  // differs once a verdict exists, which implies chips are down.
-  const showNudge = nudge !== undefined && notation === ''
 
   return (
     <div className={styles.board}>
@@ -243,6 +265,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           registerZone={drag.registerZone}
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}
+          guideZoneId={guidance?.zone ?? null}
           deadEnd={hint.deadEnd}
           blockingIds={hint.blockingIds}
           verdict={game.status === 'idle' ? null : game.status}
@@ -259,8 +282,8 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           being built, above the tray, rather than below it — real notation
           as the tree grows, "= result" appended only once `=` has been
           pressed on it. */}
-      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong, game.status === 'correct' && styles.correct, showNudge && styles.nudge)} role="status">
-        {showNudge ? nudge : readout}
+      <div className={cx(styles.readout, game.status === 'wrong' && styles.wrong, game.status === 'correct' && styles.correct)} role="status">
+        {readout}
       </div>
 
       <Tray
@@ -275,7 +298,17 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         onSubmit={game.onSubmit}
         dragHandlers={drag.dragHandlers}
         flipRef={flipRef}
+        guide={guidance?.tray ?? null}
       />
+
+      {/* Rendered as an empty line rather than not at all once the board
+          is solved, so finishing a guided board doesn't shift everything
+          above it by a line's height. It exists on no board but these. */}
+      {guided && (
+        <div className={styles.guideLine} role="status">
+          {guidance ? t(language, guidance.message) : ''}
+        </div>
+      )}
 
       {/* concept 5.1's "Geisterelement": the chip itself stays put and
           dims, a copy follows the finger. useDrag writes the transform

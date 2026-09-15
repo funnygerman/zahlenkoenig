@@ -364,7 +364,7 @@ export function Game() {
           language={settings.language}
           onSolved={handleSolved}
           onHintState={setHintState}
-          nudge={source.kind === 'onboarding' ? t(settings.language, 'nudgeTapNumber') : undefined}
+          guided={source.kind === 'onboarding'}
         />
       </div>
 

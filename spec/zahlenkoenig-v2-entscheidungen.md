@@ -657,3 +657,37 @@ Alle drei Bretter wurden am Stück im echten Browser durchgespielt
 Tippen → Karte 2 → `(1 + 2) × 3` durch Tippen → Karte 3 → `(1+1+1) × 3`
 mit der einen Ziehgeste → danach ein gezogenes Rätsel, keine Karte, kein
 Sackgassen-Rahmen auf einem der drei Bretter, keine Fehler in der Konsole.
+
+
+---
+
+## 17. Schritt-für-Schritt-Führung in der Einführung (Runde „Führung")
+
+Auslöser war die Anschlussfrage des PO zur vorigen Runde: *„können wir
+auch Hinweise geben, welche Knöpfe der Spieler als Nächstes drücken soll?"*
+— mit dem Zusatz, ob sich damit nicht das erste Einstiegsrätsel ganz
+einsparen ließe.
+
+Gebaut ist die Führung, das erste Brett bleibt. Beides mit Begründung
+unten.
+
+| Entscheidung | Begründung |
+|---|---|
+| **Der nächste Chip wird markiert, und eine Zeile benennt die Geste** | Eine Markierung allein sagt *welcher*, aber nicht *was damit zu tun ist* — und auf dem dritten Brett ist das der Unterschied zwischen Tippen und Ziehen, also genau die Lektion. Fünf Zeilen, eine je Zugart (`guideNumber`, `guideOperator`, `guideBlock`, `guideBlockDrag`, `guideGrow`, `guideSubmit`), in allen drei Sprachen. |
+| **Die Führung liest denselben Zug, den der Tipp-Knopf ausführen würde** | `computeHint`s eigenes `moves[0]`, das für den Sackgassen-Rahmen ohnehin bei jedem Render berechnet wird. Das ist die Lehre aus dem gelöschten Pulsieren (Tipp-Runde): jenes wurde aus einer *anderen* Quelle abgeleitet als der Druck und benannte in 30,3 % der Fälle den falschen Chip. Ein Ausdruck, eine Antwort. |
+| **Sie kostet keinen Tipp** | Das Kontingent wird ausschließlich von `onPressHint` belastet; ein geführtes Brett läuft über die eigenen Finger des Spielers. |
+| **Nur in der Einführung** | Auf einem gezogenen Rätsel wäre das die Lösung, und dafür gibt es den Tipp-Knopf mitsamt Kontingent. `Board`s `guided`-Eigenschaft ist die einzige Stelle, an der das entschieden wird. |
+| **Eine eigene Zeile unter der Ablage, nicht der Platz der Notationszeile** | Der frühere einmalige „Tippe auf eine Zahl"-Hinweis saß dort, konnte das aber, weil er nur auf einem unberührten Brett erschien — er stand nie mit der Notation im Wettbewerb. Diese Zeile spricht über den ganzen Lösungsweg und würde `(1 + 2) × 3` genau dann verdecken, während der Spieler es baut. Unter der Ablage ist ohnehin nur leere Seite, und der markierte Chip steht direkt darüber. Gemessen in allen drei Sprachen, Hoch- und Querformat: höchstens zwei Zeilen (41px), nichts wird abgeschnitten, die Fußzeile bleibt im Bild. |
+| **Der eigentliche Fund der Runde: „tippe hierauf" war auf halbem Brett ein falscher Rat** | Ein *getippter* Block landet am Anker des Spielers (Block-Anker-Runde, 6.1), ein gehinteter an dem Index, den der Zug nennt. Auf `3 ×` will der Plan die Klammer an Position 2; das Tippen legt sie um die `3`. Wer der Führung wörtlich folgte, landete in einer Sackgasse — im Browser gemessen, bevor irgendetwas davon als fertig galt. |
+| **Daraus folgt: die Klammer kommt zuerst, und das Angebot wird simuliert** | `ui/guidance.ts` bietet eine Klammer an, sobald der Plan eine braucht — vor jedem Chip, der um sie herum steht, weil der Anker auf einem unberührten Brett am Anfang steht. Und es prüft sein eigenes Angebot: der Baum, den das Tippen ergäbe, läuft noch einmal durch dieselbe Suche, und nur wenn er lösbar bleibt, wird getippt. Sonst heißt die Anweisung *ziehen*, mit markierter Zielposition — ehrlich für den Fall, dass jemand von selbst schon um die Stelle herum gebaut hat. |
+| **Der zweite Fund war eine zweite Wahrheit im eigenen Code** | Die Vorschau des Tippens wurde aus `applyBlockDrop` gebaut, während jede echte Änderung durch `withRootChildren` geht — das `trimTrailingGaps` anwendet. Der Unterschied ist genau der, auf den es ankommt: `[Gruppe, null, null, null, null]` verlangt in jeder dieser Wurzelpositionen einen Chip, also erklärte die Suche ein völlig lösbares Brett für unlösbar. Sichtbar wurde das als *„zieh die Klammer"* auf dem leeren dritten Brett. Jetzt liefert eine einzige Funktion (`blockTapResult`) sowohl die Ausführung als auch die Vorschau. |
+| **Die Prüfung ist „der Führung blind folgen löst das Brett"** | `guidance.test.tsx` spielt jedes der drei Einstiegsbretter Zug um Zug durch — Tippen über die Tipp-Handler, das eine Ziehen über `onDrop`, nie über `applyHintMove`, das ein Brett anders behandeln kann als ein Finger. Gegen den ungefixten Stand geprüft: beide Fehler fallen dort durch, und zwar mit dem gemeldeten Symptom (`(3 ×)`). |
+| **Bei einer Sackgasse schweigt die Führung** | Ein vollständig gebautes, aber falsches Brett sieht von hier aus wie „kein Zug übrig". *„Drück ="* wäre dort der einzige Rat, den die Führung niemals geben darf; der Sackgassen-Rahmen und die markierten Chips sind die ehrliche Antwort. |
+| **Das erste Einstiegsrätsel bleibt** (Empfehlung, PO entscheidet) | Die Führung macht es billig — vier Tipps, wenige Sekunden — aber nicht überflüssig. Ohne es ist der allererste Bildschirm eines neuen Spielers ein Drei-Zahlen-Brett mit Klammer, und der erste Satz, den er liest, handelt von der Klammer statt vom Spiel. `1 + 2 = 3` ist das einzige Brett, auf dem nichts schiefgehen kann, und die Karte mit der einen echten Regel („benutze jede Zahl genau einmal") bekommt einen Bildschirm für sich allein. Fiele es weg, müsste diese Zeile auf die Klammerkarte wandern — die dann vier Zeilen trüge, bei einer Hausregel von dreien. |
+
+Alle drei Bretter wurden im echten Browser **blind nach der Führung
+gespielt** (Playwright, echte Zeigerereignisse, 390px): jeder Schritt war
+das, was die Zeile sagte, das Ziehen eingeschlossen, und alle drei enden
+gelöst — `1 + 2 = 3`, `(1 + 2) × 3 = 9`, `(1 + 1 + 1) × 3 = 9` — ohne
+Fehler in der Konsole. Auf dem anschließenden gezogenen Rätsel ist weder
+Zeile noch Markierung vorhanden.
