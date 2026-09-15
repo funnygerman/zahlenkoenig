@@ -144,12 +144,23 @@
          can't import them.
          If #root is still empty a few seconds after the page starts, that
          is itself the symptom — nothing needs to have thrown — so this
-         shows a copyable report and a "reset" button (unregister every
-         service worker, empty every Cache Storage bucket, clear
-         localStorage, reload) without waiting on an error event that may
-         never come. A MutationObserver cancels the whole thing the moment
-         something does render into #root, so a merely slow load never
-         shows this. -->
+         acts without waiting on an error event that may never come. A
+         MutationObserver cancels the whole thing the moment something does
+         render into #root, so a merely slow load never shows anything.
+
+         The first real report this shipped against confirmed reset.ts's
+         own worry: a waiting service worker (registerType: 'prompt' never
+         activates one on its own) never even got a chance to show this
+         screen — what fixed it was restarting Safari, the one thing
+         guaranteed to close every client and let a waiting worker take
+         over. So before showing anything, this tries that exact fix once
+         by itself: skip-waiting the waiting worker and reload. sessionStorage
+         caps it at one attempt per tab, so a page that's blank for some
+         other reason doesn't reload forever — it falls through to the
+         same copyable report and a manual "reset" button (dynamically
+         "Finish pending update" when a worker is still found waiting, the
+         full wipe — unregister every service worker, empty every Cache
+         Storage bucket, clear localStorage — otherwise) either way. -->
     <script>
       (function () {
         var root = document.getElementById('root')
@@ -172,10 +183,38 @@
         })
         observer.observe(root, { childList: true })
 
+        // Finds a waiting service worker and activates it, resolving
+        // whether one was found — mirrors ui/reset.ts's
+        // activateWaitingWorker, duplicated here for the same reason as
+        // everything else in this script.
+        function activateWaiting() {
+          if (!('serviceWorker' in navigator)) return Promise.resolve(false)
+          return navigator.serviceWorker.getRegistrations().then(function (regs) {
+            var reg = regs.filter(function (r) { return r.waiting })[0]
+            if (!reg) return false
+            return new Promise(function (resolve) {
+              var settled = false
+              function finish() { if (!settled) { settled = true; resolve(true) } }
+              navigator.serviceWorker.addEventListener('controllerchange', finish, { once: true })
+              reg.waiting.postMessage({ type: 'SKIP_WAITING' })
+              setTimeout(finish, 3000)
+            })
+          }).catch(function () { return false })
+        }
+
         setTimeout(function () {
           if (mounted()) return
           observer.disconnect()
-          showFallback()
+
+          var AUTO_KEY = 'zahlenkoenig:auto-recovered'
+          var triedAlready = (function () { try { return sessionStorage.getItem(AUTO_KEY) === '1' } catch (e) { return true } })()
+          if (triedAlready) { showFallback(); return }
+          try { sessionStorage.setItem(AUTO_KEY, '1') } catch (e) {}
+
+          activateWaiting().then(function (activated) {
+            if (activated) location.reload()
+            else showFallback()
+          })
         }, 5000)
 
         function showFallback() {
@@ -217,9 +256,11 @@
             title.style.cssText = 'margin:0 0 .5rem;font-size:1.1rem;font-weight:600'
             title.textContent = 'This page did not load.'
 
+            var stillWaiting = swInfo.indexOf('waiting: true') !== -1
+
             var hint = document.createElement('p')
             hint.style.cssText = 'margin:0 0 1rem;font-size:.9rem;color:#666'
-            hint.textContent = 'Try "Reset & reload" below. If that doesn’t help, copy the report and send it to us.'
+            hint.textContent = 'Try the button below. If that doesn’t help, copy the report and send it to us.'
 
             var ta = document.createElement('textarea')
             ta.readOnly = true
@@ -251,22 +292,25 @@
 
             var resetBtn = document.createElement('button')
             resetBtn.type = 'button'
-            resetBtn.textContent = 'Reset & reload'
+            resetBtn.textContent = stillWaiting ? 'Finish pending update' : 'Reset & reload'
             resetBtn.style.cssText = 'padding:.6rem 1rem;font-size:.9rem;border:none;border-radius:.5rem;background:#2962ae;color:#fff'
             resetBtn.addEventListener('click', function () {
-              var jobs = []
-              if ('serviceWorker' in navigator) {
-                jobs.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
-                  return Promise.all(regs.map(function (r) { return r.unregister() }))
-                }).catch(function () {}))
-              }
-              if ('caches' in window) {
-                jobs.push(caches.keys().then(function (keys) {
-                  return Promise.all(keys.map(function (k) { return caches.delete(k) }))
-                }).catch(function () {}))
-              }
-              try { localStorage.clear() } catch (e) {}
-              Promise.all(jobs).then(function () { location.href = location.pathname })
+              activateWaiting().then(function (activated) {
+                if (activated) { location.reload(); return }
+                var jobs = []
+                if ('serviceWorker' in navigator) {
+                  jobs.push(navigator.serviceWorker.getRegistrations().then(function (regs) {
+                    return Promise.all(regs.map(function (r) { return r.unregister() }))
+                  }).catch(function () {}))
+                }
+                if ('caches' in window) {
+                  jobs.push(caches.keys().then(function (keys) {
+                    return Promise.all(keys.map(function (k) { return caches.delete(k) }))
+                  }).catch(function () {}))
+                }
+                try { localStorage.clear() } catch (e) {}
+                Promise.all(jobs).then(function () { location.href = location.pathname })
+              })
             })
 
             actions.appendChild(copyBtn)

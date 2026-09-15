@@ -14,7 +14,7 @@
 // this component's code.
 import { Component, type ErrorInfo, type ReactNode } from 'react'
 import { collectDiagnostics } from './diagnostics'
-import { resetAppState } from './reset'
+import { recoverAppState } from './reset'
 import styles from './ErrorBoundary.module.css'
 
 interface Props {
@@ -47,6 +47,14 @@ export class ErrorBoundary extends Component<Props, State> {
 
 function ErrorFallback({ report }: { report: string | null }) {
   const text = report ?? 'Collecting diagnostic details…'
+  // reset.ts's own note: a waiting service worker never activates on its
+  // own under registerType: 'prompt', and the header's update pill that
+  // would normally trigger it is part of the app that just crashed — so
+  // this button has to be able to reach it directly. The report already
+  // says "waiting: true" per registration (diagnostics.ts), so reading it
+  // back out is cheaper than tracking a second piece of state for the same
+  // fact.
+  const hasWaitingUpdate = report?.includes('waiting: true') ?? false
 
   const copy = () => {
     void navigator.clipboard?.writeText(text).catch(() => {
@@ -56,8 +64,8 @@ function ErrorFallback({ report }: { report: string | null }) {
     })
   }
 
-  const reset = () => {
-    void resetAppState().then(() => {
+  const recover = () => {
+    void recoverAppState().then(() => {
       window.location.href = window.location.pathname
     })
   }
@@ -66,7 +74,7 @@ function ErrorFallback({ report }: { report: string | null }) {
     <div className={styles.wrap} role="alert">
       <p className={styles.title}>Something went wrong.</p>
       <p className={styles.hint}>
-        Try "Reset &amp; reload" below. If that doesn't help, copy the report and send it to us.
+        Try the button below. If that doesn't help, copy the report and send it to us.
       </p>
       <textarea
         className={styles.report}
@@ -79,8 +87,8 @@ function ErrorFallback({ report }: { report: string | null }) {
         <button type="button" onClick={copy}>
           Copy report
         </button>
-        <button type="button" onClick={reset}>
-          Reset &amp; reload
+        <button type="button" onClick={recover}>
+          {hasWaitingUpdate ? 'Finish pending update' : 'Reset & reload'}
         </button>
       </div>
     </div>
