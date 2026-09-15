@@ -1,4 +1,4 @@
-import { describe, it, expect, vi } from 'vitest'
+import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest'
 import { render, screen, waitFor } from '@testing-library/react'
 import { ErrorBoundary } from './ErrorBoundary'
 
@@ -12,6 +12,16 @@ function Bomb(): never {
 function silenceConsoleError() {
   return vi.spyOn(console, 'error').mockImplementation(() => {})
 }
+
+beforeEach(() => {
+  localStorage.clear()
+  sessionStorage.clear()
+  vi.stubGlobal('fetch', vi.fn().mockResolvedValue(new Response()))
+})
+
+afterEach(() => {
+  vi.unstubAllGlobals()
+})
 
 describe('ErrorBoundary', () => {
   it('renders its children when nothing throws', () => {
@@ -43,6 +53,87 @@ describe('ErrorBoundary', () => {
     }
   })
 
+  it('does not send a report on its own — "Send report" stays manual by default', async () => {
+    const spy = silenceConsoleError()
+    try {
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      await waitFor(() => {
+        expect((screen.getByLabelText('Crash report') as HTMLTextAreaElement).value).toContain('Error: kaboom')
+      })
+      expect(fetch).not.toHaveBeenCalled()
+      expect(screen.getByRole('button', { name: 'Send report' })).toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: 'Automatically send future crash reports' })).not.toBeChecked()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('sends the report when "Send report" is pressed, and hides the button afterward', async () => {
+    const spy = silenceConsoleError()
+    try {
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      const user = (await import('@testing-library/user-event')).default.setup()
+      await waitFor(() => screen.getByRole('button', { name: 'Send report' }))
+
+      await user.click(screen.getByRole('button', { name: 'Send report' }))
+
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('button', { name: 'Send report' })).not.toBeInTheDocument()
+      expect(screen.getByText(/a report was sent/i)).toBeInTheDocument()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('sends immediately, with no button needed, once the device has opted into auto-send', async () => {
+    const spy = silenceConsoleError()
+    try {
+      localStorage.setItem('zahlenkoenig:auto-send-crash-reports', '1')
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      await waitFor(() => {
+        expect(fetch).toHaveBeenCalledTimes(1)
+      })
+      expect(screen.queryByRole('button', { name: 'Send report' })).not.toBeInTheDocument()
+      expect(screen.getByRole('checkbox', { name: 'Automatically send future crash reports' })).toBeChecked()
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
+  it('ticking the checkbox sends the already-collected report and remembers the preference', async () => {
+    const spy = silenceConsoleError()
+    try {
+      render(
+        <ErrorBoundary>
+          <Bomb />
+        </ErrorBoundary>,
+      )
+      const user = (await import('@testing-library/user-event')).default.setup()
+      await waitFor(() => screen.getByRole('button', { name: 'Send report' }))
+      expect(fetch).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('checkbox', { name: 'Automatically send future crash reports' }))
+
+      expect(fetch).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('button', { name: 'Send report' })).not.toBeInTheDocument()
+      expect(localStorage.getItem('zahlenkoenig:auto-send-crash-reports')).toBe('1')
+    } finally {
+      spy.mockRestore()
+    }
+  })
+
   it('offers a reset action that does not throw even with no service worker/caches support', async () => {
     const spy = silenceConsoleError()
     try {
@@ -52,10 +143,12 @@ describe('ErrorBoundary', () => {
         </ErrorBoundary>,
       )
       const user = (await import('@testing-library/user-event')).default.setup()
-      // Neither button should throw when pressed, even in an environment
+      // None of these should throw when pressed, even in an environment
       // (jsdom) with no Clipboard API and no service worker — the same
       // "answer, never crash" posture the rest of the app's fallbacks take.
       await user.click(screen.getByRole('button', { name: 'Copy report' }))
+      await waitFor(() => screen.getByRole('button', { name: 'Send report' }))
+      await user.click(screen.getByRole('button', { name: 'Send report' }))
       await user.click(screen.getByRole('button', { name: 'Reset & reload' }))
     } finally {
       spy.mockRestore()
@@ -85,7 +178,6 @@ describe('ErrorBoundary', () => {
       })
     } finally {
       spy.mockRestore()
-      vi.unstubAllGlobals()
     }
   })
 })

@@ -1,10 +1,12 @@
 // Catches a crash inside the mounted app and turns it into something a
 // player can act on, rather than a blank screen with no way back — the
 // same "never a silent dead end" posture core/hints.ts's dead-end border
-// and useShare.ts's clipboard fallback already take. A report a player can
-// copy and hand to us is the whole point: this app has no analytics, no
-// error-tracking service and no server, so a crash on somebody's phone is
-// otherwise completely invisible to anyone but them.
+// and useShare.ts's clipboard fallback already take. This app has no
+// analytics, no error-tracking service and no server, so a crash on
+// somebody's phone was otherwise completely invisible to anyone but them —
+// reportCrash.ts's "Send report" button closes that gap (a player has no
+// reliable way to reach us on their own), with "Copy report" alongside it
+// for anyone who'd rather send it somewhere else themselves.
 //
 // This only ever catches a crash *inside the render tree after it mounted*
 // (React error boundaries can't catch anything else — not an event
@@ -12,9 +14,10 @@
 // component's own JS ever runs). index.html's own inline watchdog script
 // covers that earlier failure mode; see its comment for why it can't share
 // this component's code.
-import { Component, type ErrorInfo, type ReactNode } from 'react'
+import { Component, useEffect, useState, type ErrorInfo, type ReactNode } from 'react'
 import { collectDiagnostics } from './diagnostics'
 import { recoverAppState } from './reset'
+import { getAutoSendPreference, sendCrashReport, setAutoSendPreference } from './reportCrash'
 import styles from './ErrorBoundary.module.css'
 
 interface Props {
@@ -56,12 +59,35 @@ function ErrorFallback({ report }: { report: string | null }) {
   // fact.
   const hasWaitingUpdate = report?.includes('waiting: true') ?? false
 
+  const [reportSent, setReportSent] = useState(false)
+  const [autoSend, setAutoSend] = useState(() => getAutoSendPreference())
+
+  // Covers both ways a report ends up sent without a separate "send now"
+  // path: the preference was already on from an earlier crash (fires the
+  // moment `report` itself becomes available), and the checkbox below
+  // being ticked for the first time while a report is already sitting
+  // there. sendCrashReport's own sessionStorage dedupe means toggling the
+  // checkbox back and forth can't send a duplicate.
+  useEffect(() => {
+    if (report && autoSend) setReportSent(sent => sendCrashReport(report) || sent)
+  }, [report, autoSend])
+
   const copy = () => {
     void navigator.clipboard?.writeText(text).catch(() => {
       // No Clipboard API, or no permission — the textarea below is still
       // there to select by hand, the same fallback useShare.ts's own
       // clipboard path relies on.
     })
+  }
+
+  const sendNow = () => {
+    if (!report) return
+    setReportSent(sent => sendCrashReport(report) || sent)
+  }
+
+  const toggleAutoSend = (checked: boolean) => {
+    setAutoSendPreference(checked)
+    setAutoSend(checked)
   }
 
   const recover = () => {
@@ -74,7 +100,9 @@ function ErrorFallback({ report }: { report: string | null }) {
     <div className={styles.wrap} role="alert">
       <p className={styles.title}>Something went wrong.</p>
       <p className={styles.hint}>
-        Try the button below. If that doesn't help, copy the report and send it to us.
+        {reportSent
+          ? 'Thanks — a report was sent. Try the button below to get back into the game.'
+          : 'Send a report to help us fix this, or copy it and send it yourself. Then try the button below to get back into the game.'}
       </p>
       <textarea
         className={styles.report}
@@ -87,10 +115,19 @@ function ErrorFallback({ report }: { report: string | null }) {
         <button type="button" onClick={copy}>
           Copy report
         </button>
+        {!reportSent && (
+          <button type="button" onClick={sendNow} disabled={!report}>
+            Send report
+          </button>
+        )}
         <button type="button" onClick={recover}>
           {hasWaitingUpdate ? 'Finish pending update' : 'Reset & reload'}
         </button>
       </div>
+      <label className={styles.checkbox}>
+        <input type="checkbox" checked={autoSend} onChange={e => toggleAutoSend(e.currentTarget.checked)} />
+        Automatically send future crash reports
+      </label>
     </div>
   )
 }
