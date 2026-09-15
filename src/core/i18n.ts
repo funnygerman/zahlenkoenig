@@ -108,6 +108,20 @@ interface Strings {
    * a change would land instead of just refusing one.
    */
   selectionLocked: string
+  /**
+   * Why the hint button is muted (hint round follow-up, PO). Shown on
+   * tapping it, the same shape as `selectionLocked` — a `disabled` button
+   * gives no feedback at all, which real-device reports read as "hinting
+   * is hanging" rather than as a deliberate stop. Two distinct reasons,
+   * because they are different facts: `hintSpent` is the budget, and
+   * `hintComplete` is "there is nothing left to suggest" (the board is
+   * already correct). The old third reason — "the puzzle's last two chips
+   * are always yours" — is gone with the rule that produced it: it turned
+   * out to be the more common trigger of the two, since it muted the icon
+   * with budget still unspent on any puzzle a player mostly built by hand.
+   */
+  hintSpent: string
+  hintComplete: string
 }
 
 const de: Strings = {
@@ -130,6 +144,8 @@ const de: Strings = {
   sharePrompt: 'Schaffst du das?',
   shareCopied: 'Link kopiert',
   selectionLocked: 'Die Auswahl gilt nur für neue Rätsel',
+  hintSpent: 'Keine Tipps mehr für dieses Rätsel',
+  hintComplete: 'Nichts mehr zu tippen',
   introGoal: 'Erreiche die Zahl im blauen Feld.',
   introRule: 'Benutze jede Zahl genau einmal.',
   introHow: 'Tippe auf eine Zahl, dann auf ein Rechenzeichen.',
@@ -160,6 +176,8 @@ const en: Strings = {
   sharePrompt: 'Can you solve it?',
   shareCopied: 'Link copied',
   selectionLocked: 'Settings apply to new puzzles only',
+  hintSpent: 'No hints left for this puzzle',
+  hintComplete: 'Nothing left to hint',
   introGoal: 'Reach the number in the blue field.',
   introRule: 'Use every number exactly once.',
   introHow: 'Tap a number, then an operator.',
@@ -190,6 +208,8 @@ const ru: Strings = {
   sharePrompt: 'А ты сможешь?',
   shareCopied: 'Ссылка скопирована',
   selectionLocked: 'Настройки действуют только для новых задач',
+  hintSpent: 'Подсказки для этой задачи закончились',
+  hintComplete: 'Больше нечего подсказывать',
   introGoal: 'Получи число в синем поле.',
   introRule: 'Используй каждое число ровно один раз.',
   introHow: 'Нажми на число, потом на знак.',

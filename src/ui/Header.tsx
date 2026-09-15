@@ -57,15 +57,26 @@ export interface HeaderProps {
   /** concept 10.3: one button, the same on every press — see Board.tsx's useHint for what a press actually does. */
   onPressHint: () => void
   /**
-   * Whether a press would do nothing at all, in which case the button says
-   * so rather than looking live (the hint round's own report was "sometimes
-   * clicking hint does nothing"). `disabled`, not merely dimmed like the
-   * tray's spent operator chips: those stay droppable targets for a drag,
-   * and this is a plain button with nothing but its click — the same reason
-   * the `=` chip is genuinely disabled, and rejoins the tab order the
-   * moment it isn't.
+   * Whether a press would do nothing at all. Used to be a plain `disabled`
+   * button, on the reasoning that this has nothing but its click, unlike
+   * the tray's spent operator chips (still droppable targets for a drag).
+   * That reasoning missed the actual cost: a `disabled` button gets no
+   * pointer events at all, so it can never explain itself, and a crash
+   * report investigation that started as "hinting is hanging" traced the
+   * complaint to exactly that — a muted icon giving zero feedback. It's
+   * `aria-disabled` now, the same choice the share round already made for
+   * the muted selection chip, for the same reason: tapping it answers,
+   * with `hintMutedReason` below.
    */
   hintMuted?: boolean
+  /**
+   * Why the icon is muted, shown on tapping it and withdrawn on its own —
+   * the same shape as the selection chip's own `selectionLocked` note.
+   * `null` whenever `hintMuted` is false (or the one case that can't
+   * happen for a generated puzzle — see `useHint.ts`'s own note on
+   * `hintReason`).
+   */
+  hintMutedReason?: 'complete' | 'spent' | null
   /**
    * Whether this puzzle gives no hints at all — two numbers (PO), where
    * three chips is the whole board. The icon is left out entirely rather
@@ -189,16 +200,24 @@ function cx(...parts: Array<string | false | undefined>): string {
   return parts.filter(Boolean).join(' ')
 }
 
-export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintHidden = false, selectionHidden = false, selectionLocked = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
+export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUniqueOnly, onPressHint, hintMuted = false, hintMutedReason = null, hintHidden = false, selectionHidden = false, selectionLocked = false, onShare, shareCopied = false, shareHidden = false }: HeaderProps) {
   const [open, setOpen] = useState(false)
   // Why the chip is muted, shown on tapping it and withdrawn on its own —
   // the same shape as the share button's "link copied" confirmation, since
   // both are a one-line answer to a tap rather than a state to dismiss.
   const [showLockedNote, setShowLockedNote] = useState(false)
   const noteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Same shape, for the hint icon's own muted explanation — a separate
+  // timer since the two notes answer separate taps and shouldn't be able
+  // to cancel each other.
+  const [showHintNote, setShowHintNote] = useState(false)
+  const hintNoteTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const rootRef = useRef<HTMLDivElement>(null)
 
-  useEffect(() => () => { if (noteTimer.current) clearTimeout(noteTimer.current) }, [])
+  useEffect(() => () => {
+    if (noteTimer.current) clearTimeout(noteTimer.current)
+    if (hintNoteTimer.current) clearTimeout(hintNoteTimer.current)
+  }, [])
 
   // Concept 15.6: "Geschlossen wird durch Tippen daneben oder Esc" — never
   // by a change inside it, which is why this isn't just onBlur on the panel.
@@ -266,9 +285,25 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
       )}
 
       {/* The header's right slot (concept 12.7's "rechts ein Symbol: Tipp"),
-          unchanged — the hint is where it has always been. */}
+          unchanged — the hint is where it has always been. `aria-disabled`,
+          not `disabled` (see hintMuted's own note): muted still means "tap
+          it and it explains", same as the selection chip. */}
       {!hintHidden && (
-        <button type="button" className={`${styles.iconButton} ${styles.hintButton}`} onClick={onPressHint} disabled={hintMuted} aria-label={t(settings.language, 'hintLabel')}>
+        <button
+          type="button"
+          className={`${styles.iconButton} ${styles.hintButton}`}
+          aria-disabled={hintMuted || undefined}
+          aria-label={t(settings.language, 'hintLabel')}
+          onClick={() => {
+            if (hintMuted) {
+              setShowHintNote(true)
+              if (hintNoteTimer.current) clearTimeout(hintNoteTimer.current)
+              hintNoteTimer.current = setTimeout(() => setShowHintNote(false), LOCKED_NOTE_MS)
+              return
+            }
+            onPressHint()
+          }}
+        >
           <HintIcon />
         </button>
       )}
@@ -289,6 +324,17 @@ export function Header({ settings, onSetNumbers, onToggleOp, onSetBand, onSetUni
           player can see this, since they just tapped the header. */}
       {showLockedNote && (
         <div className={styles.lockedNote} role="status">{t(settings.language, 'selectionLocked')}</div>
+      )}
+
+      {/* Above the header, right-anchored to the hint button — mirrors
+          .copied's own placement above the share button, on the opposite
+          edge. Not below: measured against a real render and a note
+          dropped under the hint icon lands on the target chip one row
+          down (Header.module.css's .hintNote has the full account). */}
+      {showHintNote && hintMutedReason && (
+        <div className={styles.hintNote} role="status">
+          {t(settings.language, hintMutedReason === 'complete' ? 'hintComplete' : 'hintSpent')}
+        </div>
       )}
 
       {open && !selectionLocked && (

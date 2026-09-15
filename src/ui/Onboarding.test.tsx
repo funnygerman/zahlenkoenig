@@ -129,7 +129,10 @@ describe('onboarding — the second board is not marked as a dead end', () => {
 
     const hint = screen.getByRole('button', { name: 'Tipp' })
     let presses = 0
-    while (!(hint as HTMLButtonElement).disabled && presses < 10) {
+    // aria-disabled, not the native `disabled` property (hintMuted's own
+    // note in Header.tsx) — the button stays clickable once muted, it just
+    // explains itself instead of placing a chip.
+    while (hint.getAttribute('aria-disabled') !== 'true' && presses < 10) {
       await user.click(hint)
       presses++
     }

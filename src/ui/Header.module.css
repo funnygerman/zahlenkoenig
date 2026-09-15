@@ -76,14 +76,16 @@
   border-radius: 50%;
 }
 
-.iconButton:hover:not(:disabled) {
+.iconButton:hover:not([aria-disabled='true']) {
   color: var(--zk-accent);
   background: hsl(var(--hue) 62% 42% / 0.08);
 }
 
-/* The hint round: a press that would do nothing (this puzzle's two hints
- * spent, or nothing left to hint about) shows as spent rather than live. */
-.iconButton:disabled {
+/* The hint round: a press that would do nothing (this puzzle's hints
+ * spent, or nothing left to hint about) shows as spent rather than live.
+ * `aria-disabled`, not `disabled` (hintMuted's own note in Header.tsx): a
+ * muted icon still needs to receive the tap that explains itself. */
+.iconButton[aria-disabled='true'] {
   opacity: .3;
   cursor: default;
 }
@@ -137,6 +139,29 @@
   color: var(--zk-bg);
   background: var(--zk-accent);
   pointer-events: none;
+}
+
+/* The hint icon's own muted explanation (hint round follow-up). Tried
+ * below the header first, reusing .lockedNote's own drop — measured in a
+ * real browser and it overlapped the target chip directly: that 20px drop
+ * clears the target chip only because .lockedNote is *centred*, landing
+ * over the field's left-hand scaffold, while the hint icon sits at the
+ * header's own right edge, directly above the target chip one row down.
+ * .copied's own placement (above the header, not below) is what actually
+ * fits a right-anchored note: same shape as the share button's own
+ * confirmation, just mirrored to the opposite edge. */
+.hintNote {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 4px);
+  padding: 3px 8px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  white-space: nowrap;
+  color: var(--zk-bg);
+  background: var(--zk-accent);
+  pointer-events: none;
+  z-index: 2;
 }
 
 .mini {

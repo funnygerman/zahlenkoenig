@@ -100,9 +100,31 @@ describe('Header — the hint button (concept 10.3)', () => {
     expect(screen.getByRole('button', { name: 'Hint' })).toBeEnabled()
   })
 
-  it('is muted rather than absent once a press would do nothing', () => {
-    render(<Header {...baseProps} hintMuted />)
-    expect(screen.getByRole('button', { name: 'Hint' })).toBeDisabled()
+  // aria-disabled, not disabled (hintMuted's own note): a real `disabled`
+  // button gets no pointer events at all, so it can never explain itself —
+  // a crash report investigation that started as "hinting is hanging"
+  // traced the complaint to exactly that.
+  it('is muted rather than absent once a press would do nothing, but still tappable', () => {
+    render(<Header {...baseProps} hintMuted hintMutedReason="spent" />)
+    const button = screen.getByRole('button', { name: 'Hint' })
+    expect(button).toBeEnabled() // not the native `disabled` attribute
+    expect(button.getAttribute('aria-disabled')).toBe('true')
+  })
+
+  it('does not press the hint, and says why instead, once muted', async () => {
+    const user = userEvent.setup()
+    const onPressHint = vi.fn()
+    render(<Header {...baseProps} onPressHint={onPressHint} hintMuted hintMutedReason="spent" />)
+    await user.click(screen.getByRole('button', { name: 'Hint' }))
+    expect(onPressHint).not.toHaveBeenCalled()
+    expect(screen.getByRole('status').textContent).toBe('No hints left for this puzzle')
+  })
+
+  it('gives the other reason when the board is already correct rather than the budget being spent', async () => {
+    const user = userEvent.setup()
+    render(<Header {...baseProps} hintMuted hintMutedReason="complete" />)
+    await user.click(screen.getByRole('button', { name: 'Hint' }))
+    expect(screen.getByRole('status').textContent).toBe('Nothing left to hint')
   })
 
   it('is absent entirely on a puzzle that has no hints to give', () => {

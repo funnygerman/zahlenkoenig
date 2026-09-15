@@ -70,10 +70,10 @@ describe('Board — the hint button (concept 10.3, revised by the hint round)', 
 
   it('gives a two-number puzzle none at all, and says so rather than muting (PO)', () => {
     const ref = createRef<BoardHandle>()
-    const seen: { offered: boolean; available: boolean }[] = []
+    const seen: { offered: boolean; available: boolean; reason: 'complete' | 'spent' | null }[] = []
     render(<Board ref={ref} numbers={[3, 4]} target={7} ops={PUZZLE.ops} onHintState={s => seen.push(s)} />)
 
-    expect(seen[seen.length - 1]).toEqual({ offered: false, available: false })
+    expect(seen[seen.length - 1]).toEqual({ offered: false, available: false, reason: null })
     press(ref)
     press(ref)
     expect(placed()).toHaveLength(0) // three chips is the whole board; a hint there is the answer
@@ -81,47 +81,48 @@ describe('Board — the hint button (concept 10.3, revised by the hint round)', 
 
   it('reports itself unavailable once the budget is spent, so the header can mute the icon', () => {
     const ref = createRef<BoardHandle>()
-    const seen: { offered: boolean; available: boolean }[] = []
+    const seen: { offered: boolean; available: boolean; reason: 'complete' | 'spent' | null }[] = []
     render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} onHintState={s => seen.push(s)} />)
 
-    expect(seen[seen.length - 1]).toEqual({ offered: true, available: true })
+    expect(seen[seen.length - 1]).toEqual({ offered: true, available: true, reason: null })
     for (let i = 0; i < 4; i++) press(ref)
-    expect(seen[seen.length - 1]).toEqual({ offered: true, available: false })
+    expect(seen[seen.length - 1]).toEqual({ offered: true, available: false, reason: 'spent' })
   })
 
 })
 
-describe('Board — the last two chips are always the player\'s (PO)', () => {
-  it('mutes rather than placing when only two chips are missing', async () => {
+// The last-two-chips rule (concept: "the hint never places either of the
+// puzzle's last two chips") was taken back by the PO once a crash report
+// investigation that started as "hinting is hanging" traced most of that
+// complaint to exactly this rule: it muted the icon with a player's own
+// budget still fully untouched, on any puzzle built mostly by hand — see
+// useHint.ts's own note. What replaces it is the invariant that actually
+// has to hold: a hint never crashes on an empty plan, and mutes with a
+// truthful reason once there is genuinely nothing left to give.
+describe('Board — a hint can finish the puzzle now, as long as the budget allows', () => {
+  it('places the puzzle’s very last chip, unlike the old last-two-chips rule', async () => {
     const user = userEvent.setup()
     const ref = createRef<BoardHandle>()
-    const seen: { offered: boolean; available: boolean }[] = []
+    const seen: { offered: boolean; available: boolean; reason: 'complete' | 'spent' | null }[] = []
     render(<Board ref={ref} numbers={[3, 4, 5]} target={12} ops={['+'] as Operator[]} onHintState={s => seen.push(s)} />)
 
     // build the row by hand to within two chips of done: 3 + 4 + _ needs
-    // one operator and one number, and the hint must supply neither.
+    // one operator and one number, and the budget is completely untouched.
     const tapTray = async (text: string) => {
       const chip = screen.getAllByText(text, { selector: 'button' }).find(b => !b.className.includes('_field_') && !(b as HTMLButtonElement).disabled)
       if (chip) await user.click(chip)
     }
     for (const step of ['3', '+', '4']) await tapTray(step)
     expect(placed()).toHaveLength(3)
+    expect(seen[seen.length - 1]).toEqual({ offered: true, available: true, reason: null }) // no longer muted here
 
-    expect(seen[seen.length - 1].available).toBe(false) // the icon is already muted
     press(ref)
     press(ref)
-    expect(placed()).toHaveLength(3) // and pressing it changes nothing
-  })
+    expect(placed()).toHaveLength(5) // the hint finished the puzzle
 
-  it('does place the third-from-last chip — the rule is the last two, not the last three', async () => {
-    const user = userEvent.setup()
-    const ref = createRef<BoardHandle>()
-    render(<Board ref={ref} numbers={[3, 4, 5]} target={12} ops={['+'] as Operator[]} />)
-
-    const chip = screen.getAllByText('3', { selector: 'button' }).find(b => !b.className.includes('_field_'))!
-    await user.click(chip) // 4 chips left after this
-    press(ref)
-    expect(placed()).toHaveLength(2)
+    press(ref) // nothing left to hint now — mutes, with the honest reason
+    expect(placed()).toHaveLength(5)
+    expect(seen[seen.length - 1]).toEqual({ offered: true, available: false, reason: 'complete' })
   })
 })
 
