@@ -248,21 +248,41 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
   const offered = budget > 0
 
   /**
-   * The hint never places either of the puzzle's **last two chips** (PO).
-   * `hint.moves.length` is exactly how many chips still finish this board,
-   * so the rule is one comparison — but it is the load-bearing one: the
-   * budget alone only guarantees the player finishes the puzzle themselves
-   * while the *accounting* holds, and the accounting has already been
-   * laundered once (take a hinted operator off, put an identical one back
-   * by hand, and its freshly minted id is not the one the hint recorded —
-   * see `Contribution`). That hole is closed, but this rule is what makes
-   * it not matter: whatever a player does to the budget, the last two chips
-   * are theirs.
+   * The hint used to never place either of the puzzle's **last two chips**
+   * (PO) — a real `disabled` button gives no feedback at all, and a crash
+   * report investigation that started as "hinting is hanging" traced most
+   * of that complaint to this exact rule: a player who builds most of a
+   * puzzle by hand and reaches for the hint near the end hit a muted icon
+   * with a full, untouched budget behind it (`Hint.test.tsx`'s own
+   * `3 + 4` example — three chips placed entirely by hand, zero hints
+   * spent, icon muted anyway because two chips remained). The PO took the
+   * rule back once that was shown. `hint.moves.length > 0` is what's left
+   * of it — not a difficulty rule any more, just the guard against calling
+   * `onApplyMove` with nothing in the plan (a correctly finished board
+   * still returns a real `Hint`, per `computeHint`'s own contract, just
+   * with an empty `moves` array).
+   *
+   * The rule this leans on for safety now is the budget's own accounting
+   * (`Contribution` matching by what a chip *is*, not by a mintable id —
+   * see its own note on the laundering exploit that made that necessary):
+   * the last-two-chips rule was originally a second, redundant guarantee
+   * on top of that, not the only thing standing between a player and a
+   * hint solving the whole puzzle for them.
    */
-  const LAST_CHIPS_ARE_THE_PLAYERS = 2
-  const canPlace = hint !== null && hint.moves.length > LAST_CHIPS_ARE_THE_PLAYERS && hintsLeft > 0
+  const canPlace = hint !== null && hint.moves.length > 0 && hintsLeft > 0
   /** Whether a press would do anything at all — what mutes the header's hint button. */
   const available = offered && (deadEnd || canPlace)
+
+  /**
+   * Why the button is muted, for the header to explain on a tap rather
+   * than doing nothing (the other half of the same investigation). `null`
+   * whenever a press *would* do something, and also in the one case that
+   * cannot happen for a generated puzzle — `hint === null` without
+   * `deadEnd` set, i.e. `searchIsBlind` — where there is nothing honest to
+   * say beyond what the (also-null) dead-end border already isn't saying.
+   */
+  const hintReason: 'complete' | 'spent' | null =
+    !offered || available || hint === null ? null : hint.moves.length === 0 ? 'complete' : 'spent'
 
   const onPressHint = useCallback(() => {
     if (budget === 0) return
@@ -275,5 +295,5 @@ export function useHint({ expr, tray, target, opsAllowed, numbersCount, onApplyM
     onApplyMove(hint.moves[0])
   }, [budget, canPlace, hint, expr, tray, target, opsAllowed, numbersCount, board, onApplyMove])
 
-  return { deadEnd, blockingIds, hintsLeft, offered, available, onPressHint }
+  return { deadEnd, blockingIds, hintsLeft, offered, available, hintReason, onPressHint }
 }

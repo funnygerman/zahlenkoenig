@@ -40,9 +40,11 @@ export interface BoardProps {
    * puzzle has no hints at all (two numbers — PO) and the icon is hidden
    * rather than shown dead; `available` false means a press would do
    * nothing right now (budget spent, or nothing left to hint about) and the
-   * icon mutes. See the effect in Board that reports it.
+   * icon mutes. `reason` is which of those two it is, for the header to
+   * explain on a tap instead of just sitting muted (`null` whenever
+   * `available` is true). See the effect in Board that reports it.
    */
-  onHintState?: (state: { offered: boolean; available: boolean }) => void
+  onHintState?: (state: { offered: boolean; available: boolean; reason: 'complete' | 'spent' | null }) => void
   /**
    * A short instruction to show in the notation line while the field is
    * still empty (onboarding round). The line is already laid out and
@@ -142,7 +144,9 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // gives two numbers none, the PO's own rule), and the bracket board
   // offers four of the eight chips it takes, stopping well before the drag
   // the card is teaching.
-  useEffect(() => { onHintState?.({ offered: hint.offered, available: hint.available }) }, [hint.offered, hint.available, onHintState])
+  useEffect(() => {
+    onHintState?.({ offered: hint.offered, available: hint.available, reason: hint.hintReason })
+  }, [hint.offered, hint.available, hint.hintReason, onHintState])
 
   // Concept 6.7's dissolve fade: the real trigger is a tap detected by
   // useDrag (handleTap below), not Expression's own onClick (that path

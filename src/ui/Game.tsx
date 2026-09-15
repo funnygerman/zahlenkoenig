@@ -59,7 +59,11 @@ export function Game() {
   // not a child) can mute itself once a press would do nothing — this
   // puzzle's hints are spent, or it is already correctly built — and hide
   // itself entirely on a puzzle that has no hints to give (two numbers, PO).
-  const [hintState, setHintState] = useState({ offered: true, available: true })
+  const [hintState, setHintState] = useState<{ offered: boolean; available: boolean; reason: 'complete' | 'spent' | null }>({
+    offered: true,
+    available: true,
+    reason: null,
+  })
 
   const draw = useCallback(() => {
     setPuzzle(nextPuzzle(settings, recentRef.current ?? [], shapesRef.current ?? []))
@@ -344,6 +348,7 @@ export function Game() {
           onPressHint={() => boardRef.current?.pressHint()}
           hintHidden={!hintState.offered}
           hintMuted={!hintState.available}
+          hintMutedReason={hintState.reason}
           selectionHidden={source.kind === 'onboarding'}
           selectionLocked={source.kind === 'shared' || source.kind === 'history'}
           onShare={share}
