@@ -42,6 +42,44 @@ export interface OnboardingPuzzle {
    * with the operators it was solved under.
    */
   ops: Operator[]
+  /**
+   * A short scripted departure from the guidance's own advice, for the two
+   * boards that teach recovery (PO: "demo for wrong expression", and the
+   * undo beat on the last board).
+   *
+   * The guidance is otherwise *derived* — it shows the very move the hint
+   * button would perform — and that is deliberate: one expression, one
+   * answer (ui/guidance.ts's header). A mistake cannot be derived, because
+   * the search will never advise one, so it has to be written down. What
+   * keeps the two from becoming a second source of truth is that a beat is
+   * keyed on the **board it speaks on** rather than on a step counter: it
+   * applies only while the board reads exactly `at`, and the moment the
+   * player is anywhere else the derived guidance answers again. A beginner
+   * who wanders off the script is therefore never following a line written
+   * for a board they are not on.
+   */
+  script?: readonly ScriptedBeat[]
+}
+
+/** One scripted instruction: the board it speaks on, and the chip to ask for there. */
+export interface ScriptedBeat {
+  /**
+   * The board this beat applies to, exactly as `notation.ts`'s `notate()`
+   * prints it — `''` is the untouched field. A canonical string rather
+   * than a tree, so a beat can be read, written and compared in a test
+   * without building an expression.
+   */
+  at: string
+  /**
+   * What to ask for, instead of what the search would advise. A number
+   * names its **value**, not a leaf id: ids are minted per puzzle, and the
+   * three `1`s of the last board are interchangeable anyway — Board.tsx
+   * resolves it against the tray it actually has.
+   */
+  tap:
+    | { kind: 'number'; value: number }
+    | { kind: 'operator'; op: Operator }
+    | { kind: 'block' }
 }
 
 /**
@@ -96,8 +134,41 @@ export interface OnboardingPuzzle {
  */
 export const ONBOARDING_PUZZLES: readonly OnboardingPuzzle[] = [
   { numbers: [1, 2], target: 3, ops: ['+'] },
-  { numbers: [1, 2, 3], target: 9, ops: ['+', '*'] },
-  { numbers: [1, 1, 1, 3], target: 9, ops: ['+', '*'] },
+  {
+    numbers: [1, 2, 3],
+    target: 9,
+    ops: ['+', '*'],
+    // Three taps into a bracket in the wrong place, and then the repair.
+    // Measured before it was written: on this board *any* wrong bracket
+    // placement makes the target unreachable at once, so the red frame and
+    // the mark on the bracket arrive on the third tap rather than at `=`.
+    // That is why the mistake is three beats and not seven: the longer
+    // version (fill the board out to `(3 × 1) + 2`, press `=` for a red 5,
+    // then repair) has the guidance directing four more taps while the
+    // game is already objecting, which rehearses tapping past a warning.
+    // The `=` verdict needs no lesson — it is a verdict, not a gesture,
+    // and every wrong answer on a real puzzle delivers it.
+    script: [
+      { at: '', tap: { kind: 'number', value: 3 } },
+      { at: '3', tap: { kind: 'operator', op: '*' } },
+      // The mistake itself. A *tapped* block lands at the player's own
+      // anchor (concept 6.1) — here the `3` — while this board needs one
+      // at position 2, so this single tap produces `(3 ×)` and the board
+      // is unreachable. The derived guidance takes it from here.
+      { at: '3 ×', tap: { kind: 'block' } },
+    ],
+  },
+  {
+    numbers: [1, 1, 1, 3],
+    target: 9,
+    ops: ['+', '*'],
+    // The undo beat, placed *after* the drag this board exists for, so the
+    // player meets it having already succeeded at the hard part. `+`
+    // instead of `×` outside the bracket is a dead end with exactly one
+    // chip to blame, which is what lets `findBlockers` mark it and the
+    // guidance name it.
+    script: [{ at: '(1 + 1 + 1)', tap: { kind: 'operator', op: '+' } }],
+  },
 ]
 
 /**

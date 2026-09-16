@@ -56,6 +56,18 @@
   position: absolute;
   top: 0;
   bottom: 0;
+  /* Above the chips inside the bracket, which the edge's hit strip overlaps
+   * by design (concept 6.6 asks for a strip far wider than the 2px stroke,
+   * and the outermost chip starts under it). Without this the edge wins
+   * only because it is `position: absolute` and the chips are not — which
+   * stops being true for ~100ms after any FLIP move, since a chip mid-
+   * spring carries a transform and so paints in the same layer, later in
+   * document order. Measured in a browser: a drag begun within about
+   * 100ms of tapping the block chip grabbed the *number* inside the
+   * bracket instead of the bracket. A human reading the line first never
+   * got there, but the bracket's own drag handle should not depend on how
+   * fast the player is. */
+  z-index: 1;
   width: calc(var(--cell) * .18); /* ~22px hit strip at --cell: 88px+ (concept 6.6) */
   border: 0;
   padding: 0;

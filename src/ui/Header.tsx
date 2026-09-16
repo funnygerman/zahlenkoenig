@@ -167,7 +167,12 @@ function ShareIcon() {
   )
 }
 
-function HintIcon() {
+/**
+ * Exported for the last introduction card (Intro.tsx), which closes by
+ * naming this button beside a real one of it — the same reason the bracket
+ * cards render a real block chip rather than describing the symbol.
+ */
+export function HintIcon() {
   return (
     <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
       <path d="M12 2.9a5.75 5.75 0 0 0-3.4 10.4c.6.45.95 1.15.95 1.9v.25h4.9v-.25c0-.75.35-1.45.95-1.9A5.75 5.75 0 0 0 12 2.9Z" />

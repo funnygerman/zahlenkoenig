@@ -128,24 +128,25 @@ describe('onboarding — the second board teaches the bracket with nothing but t
   })
   afterEach(() => vi.useRealTimers())
 
-  it('points at the block chip first, before any chip that sits around the bracket', async () => {
-    // The order a tap can actually build (guidance.ts's own header): a
-    // tapped block lands at the player's anchor, so the bracket has to
-    // exist before the chips around it do. It is also the order the card
-    // describes, which is not a coincidence.
+  it('opens on its scripted first beat, not on the search\'s own advice', async () => {
+    // This board leads the player into a bracket in the wrong place on
+    // purpose (core/onboarding.ts's `script`), so its first instruction is
+    // the `3` — where the derived guidance, left alone, would open with
+    // the block chip (`guidance.test.tsx` pins that it still does). A
+    // scripted beat is the one thing that outranks the search.
     const user = userEvent.setup()
     render(<Game />)
     await dismissIntro(user)
     expect(document.querySelector('[class*="_guideLine_"]')!.textContent)
-      .toBe('Tippe auf den leuchtenden Chip — er öffnet eine Klammer.')
+      .toBe('Tippe auf die leuchtende Zahl.')
     const marked = document.querySelector('[class*="_tray_"] [class*="_guide_"]')!
-    expect(marked.querySelector('[class*="blockIcon"]')).not.toBeNull()
+    expect(marked.textContent).toBe('3')
   })
 
   it('its card names the bracket and asks for taps, not a drag', () => {
     render(<Game />)
     expect(screen.getByText('Dieses Rätsel braucht eine Klammer.')).toBeInTheDocument()
-    expect(screen.getByText('Dann tippe die Zahlen hinein.')).toBeInTheDocument()
+    expect(screen.getByText('Und wenn sie falsch sitzt, kannst du sie verschieben.')).toBeInTheDocument()
     expect(screen.queryByText(/Zieh eine Zahl auf den Klammerrand/)).not.toBeInTheDocument()
   })
 
@@ -183,6 +184,42 @@ describe('onboarding — the second board teaches the bracket with nothing but t
   it('shows no dead-end border on the empty field', () => {
     render(<Game />)
     expect(field().className).not.toMatch(/_deadEnd_/)
+  })
+
+  it('leads the player into a misplaced bracket, marks it, and names the repair', async () => {
+    // The scripted mistake and its repair, through the real component
+    // rather than through `nextGuidance` — `guidance.test.tsx` plays the
+    // same sequence at the hook level with its own copy of the beat
+    // matching, and this is the test that holds **Board's** copy to it.
+    //
+    // What it pins beyond the sequence: the line and the mark name the
+    // same chip. A recovery line says "the marked bracket", so a mark
+    // derived separately from the line would be this round's version of
+    // the pulse this codebase deleted.
+    const user = userEvent.setup()
+    render(<Game />)
+    await dismissIntro(user)
+
+    const line = () => document.querySelector('[class*="_guideLine_"]')!.textContent
+    await user.click(trayNumbers().find(b => b.textContent === '3')!)
+    expect(line()).toBe('Tippe auf das leuchtende Rechenzeichen.')
+    await user.click(screen.getByRole('button', { name: '×' }))
+    expect(line()).toBe('Tippe auf den leuchtenden Chip — er öffnet eine Klammer.')
+
+    // The mistake. A tapped block lands at the player's own anchor — the
+    // `3` — so this one tap puts the bracket where 9 is out of reach, and
+    // the board says so at once rather than waiting for `=`.
+    const blockChip = screen.getAllByRole('button').find(b => b.querySelector('[class*="blockIcon"]'))!
+    await user.click(blockChip)
+    expect(document.querySelector('[role="status"]')!.textContent).toBe('(3 ×)')
+    expect(field().className).toMatch(/_deadEnd_/)
+    expect(line()).toBe('Orange heißt: so geht es nicht auf. Zieh die Klammer auf die markierte Stelle.')
+
+    // The bracket the line calls "marked" is marked, and the spot it is to
+    // go to is marked too — a destination the player would otherwise have
+    // to guess.
+    expect(document.querySelector('[class*="_group_"][class*="_blocking_"]')).not.toBeNull()
+    expect(document.querySelector('[class*="_guideZone_"], [class*="_guideEdge_"]')).not.toBeNull()
   })
 
   it('offers a hint, and its budget stops it before the puzzle is finished', async () => {

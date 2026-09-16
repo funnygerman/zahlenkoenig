@@ -29,9 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The guidance round below is the
-most recent piece of PO-asked scope; before it the onboarding-bracket
-round; before it, the share
+**Nothing is open that has been scoped.** The recovery round below is the
+most recent piece of PO-asked scope; before it the guidance round, then
+the onboarding-bracket round; before those the share
 round, then the block-anchor round; before those, the three-number-group
 round
 closed the last measured gap (see "Where v2 stands"): the hint's search
@@ -144,6 +144,115 @@ because of this decision.)
 
 ## Where v2 stands
 
+**A recovery round taught the introduction's last two boards that a
+mistake is fixable: a bracket in the wrong place is *moved*, and a wrong
+chip is *tapped back*.** PO-asked scope after concept 16's roadmap was
+finished, not a step. The ask: extend the onboarding puzzles to teach
+moving, undo, and the hint button.
+
+**The round's real finding is that the game already computed the answer
+and only ever showed it as a colour.** `findBlockers` returns the smallest
+set of placed chips whose removal makes the target reachable again — which
+is exactly "what should I take back" — and the dead-end border has been
+drawing that set since the hint round with not one word beside it.
+`guidance.ts` used to return `null` on a dead end on the stated reasoning
+that "press =" is the one thing it must never say; that was right about
+"press =" and wrong about silence. So the three recovery lines are
+**derived**, not scripted, and they work on every board — including a
+generated one, where a stuck player previously got a coloured border and
+no words at all.
+
+*Two limits on it, both deliberate.* It speaks only when **exactly one**
+chip is to blame: where several share it there is no short true sentence,
+and where none does (`findBlockers` returns empty when the empty field
+could not reach the target either) there is nothing to undo. And a bracket
+is offered as a **move** before a removal — taking it back and putting it
+down again is two gestures where dragging it is one, and the second
+gesture would be the same tap that misplaced it. The offer is checked by
+simulating it, the way the block tap already is: dissolve, ask the search
+where a bracket belongs on what is left, make that move with the real
+`moveGroup`, and only offer it if the board that comes out is one the
+search can finish.
+
+**The scripted half is the only thing in the app that outranks the
+search, and it is keyed on the board rather than on a step counter.** A
+mistake cannot be derived — `computeHint` will never advise one — so the
+two boards carry a short `script` (`core/onboarding.ts`'s `ScriptedBeat`):
+`{ at, tap }`, where `at` is the board as `notate()` prints it. A player
+who is anywhere else gets the derived guidance back, which is what stops
+this being the second source of truth this codebase keeps finding. Proven
+by accident in the browser: a mis-aimed drag produced `(×) 3`, a board no
+script names, and the guidance correctly offered to take the stray chip
+back.
+
+*`fired` is the one piece of ordering state, and a mutation test shows why
+it is not optional.* Undoing a scripted mistake puts the board back in
+exactly the state the beat is keyed on, so without it the undo lesson
+walks the player straight back into the mistake — the mutation produces
+`guideOperator → guideUndo → guideOperator → guideUndo …` for ever, which
+a test hangs on rather than failing at.
+
+**The second board's mistake is three taps, not seven, and that was
+measured before it was written.** The PO's draft built `(3 × 1) + 2` and
+pressed `=` for a red 5. Measured: on this board *any* wrong bracket
+placement makes the target unreachable **at once**, so the dead-end frame
+and the mark on the bracket arrive on the third tap. The full draft would
+therefore have the guidance directing four more taps while the game was
+already objecting — rehearsing "tap past the warning", on the board where
+a first-grader forms their model of what the frame means. A UX review
+asked for the same cut and added the line that shipped: name the frame at
+the moment it fires, rather than buying that lesson with four taps. The
+`=` verdict needs no tutorial — it is a verdict, not a gesture, and every
+wrong answer on a real puzzle delivers it.
+
+*The line says **orange**, not red.* `--zk-amber` is hue 38; `--zk-red` is
+the wrong-answer verdict, a different signal. Naming the frame as well
+("der orange Rahmen") was measured and cut: three lines in German and
+English in **landscape**, against the guidance round's own two-line
+budget. All three languages are 41px in both orientations now, measured,
+and the colour word is a bonus rather than the instruction — the second
+half points at a marked chip and a marked spot.
+
+**The second board's card changed its last line rather than growing one.**
+"Dann tippe die Zahlen hinein" is what the guidance now says live, move by
+move, so the card says the thing nothing else states: a bracket that lands
+wrong is moved, not undone (`introBracketMove`). That also prepares the
+scripted mistake, so the frame arriving a moment later reads as the
+promised lesson rather than as a failure.
+
+**The undo beat sits at the *end* of the third board**, after the drag that
+board exists for, so the player meets it having already managed the hard
+part — the same split the onboarding-bracket round made for the same
+reason. `+` instead of `×` outside the bracket is a dead end with exactly
+one chip to blame, which is what lets the marks and the line name the same
+thing.
+
+**The hint button is taught on the last card, not as a guided beat** (PO).
+A guided board already names every move, so "press the lightbulb" there
+would teach the button while doing nothing new; the honest message is
+about the board *after* the introduction. It is an aside under a rule
+rather than a fourth teaching line — three lines get read — and it renders
+beside a real `HintIcon`, the same trick `introBracketOpen` uses with a
+real block chip. `HintIcon` is exported from `Header.tsx` for it.
+
+**The browser check found a latent bug on the very gesture this round
+teaches: the left bracket edge is not hittable for ~100ms after a FLIP
+move.** A chip mid-spring carries a transform, which paints it in the same
+layer as the absolutely-positioned edge and later in document order — so a
+drag begun that fast grabbed the *number inside* the bracket instead. A
+human who reads the line first never got there; a Playwright drag did, on
+its first attempt, and produced `(×) 3`. `.bracketEdge` has `z-index: 1`
+now, so concept 6.6's hit strip does not depend on how fast the player is.
+Confirmed in the browser before and after, and the dissolve tap on a
+settled board behaved identically either way.
+
+*Verified in a real browser* (Playwright, real pointer events, 390px
+portrait and 780×390 landscape, all three languages) by **following the
+guidance blindly**: `1 + 2 = 3`, then `3 × (1 + 2) = 9` with the bracket
+dragged out of its wrong place, then `(1 + 1 + 1) × 3 = 9` with the grow
+drag *and* the undo — no page errors, and neither line nor mark on the
+generated puzzle that follows.
+
 **A guidance round gave the introduction's boards step-by-step help: the
 chip to use next is marked and a line names the gesture.** PO-asked scope
 after concept 16's roadmap was finished, not a step. The ask: *"can we
@@ -195,9 +304,14 @@ boards step by step, taps through the tap handlers and the one drag through
 and can place a block where a finger cannot). Checked against the unfixed
 code first: both bugs fail it, with the reported symptom (`(3 ×)`).
 
-*On a dead end the guidance says nothing.* A complete-but-wrong board looks
-like "no move left" from here, and "press =" is the one piece of advice it
-must never give; the dead-end border and the blocker marks already answer.
+*On a dead end the guidance said nothing* — **superseded by the recovery
+round above, and worth keeping as the shape of the mistake.** The half
+that was right: a complete-but-wrong board looks like "no move left" from
+here, and "press =" is the one piece of advice it must never give. The
+half that was wrong: that the border and the marks "already answer". They
+answer in colour only, over a set `findBlockers` had already computed and
+nothing ever read out loud — so "there is no honest advice here" turned
+out to mean "the advice was sitting one function call away".
 
 *The line has its own row below the tray*, not the notation line's slot
 where the onboarding round's one-shot "tap a number" nudge used to sit.

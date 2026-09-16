@@ -12,12 +12,13 @@ import { useGame } from './useGame'
 import { useHint } from './useHint'
 import { useFlip } from './useFlip'
 import { useDrag, type DragItem, type DropOutcome } from './useDrag'
-import { Tray } from './Tray'
+import { Tray, type TrayGuide } from './Tray'
 import { Expression } from './Expression'
 import { nextGuidance } from './guidance'
 import { Chip } from './Chip'
 import { formatResult, notate } from '../core/notation'
 import type { Operator } from '../core/expression'
+import type { ScriptedBeat } from '../core/onboarding'
 import { t, type Language } from '../core/i18n'
 import './tokens.css'
 import styles from './Game.module.css'
@@ -57,6 +58,15 @@ export interface BoardProps {
    * its budget are for.
    */
   guided?: boolean
+  /**
+   * The scripted departures from that advice, for the boards that teach
+   * recovery (`core/onboarding.ts`'s `ScriptedBeat`). Each beat names the
+   * board it speaks on, so matching is a string comparison against the
+   * notation this component already computes — and a board the script does
+   * not name is guided the derived way, which is what a player who wanders
+   * off it gets.
+   */
+  script?: readonly ScriptedBeat[]
 }
 
 /** Imperative handle so the header's hint icon (concept 12.7), rendered by a sibling in Game.tsx, can trigger a press on the board it belongs to (concept 10.3). */
@@ -106,6 +116,24 @@ const GHOST_VARIANT: Record<DragPayload['role'], 'number' | 'operator' | 'block'
   block: 'block',
 }
 
+/**
+ * A scripted beat, resolved against the tray this board actually has.
+ *
+ * A beat names a number by its **value** rather than by a leaf id (ids are
+ * minted per puzzle, and the third board's three `1`s are interchangeable),
+ * so the first unused slot of that value is the chip to mark. A value the
+ * tray has already spent resolves to nothing and the derived guidance
+ * answers instead, which is the same fallback a board the script does not
+ * name gets.
+ */
+function resolveBeat(beat: ScriptedBeat, trayNumbers: readonly { id: string; value: number; used: boolean }[]): TrayGuide | null {
+  const tap = beat.tap
+  if (tap.kind === 'operator') return { kind: 'operator', op: tap.op }
+  if (tap.kind === 'block') return { kind: 'block' }
+  const slot = trayNumbers.find(n => n.value === tap.value && !n.used)
+  return slot ? { kind: 'number', id: slot.id } : null
+}
+
 /** The dragged chip, redrawn inside the ghost — same variant, same scale, so what follows the finger looks like what was picked up. */
 function GhostChip({ payload }: { payload: DragPayload }) {
   return (
@@ -119,7 +147,7 @@ function GhostChip({ payload }: { payload: DragPayload }) {
   )
 }
 
-export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, guided = false }, ref) {
+export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ numbers, target, ops, onSolved, language = 'de', onHintState, guided = false, script }, ref) {
   const game = useGame({ numbers, target, ops })
   const hint = useHint({
     expr: game.expr,
@@ -228,7 +256,38 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
   // Withheld while a verdict is on screen (`status !== 'idle'`): a board
   // that has just been judged is not waiting for a next move, and the
   // readout above is what the player is reading in that moment.
-  const guidance = guided && game.status === 'idle'
+  //
+  // Withheld only while a *correct* answer is on screen: that board is
+  // finished and the next puzzle is already on its way. A **wrong** one is
+  // the opposite — it is a board waiting to be repaired, and the recovery
+  // lines below are exactly what it is waiting for. (Both were withheld
+  // until this round, which left the line blank at the one moment a
+  // beginner most needs it.)
+  const notation = notate(game.expr)
+
+  // Which scripted beat, if any, speaks on this board. `-1` for every board
+  // the script does not name, which is every board on the first lesson and
+  // most boards on the other two.
+  //
+  // `fired` is the one piece of ordering state here, and it earns its
+  // place: undoing a scripted mistake puts the board back in exactly the
+  // state the beat is keyed on, so without it the undo lesson would walk
+  // the player straight back into the mistake, for ever. A beat is spent
+  // once the board has *left* it.
+  const [fired, setFired] = useState<ReadonlySet<number>>(() => new Set())
+  const beat = script && guided
+    ? script.findIndex((b, i) => b.at === notation && !fired.has(i))
+    : -1
+  const lastBeat = useRef<number | null>(null)
+  useEffect(() => {
+    if (beat !== -1) { lastBeat.current = beat; return }
+    const spent = lastBeat.current
+    if (spent === null) return
+    lastBeat.current = null
+    setFired(prev => (prev.has(spent) ? prev : new Set(prev).add(spent)))
+  }, [beat])
+
+  const guidance = guided && game.status !== 'correct'
     ? nextGuidance({
         plan: hint.plan,
         children: game.expr.root.children,
@@ -238,10 +297,9 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         numbersCount: numbers.length,
         blockTap: game.blockTap,
         submitEnabled: game.submitEnabled,
+        scripted: beat === -1 ? null : resolveBeat(script![beat], game.trayNumbers),
       })
     : null
-
-  const notation = notate(game.expr)
   // Concept 9.2's notation line, revised (PO): the result only ever meant
   // anything to a player who had already committed to the expression, so
   // it's withheld until `=` is pressed rather than appearing live as the
@@ -267,7 +325,12 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           activeZoneId={drag.activeZoneId}
           guideZoneId={guidance?.zone ?? null}
           deadEnd={hint.deadEnd}
-          blockingIds={hint.blockingIds}
+          // The guidance's own marks win where it has any: a recovery line
+          // says "the marked chip", so the chip it means has to be the one
+          // that is marked, and one `findBlockers` call produces both.
+          // Where there is no guidance — every ordinary puzzle — this is
+          // the hint button's own marking, unchanged.
+          blockingIds={guidance?.marked ?? hint.blockingIds}
           verdict={game.status === 'idle' ? null : game.status}
           flipRef={flipRef}
           dissolvingGroupId={dissolvingId}
