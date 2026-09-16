@@ -68,8 +68,21 @@ function ErrorFallback({ report }: { report: string | null }) {
   // being ticked for the first time while a report is already sitting
   // there. sendCrashReport's own sessionStorage dedupe means toggling the
   // checkbox back and forth can't send a duplicate.
+  //
+  // `sendCrashReport` is called *outside* the state updater deliberately.
+  // It is not a pure function of the previous state — it writes its own
+  // sessionStorage dedupe flag and returns `false` on every call after the
+  // first — and React is allowed to invoke an updater more than once for
+  // the same base state (it re-runs them when a render is thrown away).
+  // A second invocation from `sent === false` therefore returns
+  // `false || false`, collapsing `reportSent` back to false *after the
+  // report has already gone out*: the player is shown "Send report" again
+  // and never told it was sent. That is also the shape of an intermittent
+  // CI failure on this file — `fetch` called once, the button still
+  // there — though it could not be reproduced locally to confirm.
   useEffect(() => {
-    if (report && autoSend) setReportSent(sent => sendCrashReport(report) || sent)
+    if (!report || !autoSend) return
+    if (sendCrashReport(report)) setReportSent(true)
   }, [report, autoSend])
 
   const copy = () => {
@@ -82,7 +95,9 @@ function ErrorFallback({ report }: { report: string | null }) {
 
   const sendNow = () => {
     if (!report) return
-    setReportSent(sent => sendCrashReport(report) || sent)
+    // Same reason as the effect above: the send happens here, the state
+    // update only records it.
+    if (sendCrashReport(report)) setReportSent(true)
   }
 
   const toggleAutoSend = (checked: boolean) => {
