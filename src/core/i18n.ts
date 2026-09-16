@@ -83,8 +83,15 @@ interface Strings {
   introBracketLead: string
   /** Rendered beside a real block chip, so the sentence never has to name the symbol in words — on both bracket cards, since both start with that tap. */
   introBracketOpen: string
-  /** The second card's last line: a two-number bracket needs no drag at all. */
-  introBracketFill: string
+  /**
+   * The second card's last line. It used to read "then tap the numbers
+   * into it", which the guidance now says live, move by move — so the line
+   * says the thing the board actually teaches that nothing else states:
+   * a bracket that lands in the wrong place is moved, not undone. It also
+   * prepares the scripted mistake, so that the red frame arriving a moment
+   * later reads as the promised lesson rather than as a failure.
+   */
+  introBracketMove: string
   /** The third card's first line — what has changed since the second card, which is the only thing it teaches. */
   introGrowLead: string
   introBracketGrow: string
@@ -106,6 +113,37 @@ interface Strings {
   guideBlockDrag: string
   guideGrow: string
   guideSubmit: string
+  /**
+   * The three recovery lines — what to do on a board that can no longer
+   * reach the target. They are the guidance's answer to a state it used to
+   * meet in silence, and the only lines that talk about a chip already on
+   * the board.
+   *
+   * `guideMoveBlock` names the dead-end frame before naming the gesture,
+   * and it is the one line here allowed two sentences: it is the first one
+   * a player ever sees (the second onboarding board puts it there on
+   * purpose), and a warning nobody explains reads as decoration.
+   *
+   * It says *orange* rather than red, because that is what `--zk-amber`
+   * is — `--zk-red` is the wrong-answer verdict, a different signal
+   * entirely. Naming the frame as well ("der orange Rahmen") was measured
+   * and cut: it runs to three lines in German and English in landscape,
+   * against the guidance round's own two-line budget, and the colour word
+   * is a bonus rather than the instruction — the sentence's second half
+   * points at a marked chip and a marked spot, which is what a player who
+   * cannot tell the colours apart follows anyway.
+   */
+  guideMoveBlock: string
+  guideDissolve: string
+  guideUndo: string
+  /**
+   * The last introduction card's closing aside, rendered beside a real
+   * hint icon the way `introBracketOpen` is rendered beside a real block
+   * chip. An aside rather than a fourth teaching line: the three lines
+   * above are about the board in front of the player, and this one is
+   * about every board after it.
+   */
+  introHint: string
   /** The page footer's second line — the label of a link to the PO's ko-fi page (footer/history round; the URL itself lives in Game.tsx, not here). */
   footerCoffee: string
   /**
@@ -177,7 +215,7 @@ const de: Strings = {
   introStart: 'Los geht’s',
   introBracketLead: 'Dieses Rätsel braucht eine Klammer.',
   introBracketOpen: 'Tippe hierauf, um eine zu öffnen.',
-  introBracketFill: 'Dann tippe die Zahlen hinein.',
+  introBracketMove: 'Und wenn sie falsch sitzt, kannst du sie verschieben.',
   introGrowLead: 'Diesmal gehören drei Zahlen in die Klammer.',
   introBracketGrow: 'Zieh eine Zahl auf den Klammerrand, damit sie hineinkommt.',
   guideNumber: 'Tippe auf die leuchtende Zahl.',
@@ -186,6 +224,10 @@ const de: Strings = {
   guideBlockDrag: 'Zieh den leuchtenden Chip auf die markierte Stelle — er öffnet dort eine Klammer.',
   guideGrow: 'Zieh die leuchtende Zahl auf den leuchtenden Klammerrand.',
   guideSubmit: 'Tippe auf das leuchtende =.',
+  guideMoveBlock: 'Orange heißt: so geht es nicht auf. Zieh die Klammer auf die markierte Stelle.',
+  guideDissolve: 'Tippe auf den markierten Klammerrand — die Klammer geht wieder weg.',
+  guideUndo: 'Tippe auf den markierten Chip — er geht zurück in die Ablage.',
+  introHint: 'Steckst du fest, hilft dir das hier weiter.',
 }
 
 const en: Strings = {
@@ -216,7 +258,7 @@ const en: Strings = {
   introStart: 'Let’s go',
   introBracketLead: 'This puzzle needs a bracket.',
   introBracketOpen: 'Tap this to open one.',
-  introBracketFill: 'Then tap the numbers into it.',
+  introBracketMove: 'And if it lands in the wrong place, you can move it.',
   introGrowLead: 'This time three numbers go inside the bracket.',
   introBracketGrow: 'Drag a number onto the bracket edge to put it inside.',
   guideNumber: 'Tap the glowing number.',
@@ -225,6 +267,10 @@ const en: Strings = {
   guideBlockDrag: 'Drag the glowing chip onto the marked spot — it opens a bracket there.',
   guideGrow: 'Drag the glowing number onto the glowing bracket edge.',
   guideSubmit: 'Tap the glowing =.',
+  guideMoveBlock: 'Orange means it can’t reach the target. Drag the bracket onto the marked spot.',
+  guideDissolve: 'Tap the marked bracket edge — the bracket goes away again.',
+  guideUndo: 'Tap the marked chip — it goes back to the tray.',
+  introHint: 'Stuck on a puzzle? This one helps you on.',
 }
 
 const ru: Strings = {
@@ -255,7 +301,7 @@ const ru: Strings = {
   introStart: 'Поехали',
   introBracketLead: 'Здесь нужны скобки.',
   introBracketOpen: 'Нажми сюда, чтобы открыть их.',
-  introBracketFill: 'Потом заполни их, нажимая на числа.',
+  introBracketMove: 'А если они встанут не туда, их можно передвинуть.',
   introGrowLead: 'В этот раз в скобках будут три числа.',
   introBracketGrow: 'Перетащи число на край скобки, чтобы оно оказалось внутри.',
   guideNumber: 'Нажми на светящееся число.',
@@ -264,6 +310,10 @@ const ru: Strings = {
   guideBlockDrag: 'Перетащи светящийся чип на отмеченное место — там откроются скобки.',
   guideGrow: 'Перетащи светящееся число на светящийся край скобки.',
   guideSubmit: 'Нажми на светящееся =.',
+  guideMoveBlock: 'Оранжевая рамка: так не выйдет. Перетащи скобки на отмеченное место.',
+  guideDissolve: 'Нажми на отмеченный край скобки — скобки уберутся.',
+  guideUndo: 'Нажми на отмеченный чип — он вернётся в лоток.',
+  introHint: 'Застрял? Вот это поможет.',
 }
 
 // `Record<Language, Strings>` is what gives every language compile-time key

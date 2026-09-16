@@ -253,13 +253,18 @@ export function Game() {
   //
   // `onboardingPuzzle` is already null while browsing, so the order below
   // is the whole of the precedence rule.
+  // `script` rides along with the rest rather than being read off
+  // `source.puzzle` downstream: only an onboarding puzzle has one, and the
+  // union of the four puzzle shapes does not narrow on a property access.
+  // It is the same reason `ops` is here — one conditional decides
+  // everything about the board on screen.
   const source = historyEntry
-    ? { kind: 'history' as const, key: `hist-${historyIndex}`, puzzle: historyEntry, ops: historyEntry.ops }
+    ? { kind: 'history' as const, key: `hist-${historyIndex}`, puzzle: historyEntry, ops: historyEntry.ops, script: undefined }
     : onboardingPuzzle
-      ? { kind: 'onboarding' as const, key: `onb-${onboardingStep}`, puzzle: onboardingPuzzle, ops: onboardingPuzzle.ops }
+      ? { kind: 'onboarding' as const, key: `onb-${onboardingStep}`, puzzle: onboardingPuzzle, ops: onboardingPuzzle.ops, script: onboardingPuzzle.script }
       : sharedPuzzle
-        ? { kind: 'shared' as const, key: 'shared', puzzle: sharedPuzzle, ops: sharedPuzzle.ops }
-        : { kind: 'live' as const, key: `live-${puzzleKey}`, puzzle, ops: settings.ops }
+        ? { kind: 'shared' as const, key: 'shared', puzzle: sharedPuzzle, ops: sharedPuzzle.ops, script: undefined }
+        : { kind: 'live' as const, key: `live-${puzzleKey}`, puzzle, ops: settings.ops, script: undefined }
 
   const boardKey = source.key
   const displayed = source.puzzle
@@ -365,6 +370,7 @@ export function Game() {
           onSolved={handleSolved}
           onHintState={setHintState}
           guided={source.kind === 'onboarding'}
+          script={source.script}
         />
       </div>
 

@@ -111,3 +111,18 @@
     transform: translateY(8px);
   }
 }
+
+/* The last card's closing aside — the hint button, named once, on the card
+ * before the first board a player is on their own for. Quieter than the
+ * teaching lines above it on purpose: it is about every later board rather
+ * than about this one, and it must not compete with the three lines that
+ * are. The rule above it does the separating, so the aside needs no extra
+ * gap of its own. */
+.aside {
+  margin-top: 2px;
+  padding-top: 12px;
+  border-top: 1px solid var(--zk-line);
+  font-size: 0.85rem;
+  color: var(--zk-ink);
+  opacity: 0.8;
+}

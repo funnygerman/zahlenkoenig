@@ -34,6 +34,8 @@
 
 import { useEffect, useRef } from 'react'
 import { Chip } from './Chip'
+import { HintIcon } from './Header'
+import { ONBOARDING_PUZZLES } from '../core/onboarding'
 import { t, type Language } from '../core/i18n'
 import styles from './Intro.module.css'
 
@@ -94,8 +96,23 @@ export function Intro({ step, language, onDismiss }: IntroProps) {
                 <Chip variant="block" scale="tray" className={styles.icon} tabIndex={-1} aria-hidden="true" />
                 {t(language, 'introBracketOpen')}
               </li>
-              <li className={styles.line}>{t(language, step === 1 ? 'introBracketFill' : 'introBracketGrow')}</li>
+              <li className={styles.line}>{t(language, step === 1 ? 'introBracketMove' : 'introBracketGrow')}</li>
             </>
+          )}
+          {/* The last card closes by naming the one control the
+              introduction never needs — the hint button — because the
+              board after this one is the first a player is on their own
+              for. An aside rather than a fourth teaching line: the three
+              lines above are about the board in front of them, this is
+              about every board after it, and this file's own "three lines
+              get read" rule is about the teaching ones. Same trick as
+              `introBracketOpen` above, with a real icon instead of a
+              description of one. */}
+          {step === ONBOARDING_PUZZLES.length - 1 && (
+            <li className={`${styles.line} ${styles.aside}`}>
+              <HintIcon />
+              {t(language, 'introHint')}
+            </li>
           )}
         </ul>
         <button ref={startRef} type="button" className={styles.start} onClick={onDismiss}>
