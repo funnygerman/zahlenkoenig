@@ -29,8 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The recovery round below is the
-most recent piece of PO-asked scope; before it the guidance round, then
+**Nothing is open that has been scoped.** The visibility round below is
+the most recent piece of PO-asked scope; before it the recovery round,
+then the guidance round, then
 the onboarding-bracket round; before those the share
 round, then the block-anchor round; before those, the three-number-group
 round
@@ -143,6 +144,86 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**A visibility round moved the introduction's instruction line above the
+tray and gave it a reason to be looked at twice.** PO report: *"the hint
+text is easy to miss."* Two separate faults, and only one of them was the
+obvious one.
+
+*The placement was wrong in a way that a desk browser hides.* The line sat
+**below** the tray — past the end of everything, floating in the empty
+space under the board — and on a phone the tray is at the thumb, so the
+row under it is the part of the screen a hand covers. It is directly
+above the tray now, beside the chips it names. This is still its own row
+and **not** the notation line's slot, which the guidance round ruled out
+for a reason that has not changed: notation would be hidden exactly while
+the player builds it.
+
+*The second fault is that nothing marked a change.* The line simply
+swapped one sentence for another, and a player who read the first
+instruction has no reason to look back at the same spot. The text now
+sits in a span keyed on the message, so React replaces it on every new
+instruction and the stylesheet plays a 220ms fade-and-drop on it — an
+`animation`, not a `transition`, for the reason `GhostChip`'s lift
+already records: a transition never runs on mount. The live region around
+it stays mounted. Held under `prefers-reduced-motion`.
+
+**The tinted plate was built first and cut on its own measurements**, which
+is the part worth keeping. Accent text on `--zk-accent-soft` measures
+**2.83:1**, against **5.87:1** for the same text on the page background —
+so the version that shouts loudest is also the hardest to read, which is a
+bad trade in a game whose youngest players are six. It also cost **82px
+instead of 41**, and in landscape that pushed the **footer off the screen**
+(397 of 390) — re-opening a bug this project has already fixed once.
+`font-weight: 600` buys the same salience for nothing: 41px in every
+language and orientation but Russian in landscape, which reaches 62px on
+the one long recovery line and still clips nothing.
+
+*A speech-bubble arrow under the plate was rendered and rejected too*, and
+for the reason this codebase keeps rediscovering: the line is centred, so
+its arrow points at whatever chip happens to sit in the middle — the `2`,
+while the glowing chip was the `×`. A pointer that names the wrong chip is
+the deleted pulse in miniature.
+
+**One measurement in this round was wrong before it was right, and the
+correction is the lesson.** A first contrast probe reported the existing
+line at 3.45:1 — below AA — which would have made "darken the text" the
+headline fix. The probe was reading `document.body`, whose background is
+transparent, so it was measuring against black. Against the real painted
+background (`--zk-bg`, rgb(250,251,252)) the line is **5.87:1, already
+AA**, and contrast was never the problem. An instrument that returns a
+plausible number is not the same as a correct one.
+
+*Pinned as document order, not pixels* (`Onboarding.test.tsx`): the flex
+column follows the DOM and there is no `order` property anywhere in
+`Game.module.css`. Checked against the old placement first — it fails
+there.
+
+*Verified in a real browser* (Playwright, 390px portrait and 780×390
+landscape, all three languages): the guided playthrough still solves all
+three boards, the animation re-runs on each new instruction rather than
+only the first, and nothing clips in either orientation.
+
+**A crash-report defect came out of the same session, from a flaky CI
+run.** `ErrorFallback` called `sendCrashReport` **inside a `setState`
+updater**, in both the auto-send effect and the "Send report" handler.
+That function is not pure in the previous state — it writes its own
+sessionStorage dedupe flag and returns `false` on every call after the
+first — and React may invoke an updater more than once for the same base
+state. A second invocation from `sent === false` yields `false || false`,
+collapsing `reportSent` back to false *after the report has gone out*: the
+player is offered "Send report" again and never told it was sent. The send
+happens outside the updater now.
+
+*It is also the exact shape of the CI failure* — `fetch` called once, the
+button still in the document — which has now happened twice, on this PR
+and on `main`, at the same line, on the commit that introduced the test.
+**It could not be reproduced locally**: 15 sequential runs, 6-way parallel
+runs and a StrictMode run were all green. So the root cause is not proven
+and the fix is not claimed as one; the impure updater is a defect on its
+own terms either way. The test's own assertions moved inside one
+`waitFor`, together with the confirmation text, since `fetch` being called
+and the button leaving the DOM are different moments.
 
 **A recovery round taught the introduction's last two boards that a
 mistake is fixable: a bracket in the wrong place is *moved*, and a wrong

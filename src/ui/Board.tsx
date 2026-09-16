@@ -349,6 +349,36 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         {readout}
       </div>
 
+      {/* Directly above the tray, which is where the chip it names is — it
+          used to sit *below* the tray and was reported as easy to miss.
+          Two things were wrong with that spot rather than one: it was past
+          the end of everything, floating in the empty space under the
+          board, and on a phone the tray is at the thumb, so the line under
+          it is the part of the screen a hand covers. This is still its own
+          row and not the notation line's slot, which the guidance round
+          ruled out for a reason that has not changed: notation would be
+          hidden exactly while the player builds it.
+
+          Rendered as an empty line rather than not at all once the board is
+          solved, so finishing a guided board doesn't shift everything
+          around it by a line's height. It exists on no board but these. */}
+      {guided && (
+        <div className={styles.guideLine} role="status">
+          {/* The text is keyed on the message so React replaces this span
+              whenever the instruction changes, which is what lets the
+              stylesheet play an animation on it: a `transition` never runs
+              on mount, an `animation` does — the same reason GhostChip's
+              lift is an animation (see its own note). The live region
+              itself stays mounted around it. Without this the line simply
+              swaps one sentence for another with nothing to catch the eye,
+              which is the other half of "easy to miss": a player who read
+              the first instruction has no reason to look back. */}
+          <span key={guidance?.message ?? 'none'} className={styles.guideText}>
+            {guidance ? t(language, guidance.message) : ''}
+          </span>
+        </div>
+      )}
+
       <Tray
         numberSlots={game.trayNumbers}
         blockDisabled={game.blockDisabled}
@@ -363,15 +393,6 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         flipRef={flipRef}
         guide={guidance?.tray ?? null}
       />
-
-      {/* Rendered as an empty line rather than not at all once the board
-          is solved, so finishing a guided board doesn't shift everything
-          above it by a line's height. It exists on no board but these. */}
-      {guided && (
-        <div className={styles.guideLine} role="status">
-          {guidance ? t(language, guidance.message) : ''}
-        </div>
-      )}
 
       {/* concept 5.1's "Geisterelement": the chip itself stays put and
           dims, a copy follows the finger. useDrag writes the transform
