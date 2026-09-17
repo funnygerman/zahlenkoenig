@@ -32,6 +32,27 @@ describe('t (i18n round: eight strings, three languages, no interpolation)', () 
       .toBe('nur Rätsel mit einer Lösung')
   })
 
+  it('leaves no full stop at the end of a spoken line (PO)', () => {
+    // The introduction's cards and the step-by-step guidance are the app's
+    // only sentences, and they are addressed to the player rather than
+    // printed at them: one short instruction on a pill, where a closing
+    // full stop reads as paperwork. Internal punctuation stays — the one
+    // two-sentence line (`guideMoveBlock`) still separates its halves, and
+    // `introHint` still asks its question — so this is about the last
+    // character only.
+    const spoken = [
+      'introGoal', 'introRule', 'introHow', 'introStart', 'introBracketLead', 'introBracketOpen',
+      'introBracketMove', 'introGrowLead', 'introBracketGrow', 'introHint',
+      'guideNumber', 'guideOperator', 'guideBlock', 'guideBlockDrag', 'guideGrow', 'guideSubmit',
+      'guideMoveBlock', 'guideDissolve', 'guideUndo',
+    ] as const
+    for (const language of LANGUAGES) {
+      for (const key of spoken) {
+        expect(t(language, key), `${language}.${key}`).not.toMatch(/\.$/)
+      }
+    }
+  })
+
   it('English and Russian differ from German for every key (nothing left untranslated by accident)', () => {
     const keys = [
       'numbersLabel', 'opsLabel', 'targetLabel', 'hintLabel', 'anyBand',

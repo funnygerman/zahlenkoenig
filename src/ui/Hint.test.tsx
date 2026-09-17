@@ -282,7 +282,7 @@ describe('Board — a press on a dead-end board marks what is in the way (PO, hi
 
     press(ref)
     expect(marked()).toHaveLength(1)
-    expect(line()).toBe('Tippe auf den markierten Chip — er geht zurück in die Ablage.')
+    expect(line()).toBe('Tippe auf den markierten Chip — er geht zurück in die Ablage')
 
     await user.click(placed()[placed().length - 1]) // the marks clear on any edit, and so does the line
     expect(line()).toBe('')

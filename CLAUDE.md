@@ -29,8 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The overlay round below is the
-most recent piece of PO-asked scope; before it the dead-end-words round,
+**Nothing is open that has been scoped.** The pill round below is the
+most recent piece of PO-asked scope; before it the overlay round, then
+the dead-end-words round,
 then the visibility round, then the recovery round,
 then the guidance round, then
 the onboarding-bracket round; before those the share
@@ -145,6 +146,57 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**The introduction's line wears the recovery note's pill now, and every
+spoken line lost its closing full stop** (PO: *"ich mag den tooltip viel
+mehr — können wir den auch in onboarding haben?"*, and *"can we remove
+dots at the end of hint and onboarding messages"*). One pill, two
+placements: `.note` is the shape, `.recoveryNote` is the one that floats.
+
+**The half that was *not* copied is the floating, and that was measured
+rather than chosen.** Laid over the board the way the generated puzzle's
+note is, a guided instruction covers **the top 13px of the tray** — in all
+three languages and both orientations, on every two-line message, which is
+most of them (every German and Russian line but the shortest, and the two
+longest English ones). The tray is exactly what a guided line points at, so
+"tap the glowing number" would print itself across the number it means:
+the deleted pulse in miniature. The row also costs nothing here, which is
+the other half of it — on a guided board the line speaks on nearly every
+step, and the PO's phone report was about a row that *stays empty*.
+
+*The pill is the second plate tried behind this line and the first one that
+measures well.* The visibility round built and rejected accent text on
+`--zk-accent-soft` at **2.83:1** — the version that shouted loudest was the
+hardest to read. The pill inverts the pair instead of tinting it:
+`--zk-bg` text on solid `--zk-accent` is **5.87:1**, the very ratio the
+plain line already had. It costs 49px against that line's 41 and against
+the rejected plate's 82, and unlike that one it pushes nothing off the
+screen: the footer is anchored to the bottom of the page rather than to the
+board, measured at **766/780** portrait and **377/390** landscape — the same
+numbers as before, in all three languages.
+
+*The row keeps a fixed two lines of pill*, so the instruction changing from
+one line to two doesn't move the tray under the player's thumb; the pill
+itself is its natural height, centred in that row, rather than stretched to
+fill it.
+
+**The full stops went for the same reason the pill came in.** The
+introduction's cards and the guidance are the app's only sentences, and
+they are addressed to a player rather than printed at them — a closing full
+stop on a one-line instruction reads as paperwork. Internal punctuation
+stays, so `guideMoveBlock` still separates its two halves and `introHint`
+still asks its question; `i18n.test.ts` pins it as "no spoken line ends in
+a full stop" across all three languages, which is the invariant rather than
+a list of the 54 strings that changed.
+
+*Verified in a real browser* (Playwright, real pointer events, 390px
+portrait, all three languages) by **following the guidance blindly**: all
+three boards solve — `1 + 2 = 3`, `3 × (1 + 2) = 9` with the scripted
+misplaced bracket dragged to its marked spot, `(1 + 1 + 1) × 3 = 9` with
+the grow drag and the undo — no page errors, and no guide row on the
+generated puzzle that follows. The recovery note on a generated puzzle is
+unchanged: nothing moves, it never covers the marked chip, on screen in
+both orientations.
 
 **The recovery lines reach generated puzzles now, and they are free** (PO).
 This is the decision the previous round left open once a wrong claim in
