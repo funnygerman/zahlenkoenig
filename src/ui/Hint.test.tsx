@@ -252,6 +252,56 @@ describe('Board — a press on a dead-end board marks what is in the way (PO, hi
     expect(placed()).toHaveLength(before) // the player's board is untouched — marking, never repairing (PO)
   })
 
+  it('says in words what the mark says in colour — on an ordinary puzzle, not just in the introduction', async () => {
+    // PO decision: the recovery line reaches generated puzzles too, and
+    // costs nothing. The mark alone is a colour, and a six-year-old does
+    // not necessarily know that an amber chip means "take me back".
+    //
+    // Keyed on the marks rather than on the dead end itself, which is the
+    // point: the player has to ask (nothing is marked before the press),
+    // and the sentence can only name a chip that is actually marked
+    // because both come from the same blocker set.
+    const user = userEvent.setup()
+    const ref = createRef<BoardHandle>()
+    render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
+
+    // The row is always mounted (Board.tsx explains why); what changes is
+    // whether it carries a sentence.
+    const line = () => document.querySelector('[class*="_guideLine_"]')?.textContent ?? ''
+    // `6 + 2 +` is past saving with one chip to blame — the second `+`.
+    // (The complete `6 + 2 + 9 + 3` blames *two* operators, which is the
+    // case the test below covers.)
+    const tap = async (text: string) => {
+      const candidates = screen.getAllByText(text, { selector: 'button' })
+      await user.click(candidates.find(b => !b.className.includes('_field_')) ?? candidates[0])
+    }
+    for (const step of ['6', '+', '2', '+']) await tap(step)
+    expect(document.querySelector('[class*="deadEnd"]')).not.toBeNull()
+    expect(line()).toBe('') // the border is on, but nothing is said until asked
+
+    press(ref)
+    expect(marked()).toHaveLength(1)
+    expect(line()).toBe('Tippe auf den markierten Chip — er geht zurück in die Ablage.')
+
+    await user.click(placed()[placed().length - 1]) // the marks clear on any edit, and so does the line
+    expect(line()).toBe('')
+  })
+
+  it('stays silent where several chips share the blame, and marks them anyway', async () => {
+    // `findBlockers` can need two removals, and there is no short true
+    // sentence for that — "tap the marked chip" would be wrong about how
+    // many. The marks still say what they always said, which is why the
+    // line is allowed to be the part that gives up.
+    const user = userEvent.setup()
+    const ref = createRef<BoardHandle>()
+    render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
+
+    await buildDeadEnd(user) // 6 + 2 + 9 + 3 — two operators to blame
+    press(ref)
+    expect(marked().length).toBeGreaterThan(1)
+    expect(document.querySelector('[class*="_guideLine_"]')?.textContent).toBe('')
+  })
+
   it('the marks clear again the moment the player moves anything', async () => {
     const user = userEvent.setup()
     const ref = createRef<BoardHandle>()
@@ -480,7 +530,7 @@ describe('Board — the hint lays chips the way a tap does', () => {
     render(<Board ref={ref} numbers={[3, 4, 5]} target={12} ops={['+'] as Operator[]} />)
 
     for (let i = 0; i < 4; i++) press(ref) // the whole budget: three of the five chips
-    expect(screen.getByRole('status').textContent).not.toMatch(/=/)
+    expect(document.querySelector('[class*="_readout_"]')!.textContent).not.toMatch(/=/)
 
     // the player places whatever the hints left and submits it themselves. A
     // real click, not fireEvent: once drag is wired the chips have no onClick
@@ -493,6 +543,6 @@ describe('Board — the hint lays chips the way a tap does', () => {
       await user.click(screen.getAllByText('+', { selector: 'button' }).find(b => !b.className.includes('_field_'))!)
     }
     await user.click(screen.getByText('=', { selector: 'button' }))
-    expect(screen.getByRole('status').textContent).toMatch(/= 12$/)
+    expect(document.querySelector('[class*="_readout_"]')!.textContent).toMatch(/= 12$/)
   })
 })

@@ -7,14 +7,14 @@
 // tap/drag wiring against a known, fixed puzzle and don't need (or want)
 // a random one from the generator.
 
-import { forwardRef, useCallback, useEffect, useImperativeHandle, useRef, useState } from 'react'
+import { forwardRef, useCallback, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react'
 import { useGame } from './useGame'
 import { useHint } from './useHint'
 import { useFlip } from './useFlip'
 import { useDrag, type DragItem, type DropOutcome } from './useDrag'
 import { Tray, type TrayGuide } from './Tray'
 import { Expression } from './Expression'
-import { nextGuidance } from './guidance'
+import { nextGuidance, recoveryFor } from './guidance'
 import { Chip } from './Chip'
 import { formatResult, notate } from '../core/notation'
 import type { Operator } from '../core/expression'
@@ -300,6 +300,36 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         scripted: beat === -1 ? null : resolveBeat(script![beat], game.trayNumbers),
       })
     : null
+
+  // ---------------------------------------------------- recovery (any board)
+  // The one piece of guidance a *generated* puzzle gets (PO). Everything
+  // above is onboarding-only — a forward instruction there would hand over
+  // the solution, which is what the hint button and its budget are for —
+  // but a dead end is different: the game already works out which chip is
+  // to blame and, until this, only ever said so in amber.
+  //
+  // Keyed on `hint.blockingIds` rather than on the dead end itself, which
+  // is what keeps the line honest in two ways at once. The player has to
+  // **ask** (the marks appear on a hint press and not before), and the
+  // sentence can only ever name a chip that is actually marked, because
+  // both come from that one set. It costs nothing — marking never charged
+  // the budget, measured: four dead-end presses still leave all three
+  // placements on a five-chip puzzle.
+  //
+  // Two numbers get nothing here, with no special case for it: `hintBudget`
+  // gives them no hints at all (PO), so there is no button to press and
+  // `blockingIds` stays null. On a three-chip board with one operator slot
+  // the frame is the whole information anyway.
+  const recovery = useMemo(
+    () =>
+      guided || hint.blockingIds === null
+        ? null
+        : recoveryFor(game.expr.root.children, hint.blockingIds, game.tray, target, ops, numbers.length),
+    [guided, hint.blockingIds, game.expr, game.tray, target, ops, numbers.length],
+  )
+
+  /** What the line says, wherever it comes from — the guided walkthrough, or a dead end anybody can reach. */
+  const line = guidance ?? recovery
   // Concept 9.2's notation line, revised (PO): the result only ever meant
   // anything to a player who had already committed to the expression, so
   // it's withheld until `=` is pressed rather than appearing live as the
@@ -323,14 +353,14 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           registerZone={drag.registerZone}
           dragHandlers={drag.dragHandlers}
           activeZoneId={drag.activeZoneId}
-          guideZoneId={guidance?.zone ?? null}
+          guideZoneId={line?.zone ?? null}
           deadEnd={hint.deadEnd}
           // The guidance's own marks win where it has any: a recovery line
           // says "the marked chip", so the chip it means has to be the one
           // that is marked, and one `findBlockers` call produces both.
           // Where there is no guidance — every ordinary puzzle — this is
           // the hint button's own marking, unchanged.
-          blockingIds={guidance?.marked ?? hint.blockingIds}
+          blockingIds={line?.marked ?? hint.blockingIds}
           verdict={game.status === 'idle' ? null : game.status}
           flipRef={flipRef}
           dissolvingGroupId={dissolvingId}
@@ -349,6 +379,51 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         {readout}
       </div>
 
+      {/* Directly above the tray, which is where the chip it names is — it
+          used to sit *below* the tray and was reported as easy to miss.
+          Two things were wrong with that spot rather than one: it was past
+          the end of everything, floating in the empty space under the
+          board, and on a phone the tray is at the thumb, so the line under
+          it is the part of the screen a hand covers. This is still its own
+          row and not the notation line's slot, which the guidance round
+          ruled out for a reason that has not changed: notation would be
+          hidden exactly while the player builds it.
+
+          Rendered as an empty line rather than not at all once the board is
+          solved, so finishing a guided board doesn't shift everything
+          around it by a line's height. It exists on no board but these. */}
+      {/* The row is always here, empty included, on every board — not only
+          the guided ones, and not only when it has something to say.
+          Mounting it on demand was built first and measured: the line is
+          41px, and inserting it between the field and the tray moves the
+          **tray down 27px and the field up 27px** at the exact moment the
+          player has pressed the hint and is about to aim at a chip. A
+          target that moves under a child's finger is the class of bug this
+          codebase has spent whole rounds on.
+          The permanent row costs nothing that shows: the footer does not
+          move (766 of 780 portrait, 377 of 390 landscape, identical either
+          way — an earlier comment here claimed it would be pushed off
+          screen, which was true of the tinted plate at 82px and never of
+          this), and the board simply sits 27px higher inside its own
+          centred area, with no reference point to read that against.
+          It also makes this live region behave: a `role="status"` that is
+          already mounted when its text arrives is announced, where one
+          that mounts carrying text may not be. */}
+      <div className={styles.guideLine} role="status">
+        {/* The text is keyed on the message so React replaces this span
+            whenever the instruction changes, which is what lets the
+            stylesheet play an animation on it: a `transition` never runs
+            on mount, an `animation` does — the same reason GhostChip's
+            lift is an animation (see its own note). The live region
+            itself stays mounted around it. Without this the line simply
+            swaps one sentence for another with nothing to catch the eye,
+            which is the other half of "easy to miss": a player who read
+            the first instruction has no reason to look back. */}
+        <span key={line?.message ?? 'none'} className={styles.guideText}>
+          {line ? t(language, line.message) : ''}
+        </span>
+      </div>
+
       <Tray
         numberSlots={game.trayNumbers}
         blockDisabled={game.blockDisabled}
@@ -361,17 +436,8 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
         onSubmit={game.onSubmit}
         dragHandlers={drag.dragHandlers}
         flipRef={flipRef}
-        guide={guidance?.tray ?? null}
+        guide={line?.tray ?? null}
       />
-
-      {/* Rendered as an empty line rather than not at all once the board
-          is solved, so finishing a guided board doesn't shift everything
-          above it by a line's height. It exists on no board but these. */}
-      {guided && (
-        <div className={styles.guideLine} role="status">
-          {guidance ? t(language, guidance.message) : ''}
-        </div>
-      )}
 
       {/* concept 5.1's "Geisterelement": the chip itself stays put and
           dims, a copy follows the finger. useDrag writes the transform

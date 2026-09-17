@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { Board } from './Board'
 import type { Operator } from '../core/expression'
 
+/**
+ * Concept 9.2's notation line, by its own class rather than by
+ * `getByRole('status')`. A board carries two live regions — this one and
+ * the guidance/recovery line above the tray — so the role alone stopped
+ * identifying anything the moment that second row became permanent.
+ */
+const readout = () => document.querySelector('[class*="_readout_"]') as HTMLElement
+
 // End-to-end smoke test for v2 step 2's actual goal: "ein fest verdrahtetes
 // Rätsel ist spielbar". Exercises the real rendered tree — Board -> useGame
 // + useDrag -> Tray/Expression/Chip — not just the hooks in isolation, so
@@ -115,7 +123,7 @@ describe('Game — a full playthrough via tap alone reaches a correct answer', (
     expect(submit).toBeEnabled()
     await user.click(submit)
 
-    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2) × (9 − 3) = 48')
+    expect(readout()).toHaveTextContent('(6 + 2) × (9 − 3) = 48')
   })
 })
 
@@ -386,7 +394,7 @@ describe('Game — dragging a neighbor into an adjacent block absorbs it whole, 
 
     expect(placedText()).toBe('6 + 2 × 9') // "6" came along too — nothing left outside the block
     expect(document.querySelectorAll('[class*="_group_"]')).toHaveLength(1) // still just one block
-    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+    expect(readout()).toHaveTextContent('(6 + 2 × 9)')
   })
 })
 
@@ -496,7 +504,7 @@ describe('Game — a chip dropped on a block’s bracket edge joins the block th
 
     expect(placedText()).toBe('6 + 2 × 9') // nothing lost — the "+" is still on the board
     expect(inGroupText()).toBe('6 + 2 × 9') // and its "6" came along, inside the block
-    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+    expect(readout()).toHaveTextContent('(6 + 2 × 9)')
   })
 
   it('the same operator on the RIGHT edge joins the block on the right — the side of the drop decides', async () => {
@@ -504,7 +512,7 @@ describe('Game — a chip dropped on a block’s bracket edge joins the block th
     drag(fieldChip('+'), edgeCentre('right'))
 
     expect(inGroupText()).toBe('2 × 9 + 6')
-    expect(screen.getByRole('status')).toHaveTextContent('(2 × 9 + 6)')
+    expect(readout()).toHaveTextContent('(2 × 9 + 6)')
   })
 
   it('a number on the RIGHT edge joins the block too — it used to trade places with the whole block', async () => {
@@ -512,7 +520,7 @@ describe('Game — a chip dropped on a block’s bracket edge joins the block th
     drag(fieldChip('6'), edgeCentre('right'))
 
     expect(inGroupText()).toBe('2 × 9 + 6') // inside, not swapped to the far side of the brackets
-    expect(screen.getByRole('status')).toHaveTextContent('(2 × 9 + 6)')
+    expect(readout()).toHaveTextContent('(2 × 9 + 6)')
   })
 
   it('a number on the LEFT edge joins on the left, and the block is then the whole expression', async () => {
@@ -520,7 +528,7 @@ describe('Game — a chip dropped on a block’s bracket edge joins the block th
     drag(fieldChip('6'), edgeCentre('left'))
 
     expect(inGroupText()).toBe('6 + 2 × 9')
-    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 × 9)')
+    expect(readout()).toHaveTextContent('(6 + 2 × 9)')
   })
 
   it('an operator let go a few px too far, on a number inside the block, bounces back instead of vanishing', async () => {
@@ -553,7 +561,7 @@ describe('Game — a chip dropped on a block’s bracket edge joins the block th
     drag(trayNine, edgeCentre('right'))
 
     expect(inGroupText()).toBe('6 + 2 9') // (6 + 2 ⬚ 9): the empty operator slot came with it
-    expect(screen.getByRole('status')).toHaveTextContent('(6 + 2 9)') // 9.2's line skips open gaps
+    expect(readout()).toHaveTextContent('(6 + 2 9)') // 9.2's line skips open gaps
     expect(screen.getByText('=', { selector: 'button' })).toBeDisabled() // still a slot to fill
   })
 })

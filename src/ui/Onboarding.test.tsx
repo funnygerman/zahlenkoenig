@@ -90,7 +90,11 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
   it('says nothing on a generated puzzle — this is the introduction only', async () => {
     saveOnboardingStep(ONBOARDING_PUZZLES.length)
     render(<Game />)
-    expect(document.querySelector('[class*="_guideLine_"]')).toBeNull()
+    // The row itself is on every board now (it holds the dead-end recovery
+    // line, which any puzzle can show — Board.tsx's own note on why it is
+    // permanent). What belongs to the introduction alone is the *walking*:
+    // no instruction, and nothing marked in the tray.
+    expect(document.querySelector('[class*="_guideLine_"]')!.textContent).toBe('')
     expect(document.querySelector('[class*="_tray_"] [class*="_guide_"]')).toBeNull()
   })
 
@@ -184,6 +188,22 @@ describe('onboarding — the second board teaches the bracket with nothing but t
   it('shows no dead-end border on the empty field', () => {
     render(<Game />)
     expect(field().className).not.toMatch(/_deadEnd_/)
+  })
+
+  it('puts the instruction above the tray, not below it', async () => {
+    // Reported as easy to miss, and the spot was two problems rather than
+    // one: below the tray is past the end of everything, floating in the
+    // empty space under the board, and on a phone it is exactly where the
+    // hand holding the device sits. Asserted as document order rather
+    // than as pixels, which is what the flex column follows (there is no
+    // `order` property anywhere in Game.module.css).
+    const user = userEvent.setup()
+    render(<Game />)
+    await dismissIntro(user)
+
+    const line = document.querySelector('[class*="_guideLine_"]')!
+    const tray = document.querySelector('[class*="_tray_"]')!
+    expect(line.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
   })
 
   it('leads the player into a misplaced bracket, marks it, and names the repair', async () => {

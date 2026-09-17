@@ -50,6 +50,29 @@
 //      removal makes the target reachable again, which is exactly "what
 //      should I take back". See `recovery` at the bottom of this file for
 //      the two limits on it.
+//
+//      **These lines reach generated puzzles too, and they are free** (PO,
+//      after asking whether this kind of help should be rationed like a
+//      hint). Two facts decided it. The help never advances a solution —
+//      it only ever names what to *undo*, which a player can also find by
+//      taking chips off until the frame goes out. And following it can
+//      never strand anyone: `findBlockers` returns a set only where
+//      `rescues()` held, and `rescues()` is literally "computeHint on the
+//      board without these chips is not null", so a second dead end on the
+//      same puzzle takes a second, independent mistake. A per-puzzle limit
+//      would therefore bite exactly the player struggling most — and it
+//      would need its own "no more explanations here" message, which is
+//      the mute that real reports read as "hinting is hanging".
+//
+//      **The alternative, if play-testing says it is too chatty:** keep
+//      the *marking* free and forever, and stop only the *sentence* after
+//      the first few dead ends a player ever meets — persisted under its
+//      own key, the way `core/onboarding.ts` keeps its step. The words
+//      teach what an amber chip means; once that is learned the mark alone
+//      says it, so a cutoff there coincides with having understood and
+//      nobody notices it. Three was the starting number discussed. It is
+//      deliberately *not* built: nothing measures how often a real player
+//      meets a dead end, so the limit would be a guess dressed as a rule.
 //   4. **A scripted beat outranks the search**, and it is the only thing
 //      that does. A mistake cannot be derived — the search will never
 //      advise one — so the two boards that teach recovery carry a short
@@ -231,7 +254,31 @@ function recovery(
   opsAllowed: Operator[],
   numbersCount: number,
 ): Guidance | null {
-  const blockers = findBlockers(asExpression(children), tray, target, opsAllowed, numbersCount)
+  return recoveryFor(
+    children,
+    findBlockers(asExpression(children), tray, target, opsAllowed, numbersCount),
+    tray, target, opsAllowed, numbersCount,
+  )
+}
+
+/**
+ * The same answer, for a caller that already holds the blocker set.
+ *
+ * On a **generated** puzzle the marks come from `useHint`'s own press
+ * handler rather than from here (the player has to ask; nothing is marked
+ * until they do), so Board.tsx has the ids in hand and must not compute a
+ * second set beside them. The line and the mark naming different chips is
+ * exactly the deleted pulse, so there is one function that turns a blocker
+ * set into words and both callers use it.
+ */
+export function recoveryFor(
+  children: readonly Slot[],
+  blockers: readonly string[],
+  tray: readonly NumberLeaf[],
+  target: number,
+  opsAllowed: Operator[],
+  numbersCount: number,
+): Guidance | null {
   if (blockers.length !== 1) return null
 
   const id = blockers[0]

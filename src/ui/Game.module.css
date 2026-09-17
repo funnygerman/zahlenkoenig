@@ -195,13 +195,54 @@
  * Accent-coloured, so it reads as an instruction rather than as the muted
  * notation above; the height is reserved by the line itself only when it
  * is there, since it exists on no board but these. */
+/* The first-run introduction's step-by-step line (Board's `guided` prop),
+ * sitting directly above the tray — see Board.tsx for why it moved there
+ * from below it.
+ *
+ * Deliberately *not* given a tinted plate behind it, which was built and
+ * measured first: accent text on `--zk-accent-soft` comes out at 2.83:1,
+ * against 5.87:1 for the same text on the page background, so the version
+ * that shouts loudest is also the one that is hardest to read — a bad
+ * trade in a game whose youngest players are six. It also cost 82px
+ * instead of 41, which in landscape pushed the footer off the screen
+ * altogether (397 of 390), re-opening a bug this project has already
+ * fixed once. Weight does the same job for nothing: 600 stays at 41px in
+ * every language and orientation but Russian in landscape, which reaches
+ * 62px on the one long recovery line and still clips nothing. */
 .guideLine {
-  margin-top: var(--gap);
+  /* Two lines' worth, always. The row being permanent stopped the board
+   * jumping 27px when a line appears; this stops the last 10px of it,
+   * because an empty row is one line box (21px) and every message here
+   * wraps to two (41px). Measured in landscape, where the slack is
+   * smallest: the footer sits at 377 of 390 with or without it. */
+  min-height: calc(2 * 1.35 * 0.95rem);
   text-align: center;
   font-size: 0.95rem;
+  font-weight: 600;
   line-height: 1.35;
   color: var(--zk-accent);
   max-width: calc(5 * var(--cell) + 4 * var(--gap));
+}
+
+/* Board.tsx re-keys this span on every new instruction, so this plays each
+ * time the line changes rather than only on the first one. Small on
+ * purpose: the point is to catch the eye of a player who has already read
+ * one instruction and has no reason to look back, not to animate at them. */
+.guideText {
+  display: inline-block;
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .guideText {
+    animation: zk-guide-line 220ms ease-out both;
+  }
+}
+
+@keyframes zk-guide-line {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
 }
 
 /* The page's own heading and one-sentence description, for a screen reader

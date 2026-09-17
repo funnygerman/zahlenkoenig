@@ -102,10 +102,32 @@ describe('ErrorBoundary', () => {
           <Bomb />
         </ErrorBoundary>,
       )
+      // The whole sent state is asserted together, inside one `waitFor`.
+      //
+      // This test has failed twice on CI — here, and on `main` itself at
+      // this exact line, on the commit that introduced it — always with
+      // the same shape: `fetch` called once, the "Send report" button
+      // still in the document. It could not be reproduced locally (15
+      // sequential runs, 6-way parallel runs, and under StrictMode, all
+      // green), so the root cause is not proven and this assertion is not
+      // claimed as the fix. What is known: the state that hides the
+      // button used to be written by an *impure* updater in
+      // ErrorBoundary.tsx — `sendCrashReport` was called inside it — and
+      // a second invocation of that updater from the same base state
+      // produces precisely this symptom. That is fixed at the source; see
+      // the effect's own note.
+      //
+      // The shape here is the defensive half. `fetch` being *called* and
+      // the button *leaving the DOM* are two different moments, so
+      // asserting the second one outside the retry sampled a gap instead
+      // of waiting for it. Both belong to one fact — the report went —
+      // and the confirmation text is part of that fact too, which is what
+      // a collapsed `reportSent` would take away from a real player.
       await waitFor(() => {
         expect(fetch).toHaveBeenCalledTimes(1)
+        expect(screen.queryByRole('button', { name: 'Send report' })).not.toBeInTheDocument()
+        expect(screen.getByText(/a report was sent/i)).toBeInTheDocument()
       })
-      expect(screen.queryByRole('button', { name: 'Send report' })).not.toBeInTheDocument()
       expect(screen.getByRole('checkbox', { name: 'Automatically send future crash reports' })).toBeChecked()
     } finally {
       spy.mockRestore()

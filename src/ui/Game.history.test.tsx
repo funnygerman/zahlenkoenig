@@ -4,6 +4,14 @@ import userEvent from '@testing-library/user-event'
 import { Game } from './Game'
 import { ONBOARDING_PUZZLES, saveOnboardingStep } from '../core/onboarding'
 
+/**
+ * Concept 9.2's notation line, by its own class rather than by
+ * `getByRole('status')`. A board carries two live regions — this one and
+ * the guidance/recovery line above the tray — so the role alone stopped
+ * identifying anything the moment that second row became permanent.
+ */
+const readout = () => document.querySelector('[class*="_readout_"]') as HTMLElement
+
 // Every `<Game>` here starts *past* the first-run introduction (onboarding
 // round, core/onboarding.ts). These tests are about the ordinary loop —
 // what the generator draws, what the selection panel changes, what gets
@@ -139,7 +147,7 @@ describe('Game — solving a puzzle archives it (footer/history round)', () => {
     // same puzzle (same target) as the one just solved, but replayed from scratch
     expect(targetValue()).toBe(solvedTarget)
     expect(screen.getByText('=', { selector: 'button' })).toBeDisabled()
-    expect(screen.getByRole('status').textContent).toBe('')
+    expect(readout().textContent).toBe('')
     expect(screen.getByText('1/1')).toBeInTheDocument()
   })
 
