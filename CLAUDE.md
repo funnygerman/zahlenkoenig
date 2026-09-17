@@ -239,9 +239,21 @@ drawing that set since the hint round with not one word beside it.
 `guidance.ts` used to return `null` on a dead end on the stated reasoning
 that "press =" is the one thing it must never say; that was right about
 "press =" and wrong about silence. So the three recovery lines are
-**derived**, not scripted, and they work on every board — including a
-generated one, where a stuck player previously got a coloured border and
-no words at all.
+**derived**, not scripted, rather than written per board.
+
+**That is a statement about `recovery()`, not about what a player sees,
+and this file said otherwise until somebody asked.** The claim here was
+that the lines "work on every board — including a generated one, where a
+stuck player previously got a coloured border and no words at all". The
+first half is true of the function and the second half is simply false:
+`Board.tsx` renders the guide line, and computes `guidance` at all, only
+under its `guided` prop, which `Game.tsx` sets for onboarding and nothing
+else. Checked in a browser on a real generated puzzle driven into a dead
+end — border lit, **zero** guide-line elements in the DOM, no words. So a
+stuck player on a generated puzzle still gets exactly what they always
+got. What the derivation buys is that extending it there is a prop away
+rather than a feature; whether to is an open product decision, not
+something already shipped.
 
 *Two limits on it, both deliberate.* It speaks only when **exactly one**
 chip is to blame: where several share it there is no short true sentence,
