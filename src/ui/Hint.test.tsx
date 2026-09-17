@@ -265,9 +265,10 @@ describe('Board — a press on a dead-end board marks what is in the way (PO, hi
     const ref = createRef<BoardHandle>()
     render(<Board ref={ref} numbers={PUZZLE.numbers} target={PUZZLE.target} ops={PUZZLE.ops} />)
 
-    // The row is always mounted (Board.tsx explains why); what changes is
-    // whether it carries a sentence.
-    const line = () => document.querySelector('[class*="_guideLine_"]')?.textContent ?? ''
+    // On an ordinary puzzle the note is an overlay rather than a row (PO,
+    // after a phone test: a reserved row that is empty almost all the time
+    // was too much space). It exists only while it has something to say.
+    const line = () => document.querySelector('[class*="_recoveryNote_"]')?.textContent ?? ''
     // `6 + 2 +` is past saving with one chip to blame — the second `+`.
     // (The complete `6 + 2 + 9 + 3` blames *two* operators, which is the
     // case the test below covers.)
@@ -299,7 +300,7 @@ describe('Board — a press on a dead-end board marks what is in the way (PO, hi
     await buildDeadEnd(user) // 6 + 2 + 9 + 3 — two operators to blame
     press(ref)
     expect(marked().length).toBeGreaterThan(1)
-    expect(document.querySelector('[class*="_guideLine_"]')?.textContent).toBe('')
+    expect(document.querySelector('[class*="_recoveryNote_"]')).toBeNull()
   })
 
   it('the marks clear again the moment the player moves anything', async () => {

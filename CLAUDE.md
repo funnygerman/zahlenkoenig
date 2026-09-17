@@ -29,9 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The dead-end-words round below
-is the most recent piece of PO-asked scope; before it the visibility
-round, then the recovery round,
+**Nothing is open that has been scoped.** The overlay round below is the
+most recent piece of PO-asked scope; before it the dead-end-words round,
+then the visibility round, then the recovery round,
 then the guidance round, then
 the onboarding-bracket round; before those the share
 round, then the block-anchor round; before those, the three-number-group
@@ -208,38 +208,54 @@ check caught it as a live case rather than a hypothetical: `6 + 2 + 9 + 3`
 blames two operators, and one of six freshly generated boards landed
 there. Both halves are pinned in `Hint.test.tsx`.
 
-**The row is permanent on every board now, and the reason is movement.**
-Mounting it on demand was built first and measured: the line is 41px, and
-inserting it between the field and the tray moved the **tray down 27px and
-the field up 27px** at the exact moment the player had pressed the hint
-and was about to aim at a chip. A `min-height` of two lines removes the
-last 10px (an empty row is one line box at 21px, every message here wraps
-to two). Measured after: the board does not move at all, portrait or
-landscape, in any of the three languages, and the footer sits at 766 of
-780 and 377 of 390 either way.
+**The recovery note is an overlay, not a row** (PO, after playing on a
+phone: *"wir haben jetzt sehr viel Platz für den Hinweis reserviert,
+dieser bleibt aber die meiste Zeit leer"*). It is the same pill the header
+already uses for "Keine Tipps mehr" (`.copied`/`.hintNote`), laid over the
+board — with the one difference the PO asked for: **it waits for the
+player rather than a timer.** Those two answer a tap and withdraw on their
+own; this one has something to do attached to it, so it stays until the
+board changes. That needed no timer and no new state:
+`hint.blockingIds` is already held against the exact tree it was computed
+for, so the note clears itself on the first edit and on nothing else.
 
-*An earlier comment in this round claimed a permanent row would push the
-footer off screen in landscape.* That was true of the **tinted plate** at
-82px, from the visibility round, and never of this 41px row — measured
-both ways before the comment was rewritten. Two different numbers, one
-careless reuse.
+*The reserved row was right for one of its two users and wrong for the
+other, which is why this is a split rather than a reversal.* On a **guided**
+board the line speaks on nearly every step, so a row of its own costs
+nothing and keeps the layout still — it stays exactly as it was. On a
+**generated** puzzle it spoke perhaps once a session, and 41px reserved
+permanently for that is what the phone test found.
 
-**It also fixed a live region that could not announce.** A `role="status"`
-that mounts already carrying text is often missed by a screen reader; one
-that is already mounted when its text arrives is not. The permanent row
-gets that for free.
+*Placement was measured twice, and the first answer was wrong.* Below the
+**tray** reads well in portrait and runs **off the bottom of the screen in
+landscape** — y332–399 in a 390px viewport, because there is no room under
+the board there at all. Under the **field** is on screen in both, and is
+the better spot anyway: a note belongs beside what it talks about, and the
+chip it names is one row up. It never covers the field itself — a note
+that hides its own subject is worse than none.
 
-*The cost showed up in the tests rather than on screen:* every board now
-carries **two** live regions — the notation readout and this line — so
-`screen.getByRole('status')` stopped identifying anything and threw.
-`Game.test.tsx` and `Game.history.test.tsx` ask for `[class*="_readout_"]`
-now, which is what they always meant. Worth knowing before adding a third.
+*It lands exactly on the notation line's row*, which is the one thing it
+does cover, and that is deliberate: a player being told to take a chip
+back is not reading notation at that moment, and `pointer-events: none`
+means nothing underneath is blocked either way.
+
+*Given the board's width rather than merely capped at it.* Left to
+shrink-to-fit it came out ~183px, wrapped to **three** lines and reached
+down far enough to cover two tray numbers. At the full width the same
+sentence is **one** line in portrait (y331–363, tray starts at 368 — it
+does not touch the tray) and two in landscape.
+
+**Nothing moves when it appears**, which is what the permanent row was
+bought for, kept without the price: measured in both orientations and all
+three languages, field and tray sit at identical positions before and
+after the press.
 
 *Verified in a real browser* (Playwright, 390px portrait and 780×390
 landscape, all three languages, real generated puzzles driven into a dead
-end): the press marks the chip and names it, the board does not shift, the
-footer stays on screen, the guided introduction still plays through all
-three boards, and there are no page errors.
+end): the press marks the chip and names it, nothing in the board shifts,
+the note is on screen in both orientations, it never overlaps the marked
+chip, the guided introduction still plays through all three boards, and
+there are no page errors.
 
 **A visibility round moved the introduction's instruction line above the
 tray and gave it a reason to be looked at twice.** PO report: *"the hint

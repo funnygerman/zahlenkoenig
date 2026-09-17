@@ -369,6 +369,31 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
             path; out of tab order for the same reason as the tray/field
             chips below (CLAUDE.md's open Tastaturbedienung question). */}
         <Chip variant="target" value={target} tabIndex={-1} />
+
+      {/* The recovery note on an ordinary puzzle: the same pill the header
+          already uses to say "Keine Tipps mehr", laid *over* the board
+          instead of taking a row of its own (PO, after playing on a
+          phone — a reserved row that is empty almost all the time was too
+          much space for something this rare).
+          It hangs directly under the field, beside the chip it names —
+          Game.module.css's `.recoveryNote` carries why that spot, and why
+          below the *tray* was measured and rejected (off the bottom of a
+          landscape screen). It costs no layout, so nothing moves when it
+          appears, and it is `pointer-events: none`, so the board
+          underneath stays fully tappable — exactly like `.copied` and
+          `.hintNote`.
+          **It waits for the player rather than a timer** (PO), which is
+          the one way it differs from those two: they answer a tap and
+          withdraw on their own, this one has something to do attached to
+          it. No timer was needed for that — `hint.blockingIds` is already
+          held against the exact tree it was computed for, so the note
+          clears itself on the first edit the player makes and on nothing
+          else. */}
+      {recovery && (
+        <div className={styles.recoveryNote} role="status">
+          {t(language, recovery.message)}
+        </div>
+      )}
       </div>
 
       {/* concept 9.2's notation line, moved (PO): directly under the field
@@ -389,40 +414,33 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           ruled out for a reason that has not changed: notation would be
           hidden exactly while the player builds it.
 
-          Rendered as an empty line rather than not at all once the board is
-          solved, so finishing a guided board doesn't shift everything
-          around it by a line's height. It exists on no board but these. */}
-      {/* The row is always here, empty included, on every board — not only
-          the guided ones, and not only when it has something to say.
-          Mounting it on demand was built first and measured: the line is
-          41px, and inserting it between the field and the tray moves the
-          **tray down 27px and the field up 27px** at the exact moment the
-          player has pressed the hint and is about to aim at a chip. A
-          target that moves under a child's finger is the class of bug this
-          codebase has spent whole rounds on.
-          The permanent row costs nothing that shows: the footer does not
-          move (766 of 780 portrait, 377 of 390 landscape, identical either
-          way — an earlier comment here claimed it would be pushed off
-          screen, which was true of the tinted plate at 82px and never of
-          this), and the board simply sits 27px higher inside its own
-          centred area, with no reference point to read that against.
-          It also makes this live region behave: a `role="status"` that is
-          already mounted when its text arrives is announced, where one
-          that mounts carrying text may not be. */}
-      <div className={styles.guideLine} role="status">
-        {/* The text is keyed on the message so React replaces this span
-            whenever the instruction changes, which is what lets the
-            stylesheet play an animation on it: a `transition` never runs
-            on mount, an `animation` does — the same reason GhostChip's
-            lift is an animation (see its own note). The live region
-            itself stays mounted around it. Without this the line simply
-            swaps one sentence for another with nothing to catch the eye,
-            which is the other half of "easy to miss": a player who read
-            the first instruction has no reason to look back. */}
-        <span key={line?.message ?? 'none'} className={styles.guideText}>
-          {line ? t(language, line.message) : ''}
-        </span>
-      </div>
+          **Only on a guided board**, and that is the whole difference
+          between this row and the recovery note below it. Here the line
+          speaks on nearly every step, so a reserved row costs nothing and
+          keeps the layout still; on a generated puzzle it spoke perhaps
+          once a session, and reserving 41px permanently for that was the
+          PO's own report from a phone — *"sehr viel Platz reserviert, der
+          die meiste Zeit leer bleibt"*.
+
+          Rendered as an empty line rather than not at all *within* a guided
+          board, so finishing one doesn't shift everything around it by a
+          line's height. */}
+      {guided && (
+        <div className={styles.guideLine} role="status">
+          {/* The text is keyed on the message so React replaces this span
+              whenever the instruction changes, which is what lets the
+              stylesheet play an animation on it: a `transition` never runs
+              on mount, an `animation` does — the same reason GhostChip's
+              lift is an animation (see its own note). The live region
+              itself stays mounted around it. Without this the line simply
+              swaps one sentence for another with nothing to catch the eye,
+              which is the other half of "easy to miss": a player who read
+              the first instruction has no reason to look back. */}
+          <span key={line?.message ?? 'none'} className={styles.guideText}>
+            {line ? t(language, line.message) : ''}
+          </span>
+        </div>
+      )}
 
       <Tray
         numberSlots={game.trayNumbers}
