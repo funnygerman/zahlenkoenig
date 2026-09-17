@@ -390,7 +390,7 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           clears itself on the first edit the player makes and on nothing
           else. */}
       {recovery && (
-        <div className={styles.recoveryNote} role="status">
+        <div className={cx(styles.note, styles.noteFade, styles.recoveryNote)} role="status">
           {t(language, recovery.message)}
         </div>
       )}
@@ -425,20 +425,48 @@ export const Board = forwardRef<BoardHandle, BoardProps>(function Board({ number
           Rendered as an empty line rather than not at all *within* a guided
           board, so finishing one doesn't shift everything around it by a
           line's height. */}
+      {/* Directly above the tray, which is where the chip it names is — it
+          used to sit *below* the tray and was reported as easy to miss.
+          Two things were wrong with that spot rather than one: it was past
+          the end of everything, floating in the empty space under the
+          board, and on a phone the tray is at the thumb, so the line under
+          it is the part of the screen a hand covers. This is still its own
+          row and not the notation line's slot, which the guidance round
+          ruled out for a reason that has not changed: notation would be
+          hidden exactly while the player builds it.
+
+          **Only on a guided board.** It wears the same pill as the
+          recovery note below the field (PO: *"ich mag den tooltip viel
+          mehr"*) — but it keeps a row of its own rather than floating over
+          the board, and that difference is measured rather than chosen.
+          Laid over the board here, every two-line instruction covers the
+          top 13px of the tray (all three languages, both orientations),
+          and the tray is exactly what a guided line points at: "tap the
+          glowing number" printed across the number it means is the deleted
+          pulse in miniature. The row costs nothing here either, which is
+          the other half of it — on a guided board the line speaks on
+          nearly every step, while on a generated puzzle it spoke perhaps
+          once a session, and reserving space permanently for *that* was
+          the PO's own phone report.
+
+          The row keeps its height whether or not there is a line to show,
+          so finishing a board doesn't shift everything around it. */}
       {guided && (
         <div className={styles.guideLine} role="status">
-          {/* The text is keyed on the message so React replaces this span
-              whenever the instruction changes, which is what lets the
-              stylesheet play an animation on it: a `transition` never runs
-              on mount, an `animation` does — the same reason GhostChip's
-              lift is an animation (see its own note). The live region
-              itself stays mounted around it. Without this the line simply
-              swaps one sentence for another with nothing to catch the eye,
-              which is the other half of "easy to miss": a player who read
-              the first instruction has no reason to look back. */}
-          <span key={line?.message ?? 'none'} className={styles.guideText}>
-            {line ? t(language, line.message) : ''}
-          </span>
+          {/* Keyed on the message so React replaces this node whenever the
+              instruction changes, which is what lets the stylesheet play an
+              animation on it: a `transition` never runs on mount, an
+              `animation` does — the same reason GhostChip's lift is an
+              animation (see its own note). The live region itself stays
+              mounted around it. Without this the line simply swaps one
+              sentence for another with nothing to catch the eye, which is
+              the other half of "easy to miss": a player who read the first
+              instruction has no reason to look back. */}
+          {line && (
+            <span key={line.message} className={cx(styles.note, styles.noteFade)}>
+              {t(language, line.message)}
+            </span>
+          )}
         </div>
       )}
 

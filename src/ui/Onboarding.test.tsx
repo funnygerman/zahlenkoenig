@@ -37,7 +37,7 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
   it('opens with the first card, and the rule nothing else on screen states', async () => {
     render(<Game />)
     expect(screen.getByRole('dialog')).toBeInTheDocument()
-    expect(screen.getByText('Benutze jede Zahl genau einmal.')).toBeInTheDocument()
+    expect(screen.getByText('Benutze jede Zahl genau einmal')).toBeInTheDocument()
   })
 
   it('dismissing it reveals the two-number board, not the generator’s own draw', async () => {
@@ -67,19 +67,19 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
     const line = () => document.querySelector('[class*="_guideLine_"]')!.textContent
     const marked = () => [...document.querySelectorAll('[class*="_tray_"] [class*="_guide_"]')].map(el => el.textContent?.trim())
 
-    expect(line()).toBe('Tippe auf die leuchtende Zahl.')
+    expect(line()).toBe('Tippe auf die leuchtende Zahl')
     expect(marked()).toEqual(['1'])
 
     await user.click(trayNumbers()[0])
-    expect(line()).toBe('Tippe auf das leuchtende Rechenzeichen.')
+    expect(line()).toBe('Tippe auf das leuchtende Rechenzeichen')
     expect(marked()).toEqual(['+'])
 
     await user.click(screen.getByRole('button', { name: '+' }))
-    expect(line()).toBe('Tippe auf die leuchtende Zahl.')
+    expect(line()).toBe('Tippe auf die leuchtende Zahl')
     expect(marked()).toEqual(['2'])
 
     await user.click(trayNumbers()[0])
-    expect(line()).toBe('Tippe auf das leuchtende =.')
+    expect(line()).toBe('Tippe auf das leuchtende =')
 
     // And the notation line above is untouched by any of it — the guidance
     // has its own row precisely so the player can still read what they
@@ -143,15 +143,15 @@ describe('onboarding — the second board teaches the bracket with nothing but t
     render(<Game />)
     await dismissIntro(user)
     expect(document.querySelector('[class*="_guideLine_"]')!.textContent)
-      .toBe('Tippe auf die leuchtende Zahl.')
+      .toBe('Tippe auf die leuchtende Zahl')
     const marked = document.querySelector('[class*="_tray_"] [class*="_guide_"]')!
     expect(marked.textContent).toBe('3')
   })
 
   it('its card names the bracket and asks for taps, not a drag', () => {
     render(<Game />)
-    expect(screen.getByText('Dieses Rätsel braucht eine Klammer.')).toBeInTheDocument()
-    expect(screen.getByText('Und wenn sie falsch sitzt, kannst du sie verschieben.')).toBeInTheDocument()
+    expect(screen.getByText('Dieses Rätsel braucht eine Klammer')).toBeInTheDocument()
+    expect(screen.getByText('Und wenn sie falsch sitzt, kannst du sie verschieben')).toBeInTheDocument()
     expect(screen.queryByText(/Zieh eine Zahl auf den Klammerrand/)).not.toBeInTheDocument()
   })
 
@@ -182,7 +182,7 @@ describe('onboarding — the second board teaches the bracket with nothing but t
     await vi.advanceTimersByTimeAsync(1300)
 
     expect(loadOnboardingStep()).toBe(2)
-    expect(screen.getByText('Diesmal gehören drei Zahlen in die Klammer.')).toBeInTheDocument()
+    expect(screen.getByText('Diesmal gehören drei Zahlen in die Klammer')).toBeInTheDocument()
     expect(screen.getByText(/Zieh eine Zahl auf den Klammerrand/)).toBeInTheDocument()
   })
 
@@ -191,7 +191,7 @@ describe('onboarding — the second board teaches the bracket with nothing but t
     expect(field().className).not.toMatch(/_deadEnd_/)
   })
 
-  it('puts the instruction above the tray, not below it', async () => {
+  it('puts the instruction above the tray, not below it, and on the same pill the recovery note wears', async () => {
     // Reported as easy to miss, and the spot was two problems rather than
     // one: below the tray is past the end of everything, floating in the
     // empty space under the board, and on a phone it is exactly where the
@@ -205,6 +205,17 @@ describe('onboarding — the second board teaches the bracket with nothing but t
     const line = document.querySelector('[class*="_guideLine_"]')!
     const tray = document.querySelector('[class*="_tray_"]')!
     expect(line.compareDocumentPosition(tray) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy()
+
+    // One pill, two placements (PO: *"ich mag den tooltip viel mehr"*).
+    // `.note` is the shape both lines share; what differs is that this one
+    // keeps a row of its own while `.recoveryNote` floats over the board —
+    // measured, not chosen: laid over the board here a two-line
+    // instruction covers the top 13px of the tray, which is exactly what a
+    // guided line points at. A second, separately styled pill is the kind
+    // of drift this asserts against.
+    const pill = line.querySelector('[class*="_note_"]')!
+    expect(pill).not.toBeNull()
+    expect(pill.textContent).toBe('Tippe auf die leuchtende Zahl')
   })
 
   it('leads the player into a misplaced bracket, marks it, and names the repair', async () => {
@@ -223,9 +234,9 @@ describe('onboarding — the second board teaches the bracket with nothing but t
 
     const line = () => document.querySelector('[class*="_guideLine_"]')!.textContent
     await user.click(trayNumbers().find(b => b.textContent === '3')!)
-    expect(line()).toBe('Tippe auf das leuchtende Rechenzeichen.')
+    expect(line()).toBe('Tippe auf das leuchtende Rechenzeichen')
     await user.click(screen.getByRole('button', { name: '×' }))
-    expect(line()).toBe('Tippe auf den leuchtenden Chip — er öffnet eine Klammer.')
+    expect(line()).toBe('Tippe auf den leuchtenden Chip — er öffnet eine Klammer')
 
     // The mistake. A tapped block lands at the player's own anchor — the
     // `3` — so this one tap puts the bracket where 9 is out of reach, and
@@ -234,7 +245,7 @@ describe('onboarding — the second board teaches the bracket with nothing but t
     await user.click(blockChip)
     expect(document.querySelector('[role="status"]')!.textContent).toBe('(3 ×)')
     expect(field().className).toMatch(/_deadEnd_/)
-    expect(line()).toBe('Orange heißt: so geht es nicht auf. Zieh die Klammer auf die markierte Stelle.')
+    expect(line()).toBe('Orange heißt: so geht es nicht auf. Zieh die Klammer auf die markierte Stelle')
 
     // The bracket the line calls "marked" is marked, and the spot it is to
     // go to is marked too — a destination the player would otherwise have
@@ -325,7 +336,7 @@ describe('onboarding — the third board is not marked as a dead end', () => {
 
   it('its card teaches growing a bracket, since nothing else in the game can', () => {
     render(<Game />)
-    expect(screen.getByText('Diesmal gehören drei Zahlen in die Klammer.')).toBeInTheDocument()
+    expect(screen.getByText('Diesmal gehören drei Zahlen in die Klammer')).toBeInTheDocument()
     expect(screen.getByText(/Zieh eine Zahl auf den Klammerrand/)).toBeInTheDocument()
   })
 })
@@ -352,7 +363,7 @@ describe('onboarding — solving one advances to the next, and then hands over t
     await vi.advanceTimersByTimeAsync(1300)
 
     expect(loadOnboardingStep()).toBe(1)
-    expect(screen.getByText('Dieses Rätsel braucht eine Klammer.')).toBeInTheDocument()
+    expect(screen.getByText('Dieses Rätsel braucht eine Klammer')).toBeInTheDocument()
     // The archive is no longer empty, but the browse arrows stay away
     // until onboarding is over — otherwise they turn up mid-lesson and
     // browsing away empties the board.
