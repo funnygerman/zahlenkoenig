@@ -29,8 +29,9 @@ the v2 concept wins for anything being built now.
 
 ## Next v2 step
 
-**Nothing is open that has been scoped.** The visibility round below is
-the most recent piece of PO-asked scope; before it the recovery round,
+**Nothing is open that has been scoped.** The dead-end-words round below
+is the most recent piece of PO-asked scope; before it the visibility
+round, then the recovery round,
 then the guidance round, then
 the onboarding-bracket round; before those the share
 round, then the block-anchor round; before those, the three-number-group
@@ -144,6 +145,101 @@ focus move in the app, and it has nothing to restore focus *to* precisely
 because of this decision.)
 
 ## Where v2 stands
+
+**The recovery lines reach generated puzzles now, and they are free** (PO).
+This is the decision the previous round left open once a wrong claim in
+this file was corrected: `recovery()` was always derived rather than
+written per board, but `Board.tsx` only ever *called* it under `guided`,
+so a stuck player on a real puzzle got an amber frame and no words.
+
+**It rides the hint press, not the dead end.** The marks already appear
+only when the player presses the lightbulb (`useHint` sets `blockingIds`
+there and nowhere else), so the sentence is keyed on `hint.blockingIds`
+too. That buys two things at once: the player has to **ask**, and the line
+can only ever name a chip that is actually marked, because one blocker set
+produces both. `recoveryFor` is exported for it — the guided path computes
+the set and the generated path is handed it, but the function that turns a
+set into words is the same one. A line and a mark naming different chips
+is the deleted pulse.
+
+*It costs nothing, measured rather than assumed:* four dead-end presses on
+a five-chip puzzle still leave all three placements. Marking never charged
+the budget (`onPressHint` returns after `setMarked`), and that is the PO's
+own rule from the hint round — a blunder can't eat the budget — left
+intact.
+
+**A budget for this kind of help was considered and declined (PO), and the
+alternative is written down here rather than built.** Three shapes were on
+the table: a per-puzzle limit, a lifetime teaching quota, and free.
+Free won on two facts. The help never advances a solution — it only ever
+names what to *undo*, which a player can also find by taking chips off
+until the frame goes out. And **following it can never strand anyone**:
+`findBlockers` returns a set only where `rescues()` held, and `rescues()`
+is literally "computeHint on the board without these chips is not null",
+so a second dead end on the same puzzle takes a second, independent
+mistake. A per-puzzle limit of one would therefore bite exactly the player
+struggling most, and it would need its own "no more explanations here"
+message — the mute that real reports read as "hinting is hanging".
+
+*The alternative, if play-testing says it is too chatty:* keep the marking
+free and forever and stop only the **sentence** after the first few dead
+ends a player ever meets, persisted under its own key the way
+`core/onboarding.ts` keeps its step. The words teach what an amber chip
+means; once that is learned the mark alone says it, so a cutoff there
+coincides with having understood and nobody notices it — which is the one
+thing a per-puzzle limit cannot do. Three was the number discussed. It is
+deliberately unbuilt: nothing measures how often a real player meets a
+dead end, so the limit would be a guess dressed as a rule. `ui/guidance.ts`
+carries the same note where whoever builds it will be standing.
+
+**Two numbers get nothing, and that needed no code** (PO: *"ob wir bei
+zwei Zahlen überhaupt ein Hint brauchen? Ich hätte nein gesagt"*).
+`hintBudget` already gives two numbers no hints at all, so there is no
+button to press and `blockingIds` stays null — the rule falls out instead
+of being a special case. It is also right on its own terms: three chips
+with one operator slot, and at most three other operators to try, is a
+board where trying is cheaper than any explanation.
+
+**The line is silent where several chips share the blame, and that is
+visible in real play.** `recoveryFor` answers only for exactly one
+blocker — there is no short true sentence for two, and "tap the marked
+chip" would be wrong about how many. The marks still appear. A browser
+check caught it as a live case rather than a hypothetical: `6 + 2 + 9 + 3`
+blames two operators, and one of six freshly generated boards landed
+there. Both halves are pinned in `Hint.test.tsx`.
+
+**The row is permanent on every board now, and the reason is movement.**
+Mounting it on demand was built first and measured: the line is 41px, and
+inserting it between the field and the tray moved the **tray down 27px and
+the field up 27px** at the exact moment the player had pressed the hint
+and was about to aim at a chip. A `min-height` of two lines removes the
+last 10px (an empty row is one line box at 21px, every message here wraps
+to two). Measured after: the board does not move at all, portrait or
+landscape, in any of the three languages, and the footer sits at 766 of
+780 and 377 of 390 either way.
+
+*An earlier comment in this round claimed a permanent row would push the
+footer off screen in landscape.* That was true of the **tinted plate** at
+82px, from the visibility round, and never of this 41px row — measured
+both ways before the comment was rewritten. Two different numbers, one
+careless reuse.
+
+**It also fixed a live region that could not announce.** A `role="status"`
+that mounts already carrying text is often missed by a screen reader; one
+that is already mounted when its text arrives is not. The permanent row
+gets that for free.
+
+*The cost showed up in the tests rather than on screen:* every board now
+carries **two** live regions — the notation readout and this line — so
+`screen.getByRole('status')` stopped identifying anything and threw.
+`Game.test.tsx` and `Game.history.test.tsx` ask for `[class*="_readout_"]`
+now, which is what they always meant. Worth knowing before adding a third.
+
+*Verified in a real browser* (Playwright, 390px portrait and 780×390
+landscape, all three languages, real generated puzzles driven into a dead
+end): the press marks the chip and names it, the board does not shift, the
+footer stays on screen, the guided introduction still plays through all
+three boards, and there are no page errors.
 
 **A visibility round moved the introduction's instruction line above the
 tray and gave it a reason to be looked at twice.** PO report: *"the hint

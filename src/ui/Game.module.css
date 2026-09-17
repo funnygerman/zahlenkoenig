@@ -210,6 +210,12 @@
  * every language and orientation but Russian in landscape, which reaches
  * 62px on the one long recovery line and still clips nothing. */
 .guideLine {
+  /* Two lines' worth, always. The row being permanent stopped the board
+   * jumping 27px when a line appears; this stops the last 10px of it,
+   * because an empty row is one line box (21px) and every message here
+   * wraps to two (41px). Measured in landscape, where the slack is
+   * smallest: the footer sits at 377 of 390 with or without it. */
+  min-height: calc(2 * 1.35 * 0.95rem);
   text-align: center;
   font-size: 0.95rem;
   font-weight: 600;

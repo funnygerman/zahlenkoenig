@@ -90,7 +90,11 @@ describe('onboarding — a first visit lands on the introduction, not on a gener
   it('says nothing on a generated puzzle — this is the introduction only', async () => {
     saveOnboardingStep(ONBOARDING_PUZZLES.length)
     render(<Game />)
-    expect(document.querySelector('[class*="_guideLine_"]')).toBeNull()
+    // The row itself is on every board now (it holds the dead-end recovery
+    // line, which any puzzle can show — Board.tsx's own note on why it is
+    // permanent). What belongs to the introduction alone is the *walking*:
+    // no instruction, and nothing marked in the tray.
+    expect(document.querySelector('[class*="_guideLine_"]')!.textContent).toBe('')
     expect(document.querySelector('[class*="_tray_"] [class*="_guide_"]')).toBeNull()
   })
 
